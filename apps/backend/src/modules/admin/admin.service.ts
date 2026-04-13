@@ -105,8 +105,9 @@ export class AdminService {
   async listAuditLogs(
     page: number,
     limit: number,
+    filters?: { action?: string; startTime?: string; endTime?: string },
   ): Promise<{ items: AuditLogDto[]; total: number; page: number; limit: number }> {
-    return this.auditService.findAll(page, limit);
+    return this.auditService.findAll(page, limit, filters);
   }
 
   async getUserSensorPermissions(userId: string) {

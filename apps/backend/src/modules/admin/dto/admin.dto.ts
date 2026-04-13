@@ -70,4 +70,19 @@ export class AuditLogQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number = 50;
+
+  @ApiPropertyOptional({ description: 'Filter by action type (e.g. LOGIN)' })
+  @IsString()
+  @IsOptional()
+  action?: string;
+
+  @ApiPropertyOptional({ description: 'Filter from this time (ISO 8601)' })
+  @IsString()
+  @IsOptional()
+  startTime?: string;
+
+  @ApiPropertyOptional({ description: 'Filter until this time (ISO 8601)' })
+  @IsString()
+  @IsOptional()
+  endTime?: string;
 }

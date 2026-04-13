@@ -113,6 +113,10 @@ export class AdminController {
   @Get('audit-logs')
   @ApiOperation({ summary: 'List audit logs with pagination' })
   async listAuditLogs(@Query() query: AuditLogQueryDto) {
-    return this.adminService.listAuditLogs(query.page ?? 1, query.limit ?? 50);
+    return this.adminService.listAuditLogs(
+      query.page ?? 1,
+      query.limit ?? 50,
+      { action: query.action, startTime: query.startTime, endTime: query.endTime },
+    );
   }
 }

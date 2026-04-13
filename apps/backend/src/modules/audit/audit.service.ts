@@ -34,11 +34,22 @@ export class AuditService {
   async findAll(
     page = 1,
     limit = 50,
+    filters?: { action?: string; startTime?: string; endTime?: string },
   ): Promise<{ items: AuditLogDto[]; total: number; page: number; limit: number }> {
     const skip = (page - 1) * limit;
 
+    const where: Prisma.AuditLogWhereInput = {};
+    if (filters?.action) where.action = filters.action;
+    if (filters?.startTime || filters?.endTime) {
+      where.createdAt = {
+        ...(filters.startTime ? { gte: new Date(filters.startTime) } : {}),
+        ...(filters.endTime   ? { lte: new Date(filters.endTime)   } : {}),
+      };
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.auditLog.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -46,7 +57,7 @@ export class AuditService {
           user: { select: { email: true } },
         },
       }),
-      this.prisma.auditLog.count(),
+      this.prisma.auditLog.count({ where }),
     ]);
 
     return {
