@@ -7,12 +7,16 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   const clientId = process.env.MQTT_CLIENT_ID ?? 'current-platform-ingestion-worker';
   const topic = process.env.MQTT_TOPIC ?? 'wlpca/+/data';
 
+  const username = process.env.MQTT_USERNAME;
+  const password = process.env.MQTT_PASSWORD;
+
   const client = mqtt.connect(mqttUrl, {
     clientId,
     clean: true,
     reconnectPeriod: 1000,
     connectTimeout: 30_000,
     keepalive: 60,
+    ...(username ? { username, password } : {}),
   });
 
   client.on('connect', () => {
