@@ -41,8 +41,8 @@ const TOOLTIP_STYLE = {
 };
 const DATA_ZOOM_SLIDER = {
   type: 'slider' as const,
-  bottom: 10,
-  height: 20,
+  bottom: 8,
+  height: 18,
   borderColor: '#30363d',
   backgroundColor: '#1c2128',
   dataBackground: {
@@ -53,7 +53,7 @@ const DATA_ZOOM_SLIDER = {
   handleStyle: { color: '#1677ff' },
   textStyle: { color: '#8b949e', fontSize: 10 },
 };
-const GRID = { left: 60, right: 24, top: 40, bottom: 80 };
+const GRID = { left: 60, right: 24, top: 40, bottom: 64 };
 
 export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Props) {
   const option: EChartsOption = useMemo(() => {
@@ -226,10 +226,10 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
   }, [points, resolution, sensorSn, deviceId]);
 
   return (
-    <div className="chart-wrapper" style={{ height: 420, width: '100%' }}>
+    <div style={{ height: 360, width: '100%', overflow: 'hidden' }}>
       <ReactECharts
         option={option}
-        style={{ height: 420, width: '100%' }}
+        style={{ height: '100%', width: '100%' }}
         theme="dark"
         opts={{ renderer: 'canvas' }}
         notMerge

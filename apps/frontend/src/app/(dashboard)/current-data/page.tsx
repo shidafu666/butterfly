@@ -64,7 +64,7 @@ export default function CurrentDataPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'log'>('csv');
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const [pageSize, setPageSize] = useState(20);
 
   // Sensors
   const { data: sensors = [], isLoading: sensorsLoading } = useQuery({
@@ -226,7 +226,7 @@ export default function CurrentDataPage() {
         },
       ];
 
-  const pagedPoints = points.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedPoints = points.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div>
@@ -373,7 +373,7 @@ export default function CurrentDataPage() {
         <>
           <Card
             style={{ background: '#161b22', border: '1px solid #30363d', marginBottom: 16 }}
-            bodyStyle={{ padding: 16 }}
+            bodyStyle={{ padding: '12px 16px 16px' }}
             title={
               <Space>
                 <Text style={{ color: '#c9d1d9' }}>
@@ -418,10 +418,12 @@ export default function CurrentDataPage() {
               size="small"
               pagination={{
                 current: currentPage,
-                pageSize: PAGE_SIZE,
+                pageSize,
                 total: points.length,
                 onChange: (p) => setCurrentPage(p),
-                showSizeChanger: false,
+                onShowSizeChange: (_, size) => { setPageSize(size); setCurrentPage(1); },
+                showSizeChanger: true,
+                pageSizeOptions: [20, 50, 100],
                 showTotal: (total) => `共 ${total} 条`,
               }}
               locale={{ emptyText: '无数据' }}
