@@ -1,0 +1,92 @@
+:root {
+  --brand-primary: #1677ff;
+  --brand-bg: #0d1117;
+  --brand-surface: #161b22;
+  --brand-border: #30363d;
+  --brand-text: #c9d1d9;
+  --brand-text-secondary: #8b949e;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--brand-bg);
+  color: var(--brand-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #161b22;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+/* Ant Design overrides */
+.ant-layout {
+  background: var(--brand-bg) !important;
+}
+
+.ant-layout-sider {
+  background: var(--brand-surface) !important;
+  border-right: 1px solid var(--brand-border) !important;
+}
+
+.ant-menu-dark {
+  background: var(--brand-surface) !important;
+}
+
+.ant-layout-header {
+  background: var(--brand-surface) !important;
+  border-bottom: 1px solid var(--brand-border) !important;
+}
+
+.ant-card {
+  background: var(--brand-surface) !important;
+  border-color: var(--brand-border) !important;
+}
+
+/* Chart container */
+.chart-wrapper {
+  background: var(--brand-surface);
+  border: 1px solid var(--brand-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* Status badges */
+.status-pending {
+  color: #e3b341;
+}
+.status-processing {
+  color: var(--brand-primary);
+}
+.status-completed {
+  color: #3fb950;
+}
+.status-failed {
+  color: #f85149;
+}

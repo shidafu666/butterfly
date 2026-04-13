@@ -1,0 +1,22 @@
+{
+  "name": "ingestion-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.3.4",
+    "msgpackr": "^1.10.1",
+    "pg": "^8.11.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.11.2",
+    "typescript": "^5.3.3",
+    "@butterfly/tsconfig": "workspace:*"
+  }
+}

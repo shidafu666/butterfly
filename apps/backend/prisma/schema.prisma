@@ -1,0 +1,173 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entraOid     String?  @unique @map("entra_oid") @db.VarChar(128)
+  email        String   @unique @db.VarChar(255)
+  name         String?  @db.VarChar(255)
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  status       String   @default("active") @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userRoles         UserRole[]
+  sensorPermissions UserSensorPermission[]
+  exportJobs        ExportJob[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(32)
+  name      String   @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Sensor {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sensorSn    String   @unique @map("sensor_sn") @db.VarChar(64)
+  displayName String?  @map("display_name") @db.VarChar(128)
+  status      String   @default("active") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  devices           Device[]
+  sensorPermissions UserSensorPermission[]
+
+  @@map("sensors")
+}
+
+model Device {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sensorId    String   @map("sensor_id") @db.Uuid
+  deviceId    String   @map("device_id") @db.VarChar(64)
+  displayName String?  @map("display_name") @db.VarChar(128)
+  status      String   @default("active") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([sensorId, deviceId])
+  @@map("devices")
+}
+
+model UserSensorPermission {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  sensorId  String   @map("sensor_id") @db.Uuid
+  canView   Boolean  @default(true) @map("can_view")
+  canExport Boolean  @default(false) @map("can_export")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sensorId])
+  @@map("user_sensor_permissions")
+}
+
+// TimescaleDB hypertable - created via init SQL, Prisma provides type-safe client
+model RawCurrentMeasurement {
+  id           BigInt   @default(autoincrement())
+  sensorSn     String   @map("sensor_sn") @db.VarChar(64)
+  deviceId     String   @map("device_id") @db.VarChar(64)
+  ts           DateTime @db.Timestamptz(6)
+  currentValue Float    @map("current_value")
+  msgId        String?  @map("msg_id") @db.VarChar(128)
+  sourceTopic  String?  @map("source_topic") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@id([id, ts])
+  @@map("raw_current_measurements")
+}
+
+model IngestionMessage {
+  id           BigInt    @id @default(autoincrement())
+  msgId        String?   @map("msg_id") @db.VarChar(128)
+  sensorSn     String?   @map("sensor_sn") @db.VarChar(64)
+  topic        String    @db.VarChar(255)
+  payloadSize  Int       @map("payload_size")
+  deviceCount  Int       @default(0) @map("device_count")
+  pointCount   Int       @default(0) @map("point_count")
+  status       String    @db.VarChar(32)
+  errorMessage String?   @map("error_message")
+  receivedAt   DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt  DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@map("ingestion_messages")
+}
+
+model IngestionErrorLog {
+  id               BigInt   @id @default(autoincrement())
+  topic            String   @db.VarChar(255)
+  errorType        String?  @map("error_type") @db.VarChar(64)
+  errorMessage     String?  @map("error_message")
+  rawPayloadBase64 String?  @map("raw_payload_base64")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("ingestion_error_logs")
+}
+
+model ExportJob {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  sensorSn     String    @map("sensor_sn") @db.VarChar(64)
+  deviceId     String?   @map("device_id") @db.VarChar(64)
+  startTime    DateTime  @map("start_time") @db.Timestamptz(6)
+  endTime      DateTime  @map("end_time") @db.Timestamptz(6)
+  resolution   String    @db.VarChar(16)
+  format       String    @db.VarChar(16)
+  status       String    @default("pending") @db.VarChar(32)
+  filePath     String?   @map("file_path")
+  fileName     String?   @map("file_name") @db.VarChar(255)
+  fileSize     BigInt?   @map("file_size")
+  rowCount     BigInt?   @map("row_count")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("export_jobs")
+}
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @map("user_id") @db.Uuid
+  action       String   @db.VarChar(64)
+  resourceType String?  @map("resource_type") @db.VarChar(64)
+  resourceId   String?  @map("resource_id") @db.VarChar(128)
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

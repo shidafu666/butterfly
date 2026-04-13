@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Prisma
+apps/backend/prisma/generated/
+
+# Data volumes (local dev data)
+data/postgres/
+data/exports/*.csv
+data/exports/*.log
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Turbo
+.turbo/
+
+# pnpm
+.pnpm-debug.log*

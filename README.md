@@ -1,0 +1,214 @@
+# Butterfly — 电流数据采集与可视化平台
+
+A current (electrical) data collection and visualization platform built with NestJS, Next.js, TimescaleDB, MQTT, and Redis.
+
+## Architecture
+
+```
+Frontend (Next.js)  →  Backend API (NestJS)  →  PostgreSQL/TimescaleDB
+                                              →  Redis (BullMQ)
+
+MQTT Device → Mosquitto Broker → Ingestion Worker → PostgreSQL/TimescaleDB
+                                                  → Auto-discovers sensors/devices
+
+Redis ← Export Job Queue ← Backend API
+Redis → Export Worker → CSV/Log files → shared volume → Frontend download
+```
+
+## Quick Start
+
+### Prerequisites
+- Docker & Docker Compose v2+
+- (For test scripts) Node.js 20+ and pnpm
+
+### 1. Clone and Start
+
+```bash
+git clone <repo-url>
+cd butterfly
+
+# Start all services (creates .env from .env.example if missing)
+./scripts/up.sh
+```
+
+Or manually:
+```bash
+cp .env.example .env
+# Edit .env if needed (especially passwords for production)
+mkdir -p data/postgres data/exports
+docker compose up -d --build
+```
+
+### 2. Access the Application
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:3001 |
+| Swagger Docs | http://localhost:3001/api/docs |
+| Health Check | http://localhost:3001/health |
+| MQTT Broker | mqtt://localhost:1883 |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
+
+### 3. Initial Login
+
+On first startup, an admin user is automatically created from `.env`:
+- **Email**: `admin@example.com` (or `INITIAL_ADMIN_EMAIL`)
+- **Password**: `Admin@123456` (or `INITIAL_ADMIN_PASSWORD`)
+
+### 4. Send a Test MQTT Message
+
+Install test script dependencies, then publish a mock message:
+
+```bash
+# Install dependencies (only needed for test scripts)
+cd scripts && npm install --save-dev mqtt msgpackr && cd ..
+
+# Send a mock message
+node scripts/test-mqtt.js
+
+# Send with custom parameters
+node scripts/test-mqtt.js mqtt://localhost:1883 SN123456
+```
+
+This will:
+1. Publish a MessagePack-encoded MQTT message to `wlpca/SN123456/data`
+2. The ingestion worker will decode it and insert ~20 data points into the DB
+3. The sensor `SN123456` and its devices will be auto-discovered
+4. Open the frontend to see the data
+
+## Development
+
+### Local Development (without Docker)
+
+```bash
+# Install all dependencies
+pnpm install
+
+# Start backend
+pnpm dev:backend
+
+# Start ingestion worker
+pnpm dev:ingestion
+
+# Start export worker
+pnpm dev:export
+
+# Start frontend
+pnpm dev:frontend
+```
+
+Update `DATABASE_URL`, `MQTT_URL`, `REDIS_HOST` in `.env` to point to local services.
+
+### Project Structure
+
+```
+butterfly/
+├── apps/
+│   ├── backend/          # NestJS REST API
+│   ├── frontend/         # Next.js 14 App Router
+│   ├── ingestion-worker/ # MQTT subscriber → TimescaleDB writer
+│   └── export-worker/    # BullMQ consumer → CSV/log exporter
+├── packages/
+│   ├── shared-types/     # Shared TypeScript interfaces
+│   └── tsconfig/         # Shared TS compiler configs
+├── infra/
+│   └── docker/
+│       ├── mosquitto/    # Mosquitto MQTT broker config
+│       └── postgres/init/ # SQL initialization scripts
+├── scripts/
+│   ├── up.sh             # Start all services
+│   ├── down.sh           # Stop all services
+│   ├── logs.sh           # View logs
+│   ├── reset.sh          # Reset data and restart
+│   └── test-mqtt.js      # Send mock MQTT message
+├── data/
+│   ├── postgres/         # DB data (gitignored)
+│   └── exports/          # Export files (gitignored)
+├── docker-compose.yml
+├── .env.example
+└── architecture.md
+```
+
+## MQTT Message Format
+
+The ingestion worker subscribes to `wlpca/+/data` and expects MessagePack-encoded messages:
+
+```json
+{
+  "msgId": "abc-001",
+  "sn": "SN123456",
+  "devices": [
+    {
+      "deviceId": "slave1",
+      "deviceData": {
+        "timestamp": 1710000000,
+        "rms": [0.11, 0.12, 0.10]
+      }
+    }
+  ]
+}
+```
+
+Each `rms[i]` corresponds to `timestamp + i` seconds. The array is expanded into individual `raw_current_measurements` rows.
+
+## Environment Variables
+
+See `.env.example` for all available variables.
+
+Key variables:
+- `POSTGRES_*` — database credentials
+- `REDIS_*` — Redis connection
+- `MQTT_*` — MQTT broker settings
+- `JWT_SECRET` — secret for signing local JWTs (change in production!)
+- `INITIAL_ADMIN_*` — initial admin account credentials
+- `NEXT_PUBLIC_ENTRA_*` — Microsoft Entra ID SSO (optional)
+
+## Microsoft Entra ID SSO (Optional)
+
+To enable SSO:
+1. Register an app in Azure Active Directory
+2. Set in `.env`:
+   ```
+   JWT_AUDIENCE=api://your-app-id
+   JWT_ISSUER=https://login.microsoftonline.com/your-tenant-id/v2.0
+   NEXT_PUBLIC_ENTRA_CLIENT_ID=your-client-id
+   NEXT_PUBLIC_ENTRA_TENANT_ID=your-tenant-id
+   NEXT_PUBLIC_ENTRA_REDIRECT_URI=http://localhost:3000
+   ```
+
+Local username/password login always remains available regardless of SSO configuration.
+
+## Operational Scripts
+
+```bash
+./scripts/up.sh          # Start everything
+./scripts/down.sh        # Stop everything
+./scripts/logs.sh        # View all logs
+./scripts/logs.sh backend  # View backend logs only
+./scripts/reset.sh       # ⚠️  Wipe data and restart fresh
+```
+
+## API Documentation
+
+Swagger UI is available at http://localhost:3001/api/docs when running.
+
+Key endpoints:
+- `POST /api/v1/auth/login` — login with email/password
+- `GET /api/v1/sensors` — list sensors
+- `GET /api/v1/current-data` — query time-series data
+- `POST /api/v1/exports` — create an export job
+- `GET /api/v1/admin/users` — manage users (admin only)
+
+## Data Retention
+
+Default configuration (development):
+- Raw data: no automatic retention
+- Continuous aggregates: refreshed every minute (1m) / every hour (1h)
+
+For production, enable compression and retention in `infra/docker/postgres/init/005_policies.sql`.
+
+## License
+
+MIT

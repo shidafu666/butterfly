@@ -1,0 +1,19 @@
+{
+  "name": "butterfly",
+  "version": "1.0.0",
+  "private": true,
+  "description": "电流数据采集与可视化平台",
+  "scripts": {
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:ingestion": "pnpm --filter ingestion-worker dev",
+    "dev:export": "pnpm --filter export-worker dev",
+    "build:all": "pnpm --filter './packages/**' build && pnpm --filter './apps/**' build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

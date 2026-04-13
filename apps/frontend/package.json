@@ -1,0 +1,33 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "antd": "^5.16.1",
+    "@ant-design/icons": "^5.3.6",
+    "echarts": "^5.5.0",
+    "echarts-for-react": "^3.0.2",
+    "@tanstack/react-query": "^5.36.2",
+    "axios": "^1.7.2",
+    "dayjs": "^1.11.11",
+    "@azure/msal-browser": "^3.14.0",
+    "@azure/msal-react": "^2.0.22",
+    "@butterfly/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.3.3",
+    "@butterfly/tsconfig": "workspace:*"
+  }
+}
