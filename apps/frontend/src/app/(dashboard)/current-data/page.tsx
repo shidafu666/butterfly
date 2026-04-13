@@ -159,6 +159,9 @@ export default function CurrentDataPage() {
     },
   });
 
+  // The resolved resolution from the last query response (always 'raw' | '1m' | '1h')
+  const resolvedResolution = (currentData?.resolution ?? 'raw') as 'raw' | '1m' | '1h';
+
   const handleExport = () => {
     if (!queryState) return;
     exportMutation.mutate({
@@ -166,7 +169,7 @@ export default function CurrentDataPage() {
       deviceId: queryState.deviceId,
       startTime: queryState.startTime,
       endTime: queryState.endTime,
-      resolution: queryState.resolution,
+      resolution: resolvedResolution,
       format: exportFormat,
     });
   };
@@ -456,7 +459,7 @@ export default function CurrentDataPage() {
                 </Text>
               </Form.Item>
               <Form.Item label="分辨率">
-                <Tag>{queryState.resolution}</Tag>
+                <Tag>{resolvedResolution}</Tag>
               </Form.Item>
             </>
           )}

@@ -65,6 +65,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app123}@postgres:5432/${POSTGRES_DB:-current_platform}
       REDIS_HOST: redis
       REDIS_PORT: '6379'
+      EXPORT_DIR: /app/exports
+    volumes:
+      - ./data/exports:/app/exports
     ports:
       - '3001:3001'
     depends_on:

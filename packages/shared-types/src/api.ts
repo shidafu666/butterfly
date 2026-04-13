@@ -90,7 +90,7 @@ export interface CreateExportRequest {
   deviceId?: string;
   startTime: string;
   endTime: string;
-  resolution: Resolution;
+  resolution: 'raw' | '1m' | '1h';  // 'auto' is not valid for exports
   format: 'csv' | 'log';
 }
 
