@@ -65,12 +65,14 @@ Install test script dependencies, then publish a mock message:
 # Install dependencies (only needed for test scripts)
 cd scripts && npm install --save-dev mqtt msgpackr && cd ..
 
-# Send a mock message
-node scripts/test-mqtt.js
+# Send a mock message (credentials from .env)
+node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data <MQTT_USERNAME> <MQTT_PASSWORD>
 
-# Send with custom parameters
-node scripts/test-mqtt.js mqtt://localhost:1883 SN123456
+# Example using default .env values
+node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data iot_device change-me-mqtt-password
 ```
+
+> The MQTT broker requires authentication. Credentials are set via `MQTT_USERNAME` / `MQTT_PASSWORD` in `.env`.
 
 This will:
 1. Publish a MessagePack-encoded MQTT message to `wlpca/SN123456/data`
@@ -160,9 +162,10 @@ See `.env.example` for all available variables.
 Key variables:
 - `POSTGRES_*` — database credentials
 - `REDIS_*` — Redis connection
-- `MQTT_*` — MQTT broker settings
+- `MQTT_URL` — broker connection URL (internal: `mqtt://mosquitto:1883`)
+- `MQTT_USERNAME` / `MQTT_PASSWORD` — broker auth credentials; sensors must use these same credentials
 - `JWT_SECRET` — secret for signing local JWTs (change in production!)
-- `INITIAL_ADMIN_*` — initial admin account credentials
+- `INITIAL_ADMIN_*` — initial admin account credentials (used only on first startup)
 - `NEXT_PUBLIC_ENTRA_*` — Microsoft Entra ID SSO (optional)
 
 ## Microsoft Entra ID SSO (Optional)
@@ -183,11 +186,12 @@ Local username/password login always remains available regardless of SSO configu
 ## Operational Scripts
 
 ```bash
-./scripts/up.sh          # Start everything
-./scripts/down.sh        # Stop everything
-./scripts/logs.sh        # View all logs
-./scripts/logs.sh backend  # View backend logs only
-./scripts/reset.sh       # ⚠️  Wipe data and restart fresh
+./scripts/up.sh              # Start everything (copies .env.example if .env missing)
+./scripts/down.sh            # Stop everything
+./scripts/logs.sh            # View all logs
+./scripts/logs.sh backend    # View backend logs only
+./scripts/reset.sh           # ⚠️  Wipe data and restart fresh
+./scripts/set-retention.sh 30  # Set raw data retention to N days
 ```
 
 ## API Documentation
@@ -203,11 +207,19 @@ Key endpoints:
 
 ## Data Retention
 
-Default configuration (development):
-- Raw data: no automatic retention
+Default configuration:
+- Raw data: **30-day retention** (automatically drops data older than 30 days)
+- Compression: chunks older than 7 days are compressed automatically
 - Continuous aggregates: refreshed every minute (1m) / every hour (1h)
 
-For production, enable compression and retention in `infra/docker/postgres/init/005_policies.sql`.
+To change the retention window on a running instance:
+
+```bash
+./scripts/set-retention.sh 60   # keep 60 days
+./scripts/set-retention.sh 7    # keep 7 days
+```
+
+To change the default for fresh deployments, edit `INTERVAL '30 days'` in `infra/docker/postgres/init/005_policies.sql`.
 
 ## License
 
