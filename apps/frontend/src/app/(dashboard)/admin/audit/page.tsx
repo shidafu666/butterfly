@@ -26,28 +26,28 @@ const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const COMMON_ACTIONS = [
-  'LOGIN',
-  'LOGOUT',
-  'CREATE_USER',
-  'UPDATE_USER',
-  'DELETE_USER',
-  'ASSIGN_ROLE',
-  'REVOKE_ROLE',
-  'ASSIGN_SENSOR',
-  'EXPORT_DATA',
-  'VIEW_DATA',
+const COMMON_ACTIONS: { value: string; label: string }[] = [
+  { value: 'LOGIN',                    label: 'LOGIN — 用户登录' },
+  { value: 'CREATE_USER',              label: 'CREATE_USER — 创建用户' },
+  { value: 'ASSIGN_ROLE',              label: 'ASSIGN_ROLE — 分配角色' },
+  { value: 'REMOVE_ROLE',              label: 'REMOVE_ROLE — 移除角色' },
+  { value: 'ASSIGN_SENSOR_PERMISSION', label: 'ASSIGN_SENSOR_PERMISSION — 授权传感器' },
+  { value: 'REVOKE_SENSOR_PERMISSION', label: 'REVOKE_SENSOR_PERMISSION — 撤销传感器权限' },
+  { value: 'CREATE_EXPORT',            label: 'CREATE_EXPORT — 创建导出任务' },
+  { value: 'DOWNLOAD_EXPORT',          label: 'DOWNLOAD_EXPORT — 下载导出文件' },
+  { value: 'QUERY_CURRENT_DATA',       label: 'QUERY_CURRENT_DATA — 查询电流数据' },
 ];
 
 const ACTION_COLOR: Record<string, string> = {
-  LOGIN: 'green',
-  LOGOUT: 'default',
-  CREATE_USER: 'blue',
-  DELETE_USER: 'red',
-  ASSIGN_ROLE: 'orange',
-  REVOKE_ROLE: 'volcano',
-  EXPORT_DATA: 'cyan',
-  VIEW_DATA: 'geekblue',
+  LOGIN:                    'green',
+  CREATE_USER:              'blue',
+  ASSIGN_ROLE:              'orange',
+  REMOVE_ROLE:              'volcano',
+  ASSIGN_SENSOR_PERMISSION: 'gold',
+  REVOKE_SENSOR_PERMISSION: 'magenta',
+  CREATE_EXPORT:            'cyan',
+  DOWNLOAD_EXPORT:          'geekblue',
+  QUERY_CURRENT_DATA:       'purple',
 };
 
 interface AuditFilter {
@@ -220,8 +220,8 @@ function AuditTable() {
               allowClear
             >
               {COMMON_ACTIONS.map((a) => (
-                <Option key={a} value={a}>
-                  {a}
+                <Option key={a.value} value={a.value}>
+                  {a.label}
                 </Option>
               ))}
             </Select>
