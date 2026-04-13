@@ -74,15 +74,11 @@ function AuditTable() {
       if (appliedFilter.action) params.action = appliedFilter.action;
       if (appliedFilter.startTime) params.startTime = appliedFilter.startTime;
       if (appliedFilter.endTime) params.endTime = appliedFilter.endTime;
-      const res = await api.get<{ data: AuditLogDto[]; total: number } | AuditLogDto[]>(
+      const res = await api.get<{ items: AuditLogDto[]; total: number; page: number; limit: number }>(
         '/admin/audit-logs',
         { params }
       );
-      // Handle both paginated and array responses
-      if (Array.isArray(res.data)) {
-        return { data: res.data, total: res.data.length };
-      }
-      return res.data as { data: AuditLogDto[]; total: number };
+      return { items: res.data.items ?? [], total: res.data.total ?? 0 };
     },
   });
 
@@ -106,8 +102,8 @@ function AuditTable() {
     setAppliedFilter(reset);
   };
 
-  const logs = Array.isArray(data) ? data : (data?.data ?? []);
-  const total = Array.isArray(data) ? data.length : (data?.total ?? 0);
+  const logs = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   const columns = [
     {
