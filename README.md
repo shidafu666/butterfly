@@ -135,7 +135,9 @@ butterfly/
 
 ## MQTT Message Format
 
-The ingestion worker subscribes to `wlpca/+/data` and expects MessagePack-encoded messages:
+Sensors publish to `wlpca/<sensorSn>/data`. The ingestion worker subscribes via an MQTT shared subscription (`$share/ingestion-workers/wlpca/+/data`) so that multiple worker replicas share the load without processing the same message twice. The sensor-side topic format is unchanged.
+
+Expected MessagePack-encoded payload:
 
 ```json
 {
@@ -168,6 +170,8 @@ Key variables:
 - `INITIAL_ADMIN_*` — initial admin account credentials (used only on first startup)
 - `SENSOR_ACTIVE_THRESHOLD_HOURS` — hours since last report before a sensor is marked Inactive (default: `24`)
 - `EXPORT_JOB_RETENTION_HOURS` — hours before export jobs and their files are automatically deleted (default: `24`)
+- `INGESTION_CONCURRENCY` — max concurrent message handlers per ingestion worker replica (default: `10`)
+- `DB_POOL_MAX` — PostgreSQL connection pool size per ingestion worker replica (default: `20`)
 - `NEXT_PUBLIC_ENTRA_*` — Microsoft Entra ID SSO (optional)
 
 ## Microsoft Entra ID SSO (Optional)

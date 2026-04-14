@@ -65,7 +65,7 @@ All 7 services should reach `healthy` or `running` status:
 | `butterfly-redis` | Job queue (BullMQ) |
 | `butterfly-mosquitto` | MQTT broker |
 | `butterfly-backend` | NestJS REST API |
-| `butterfly-ingestion-worker` | MQTT → DB writer |
+| `butterfly-ingestion-worker-1` | MQTT → DB writer (scalable; see [Section 5.2](#52-scaling-the-ingestion-worker)) |
 | `butterfly-export-worker` | Async CSV/log exporter |
 | `butterfly-frontend` | Next.js web UI |
 
@@ -152,8 +152,9 @@ All variables live in `.env` (copied from `.env.example`).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MQTT_URL` | `mqtt://mosquitto:1883` | Internal broker URL for workers |
-| `MQTT_TOPIC` | `wlpca/+/data` | Topic pattern to subscribe to |
-| `MQTT_CLIENT_ID` | `current-platform-ingestion-worker` | MQTT client identifier |
+| `MQTT_TOPIC` | `wlpca/+/data` | Base topic pattern (sensors publish here) |
+| `MQTT_CLIENT_ID` | `current-platform-ingestion-worker` | Base MQTT client identifier; a unique hostname suffix is appended per replica |
+| `MQTT_SHARED_GROUP` | `ingestion-workers` | Shared subscription group name; all replicas join this group so each message is delivered to exactly one worker |
 | `MQTT_USERNAME` | `iot_device` | Broker auth username — **used by sensors and workers** |
 | `MQTT_PASSWORD` | `change-me-mqtt-password` | Broker auth password — **change in production** |
 
@@ -167,6 +168,13 @@ All variables live in `.env` (copied from `.env.example`).
 | `EXPORT_DIR` | `/app/exports` | Container path for export files (do not change) |
 | `SENSOR_ACTIVE_THRESHOLD_HOURS` | `24` | Hours since a sensor's last report before it is marked **Inactive** in the device list |
 | `EXPORT_JOB_RETENTION_HOURS` | `24` | Hours before completed export jobs and their files are automatically deleted |
+
+### Ingestion Worker
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INGESTION_CONCURRENCY` | `10` | Max messages processed in parallel per replica — keep ≤ `DB_POOL_MAX` |
+| `DB_POOL_MAX` | `20` | PostgreSQL connection pool size per replica — when scaling to N replicas, ensure `max_connections` > N × `DB_POOL_MAX` + headroom for backend/export-worker |
 
 ### Initial Admin
 
@@ -431,8 +439,8 @@ docker compose build backend
 
 1. Verify the broker is running: `docker compose logs mosquitto`
 2. Check credentials: anonymous connections are rejected
-3. Check ingestion worker logs: `docker compose logs ingestion-worker`
-4. Confirm the topic matches `wlpca/+/data`
+3. Check ingestion worker logs: `docker compose logs ingestion-worker` (works for all replicas)
+4. Confirm sensors publish to `wlpca/<sn>/data` — the worker subscribes internally via a shared subscription, but the sensor-facing topic is unchanged
 
 ### Export download fails ("file not found")
 
