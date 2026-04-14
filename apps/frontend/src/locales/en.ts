@@ -132,6 +132,7 @@ export const en: Translations = {
     download: 'Download',
     downloadDisabled: 'Job not complete',
     downloadFile: 'Download file',
+    sensorName: 'Sensor Name',
     allDevices: 'All',
     empty: 'No export jobs',
     downloadFailed: 'Download failed. Please try again later.',

@@ -130,6 +130,7 @@ export const zh = {
     download: '下载',
     downloadDisabled: '任务未完成，无法下载',
     downloadFile: '下载文件',
+    sensorName: '传感器名称',
     allDevices: '全部',
     empty: '暂无导出任务',
     downloadFailed: '下载失败，请稍后重试。',

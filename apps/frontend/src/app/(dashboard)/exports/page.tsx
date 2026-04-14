@@ -21,7 +21,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { api } from '@/lib/api';
 import { useLocale } from '@/contexts/LocaleContext';
-import type { ExportJobDto, SensorDto, DeviceDto } from '@butterfly/shared-types';
+import type { ExportJobDto, SensorDto } from '@butterfly/shared-types';
 
 dayjs.extend(relativeTime);
 
@@ -121,40 +121,6 @@ export default function ExportsPage() {
     return m;
   }, [sensors]);
 
-  // ── Device display name lookup ──────────────────────────────────────────────
-  const uniqueSensorSns = useMemo(
-    () => [...new Set(jobs.map((j) => j.sensorSn))],
-    [jobs],
-  );
-
-  const { data: allDevices = [] } = useQuery({
-    queryKey: ['export-devices', uniqueSensorSns],
-    queryFn: async () => {
-      const results = await Promise.all(
-        uniqueSensorSns.map((sn) =>
-          api.get<DeviceDto[]>(`/sensors/${sn}/devices`).then((r) =>
-            r.data.map((d) => ({ ...d, _sensorSn: sn })),
-          ),
-        ),
-      );
-      return results.flat();
-    },
-    enabled: uniqueSensorSns.length > 0,
-  });
-
-  const deviceDisplayMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    (allDevices as (DeviceDto & { _sensorSn: string })[]).forEach((d) => {
-      if (d.displayName) m[`${d._sensorSn}:${d.deviceId}`] = d.displayName;
-    });
-    return m;
-  }, [allDevices]);
-
-  const getDeviceDisplay = (record: ExportJobDto): string | null => {
-    if (!record.deviceId) return null;
-    return deviceDisplayMap[`${record.sensorSn}:${record.deviceId}`] ?? record.deviceId;
-  };
-
   // ── Column search helpers ───────────────────────────────────────────────────
   const handleSearch = (confirm: FilterDropdownProps['confirm']) => confirm();
 
@@ -211,25 +177,23 @@ export default function ExportsPage() {
       render: (v: string) => <Text code>{v}</Text>,
       ...makeSearchProps((value, record) => {
         const sn = record.sensorSn.toLowerCase();
-        const name = (sensorDisplayMap[record.sensorSn] ?? '').toLowerCase();
-        const q = value.toLowerCase();
-        return sn.includes(q) || name.includes(q);
+        return sn.includes(value.toLowerCase());
       }, t('common.sensor')),
     },
     {
-      title: t('common.device'),
-      dataIndex: 'deviceId',
-      key: 'deviceId',
-      render: (_: unknown, record: ExportJobDto) => {
-        const display = getDeviceDisplay(record);
-        return display
-          ? <Text code>{display}</Text>
-          : <Text type="secondary">{t('exports.allDevices')}</Text>;
+      title: t('exports.sensorName'),
+      dataIndex: 'sensorSn',
+      key: 'sensorName',
+      render: (v: string) => {
+        const name = sensorDisplayMap[v];
+        return name
+          ? <Text>{name}</Text>
+          : <Text type="secondary">—</Text>;
       },
       ...makeSearchProps((value, record) => {
-        const display = getDeviceDisplay(record) ?? '';
-        return display.toLowerCase().includes(value.toLowerCase());
-      }, t('common.device')),
+        const name = sensorDisplayMap[record.sensorSn] ?? '';
+        return name.toLowerCase().includes(value.toLowerCase());
+      }, t('exports.sensorName')),
     },
     {
       title: t('common.timeRange'),
