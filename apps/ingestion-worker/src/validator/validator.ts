@@ -20,8 +20,11 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
   }
 
   const msgId = raw['msgId'];
-  if (typeof msgId !== 'string' || msgId.trim() === '') {
-    throw new Error('Invalid or missing msgId: must be a non-empty string');
+  if (
+    (typeof msgId !== 'string' && typeof msgId !== 'number') ||
+    String(msgId).trim() === ''
+  ) {
+    throw new Error('Invalid or missing msgId: must be a non-empty string or number');
   }
 
   const sn = raw['sn'];
@@ -96,7 +99,7 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
   });
 
   return {
-    msgId: msgId as string,
+    msgId: String(msgId),
     sn: sn as string,
     devices: validatedDevices,
   };
