@@ -11,6 +11,7 @@ import {
   Tooltip,
   Input,
   Alert,
+  message,
 } from 'antd';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
@@ -20,8 +21,11 @@ import {
   DownloadOutlined,
   WifiOutlined,
   DisconnectOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -35,10 +39,16 @@ dayjs.locale('zh-cn');
 const { Text, Title } = Typography;
 
 function DeviceList() {
+  const queryClient = useQueryClient();
   const searchInput = useRef<InputRef>(null);
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
 
+  // ── Inline edit state ──────────────────────────────────────────────────────
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const { data: sensors, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-sensors'],
     queryFn: async () => {
@@ -47,8 +57,46 @@ function DeviceList() {
     },
   });
 
-  // ── Column search helpers ──────────────────────────────────────────────────
+  // ── Save display name ──────────────────────────────────────────────────────
+  const { mutate: saveDisplayName, isPending: isSaving } = useMutation({
+    mutationFn: async ({
+      sensorSn,
+      displayName,
+    }: {
+      sensorSn: string;
+      displayName: string | null;
+    }) => {
+      await api.patch(`/admin/sensors/${sensorSn}`, { displayName });
+    },
+    onSuccess: (_, { sensorSn, displayName }) => {
+      queryClient.setQueryData<SensorOverviewDto[]>(['admin-sensors'], (old) =>
+        old?.map((s) => (s.sensorSn === sensorSn ? { ...s, displayName } : s)),
+      );
+      setEditingId(null);
+      setEditingValue('');
+      message.success('名称已保存');
+    },
+    onError: () => {
+      message.error('保存失败，请重试');
+    },
+  });
 
+  const startEdit = (record: SensorOverviewDto) => {
+    setEditingId(record.id);
+    setEditingValue(record.displayName ?? '');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingValue('');
+  };
+
+  const handleSave = (sensorSn: string) => {
+    const trimmed = editingValue.trim();
+    saveDisplayName({ sensorSn, displayName: trimmed || null });
+  };
+
+  // ── Column search helpers ──────────────────────────────────────────────────
   const handleSearch = (
     selectedKeys: string[],
     confirm: FilterDropdownProps['confirm'],
@@ -59,7 +107,10 @@ function DeviceList() {
     setSearchedColumn(dataIndex);
   };
 
-  const handleReset = (clearFilters: () => void, confirm: FilterDropdownProps['confirm']) => {
+  const handleReset = (
+    clearFilters: () => void,
+    confirm: FilterDropdownProps['confirm'],
+  ) => {
     clearFilters();
     setSearchText('');
     confirm();
@@ -68,21 +119,30 @@ function DeviceList() {
   const getColumnSearchProps = (
     dataIndex: keyof SensorOverviewDto,
     placeholder: string,
-  ): TableColumnType<SensorOverviewDto> => ({
+  ): Pick<
+    TableColumnType<SensorOverviewDto>,
+    'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'
+  > => ({
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
           ref={searchInput}
           placeholder={`搜索 ${placeholder}`}
           value={selectedKeys[0] as string}
-          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+          onChange={(e) =>
+            setSelectedKeys(e.target.value ? [e.target.value] : [])
+          }
+          onPressEnter={() =>
+            handleSearch(selectedKeys as string[], confirm, dataIndex)
+          }
           style={{ marginBottom: 8, display: 'block' }}
         />
         <Space>
           <Button
             type="primary"
-            onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+            onClick={() =>
+              handleSearch(selectedKeys as string[], confirm, dataIndex)
+            }
             icon={<SearchOutlined />}
             size="small"
           >
@@ -109,32 +169,22 @@ function DeviceList() {
     onFilterDropdownOpenChange: (visible) => {
       if (visible) setTimeout(() => searchInput.current?.select(), 100);
     },
-    render: (text: string | null) =>
-      searchedColumn === dataIndex && searchText && text ? (
-        <Text style={{ color: '#c9d1d9', fontSize: 13 }}>
-          {text}
-        </Text>
-      ) : (
-        <Text style={{ color: '#c9d1d9', fontSize: 13 }}>
-          {text ?? <span style={{ color: '#484f58' }}>—</span>}
-        </Text>
-      ),
   });
 
   // ── CSV export ─────────────────────────────────────────────────────────────
-
   const exportCsv = () => {
     const rows = sensors ?? [];
-    const header = ['SN', '显示名称', '状态', '最近上报时间', '在线状态'];
+    const header = ['SN', '显示名称', '最近上报时间', '在线状态', '注册状态', '注册时间'];
     const lines = rows.map((r) =>
       [
         r.sensorSn,
         r.displayName ?? '',
-        r.status,
         r.lastReportTime
           ? dayjs(r.lastReportTime).format('YYYY-MM-DD HH:mm:ss')
           : '',
         r.isActive ? 'Active' : 'Inactive',
+        r.status,
+        dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss'),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(','),
@@ -152,7 +202,6 @@ function DeviceList() {
   };
 
   // ── Table columns ──────────────────────────────────────────────────────────
-
   const columns: TableColumnType<SensorOverviewDto>[] = [
     {
       title: '传感器 SN',
@@ -171,30 +220,78 @@ function DeviceList() {
       title: '显示名称',
       dataIndex: 'displayName',
       key: 'displayName',
-      width: 180,
+      width: 220,
       ...getColumnSearchProps('displayName', '名称'),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      filters: [
-        { text: 'active', value: 'active' },
-        { text: 'inactive', value: 'inactive' },
-      ],
-      onFilter: (value, record) => record.status === value,
-      render: (v: string) => (
-        <Tag color={v === 'active' ? 'green' : 'default'} style={{ fontSize: 11 }}>
-          {v}
-        </Tag>
-      ),
+      render: (v: string | null, record: SensorOverviewDto) => {
+        if (editingId === record.id) {
+          return (
+            <Space size={4}>
+              <Input
+                size="small"
+                autoFocus
+                value={editingValue}
+                onChange={(e) => setEditingValue(e.target.value)}
+                onPressEnter={() => handleSave(record.sensorSn)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') cancelEdit();
+                }}
+                style={{ width: 130 }}
+                maxLength={128}
+                placeholder="输入名称"
+              />
+              <Tooltip title="保存 (Enter)">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CheckOutlined />}
+                  onClick={() => handleSave(record.sensorSn)}
+                  loading={isSaving}
+                  style={{ color: '#3fb950', padding: '0 4px' }}
+                />
+              </Tooltip>
+              <Tooltip title="取消 (Esc)">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={cancelEdit}
+                  disabled={isSaving}
+                  style={{ color: '#f85149', padding: '0 4px' }}
+                />
+              </Tooltip>
+            </Space>
+          );
+        }
+        return (
+          <Space size={4} className="device-name-cell">
+            <Text
+              style={{
+                color: v ? '#c9d1d9' : '#484f58',
+                fontSize: 13,
+                fontStyle: v ? 'normal' : 'italic',
+              }}
+            >
+              {v ?? '未命名'}
+            </Text>
+            <Tooltip title="编辑名称">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => startEdit(record)}
+                style={{ color: '#484f58', padding: '0 4px' }}
+                className="edit-icon"
+              />
+            </Tooltip>
+          </Space>
+        );
+      },
     },
     {
       title: '最近上报时间',
       dataIndex: 'lastReportTime',
       key: 'lastReportTime',
-      width: 200,
+      width: 160,
       sorter: (a, b) => {
         if (!a.lastReportTime && !b.lastReportTime) return 0;
         if (!a.lastReportTime) return 1;
@@ -222,7 +319,7 @@ function DeviceList() {
       title: '在线状态',
       dataIndex: 'isActive',
       key: 'isActive',
-      width: 120,
+      width: 110,
       filters: [
         { text: 'Active', value: true },
         { text: 'Inactive', value: false },
@@ -242,10 +339,26 @@ function DeviceList() {
         ),
     },
     {
+      title: '注册状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      filters: [
+        { text: 'active', value: 'active' },
+        { text: 'inactive', value: 'inactive' },
+      ],
+      onFilter: (value, record) => record.status === value,
+      render: (v: string) => (
+        <Tag color={v === 'active' ? 'blue' : 'default'} style={{ fontSize: 11 }}>
+          {v}
+        </Tag>
+      ),
+    },
+    {
       title: '注册时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 180,
+      width: 120,
       sorter: (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (v: string) => (
@@ -259,7 +372,6 @@ function DeviceList() {
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
-
   if (error) {
     return (
       <Alert
@@ -276,6 +388,11 @@ function DeviceList() {
 
   return (
     <>
+      <style>{`
+        .device-name-cell .edit-icon { opacity: 0; transition: opacity 0.15s; }
+        .ant-table-row:hover .device-name-cell .edit-icon { opacity: 1; }
+      `}</style>
+
       <div
         style={{
           marginBottom: 24,
@@ -329,7 +446,6 @@ function DeviceList() {
             showTotal: (t, range) => `${range[0]}-${range[1]} / 共 ${t} 条`,
           }}
           locale={{ emptyText: '暂无设备' }}
-          rowClassName={() => 'device-row'}
         />
       </Card>
     </>

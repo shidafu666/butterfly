@@ -3,7 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { AdminUserDto, AuditLogDto, SensorOverviewDto } from '@butterfly/shared-types';
-import { CreateAdminUserDto, AssignSensorPermissionDto } from './dto/admin.dto';
+import { CreateAdminUserDto, AssignSensorPermissionDto, UpdateSensorDto } from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -100,6 +100,31 @@ export class AdminService {
       `${userId}:${sensorSn}`,
       { sensorSn },
     );
+  }
+
+  async updateSensorDisplayName(
+    sensorSn: string,
+    dto: UpdateSensorDto,
+    actorId: string,
+  ): Promise<void> {
+    const sensor = await this.prisma.sensor.findUnique({ where: { sensorSn } });
+    if (!sensor) {
+      throw new NotFoundException(`Sensor '${sensorSn}' not found`);
+    }
+
+    const displayName =
+      dto.displayName !== undefined
+        ? dto.displayName.trim() || null
+        : undefined;
+
+    await this.prisma.sensor.update({
+      where: { sensorSn },
+      data: { displayName, updatedAt: new Date() },
+    });
+
+    await this.auditService.log(actorId, 'UPDATE_SENSOR', 'sensor', sensorSn, {
+      displayName,
+    });
   }
 
   async listSensorOverview(): Promise<SensorOverviewDto[]> {

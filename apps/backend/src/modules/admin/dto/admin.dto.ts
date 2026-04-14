@@ -56,6 +56,13 @@ export class AssignSensorPermissionDto {
   canExport: boolean;
 }
 
+export class UpdateSensorDto {
+  @ApiPropertyOptional({ example: 'Main Building Sensor', nullable: true })
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+}
+
 export class AuditLogQueryDto {
   @ApiPropertyOptional({ default: 1 })
   @IsNumber()

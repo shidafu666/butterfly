@@ -36,6 +36,7 @@ const COMMON_ACTIONS: { value: string; label: string }[] = [
   { value: 'CREATE_EXPORT',            label: 'CREATE_EXPORT — 创建导出任务' },
   { value: 'DOWNLOAD_EXPORT',          label: 'DOWNLOAD_EXPORT — 下载导出文件' },
   { value: 'QUERY_CURRENT_DATA',       label: 'QUERY_CURRENT_DATA — 查询电流数据' },
+  { value: 'UPDATE_SENSOR',            label: 'UPDATE_SENSOR — 更新传感器名称' },
 ];
 
 const ACTION_COLOR: Record<string, string> = {
@@ -48,6 +49,7 @@ const ACTION_COLOR: Record<string, string> = {
   CREATE_EXPORT:            'cyan',
   DOWNLOAD_EXPORT:          'geekblue',
   QUERY_CURRENT_DATA:       'purple',
+  UPDATE_SENSOR:            'lime',
 };
 
 interface AuditFilter {

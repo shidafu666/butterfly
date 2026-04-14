@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -25,6 +26,7 @@ import {
   CreateAdminUserDto,
   AssignRoleDto,
   AssignSensorPermissionDto,
+  UpdateSensorDto,
   AuditLogQueryDto,
 } from './dto/admin.dto';
 
@@ -114,6 +116,18 @@ export class AdminController {
   @ApiOperation({ summary: 'List all sensors with last report time and active status' })
   async listSensorOverview() {
     return this.adminService.listSensorOverview();
+  }
+
+  @Patch('sensors/:sensorSn')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Update sensor display name' })
+  @ApiParam({ name: 'sensorSn', description: 'Sensor serial number' })
+  async updateSensor(
+    @Param('sensorSn') sensorSn: string,
+    @Body() dto: UpdateSensorDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    await this.adminService.updateSensorDisplayName(sensorSn, dto, actor.sub);
   }
 
   @Get('audit-logs')
