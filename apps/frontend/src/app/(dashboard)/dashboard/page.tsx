@@ -199,7 +199,14 @@ export default function DashboardPage() {
       </Row>
 
       <Card
-        title={<Text style={{ color: '#c9d1d9' }}>最近导出任务</Text>}
+        title={
+          <Space>
+            <Text style={{ color: '#c9d1d9' }}>最近导出任务</Text>
+            <Text style={{ color: '#484f58', fontSize: 12, fontWeight: 'normal' }}>
+              · 仅保留 24 小时内
+            </Text>
+          </Space>
+        }
         style={{ background: '#161b22', border: '1px solid #30363d' }}
         bodyStyle={{ padding: 0 }}
       >

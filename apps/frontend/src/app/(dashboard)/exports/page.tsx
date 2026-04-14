@@ -10,8 +10,9 @@ import {
   Tooltip,
   notification,
   Card,
+  Alert,
 } from 'antd';
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -233,6 +234,24 @@ export default function ExportsPage() {
           刷新
         </Button>
       </div>
+
+      <Alert
+        icon={<ClockCircleOutlined />}
+        type="info"
+        showIcon
+        style={{ marginBottom: 16, background: '#0d2137', border: '1px solid #1d4b6e' }}
+        message={
+          <Text style={{ color: '#79c0ff', fontSize: 13 }}>
+            导出任务自动清理提示
+          </Text>
+        }
+        description={
+          <Text style={{ color: '#8b949e', fontSize: 12 }}>
+            系统每小时自动清理 <strong style={{ color: '#c9d1d9' }}>24 小时</strong>前创建的导出任务及对应文件。
+            如需重新获取数据，请在「电流数据」页面重新创建导出任务。
+          </Text>
+        }
+      />
 
       <Card
         style={{ background: '#161b22', border: '1px solid #30363d' }}

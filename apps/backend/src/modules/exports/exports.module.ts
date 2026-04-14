@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ExportsService } from './exports.service';
+import { ExportsCleanupService } from './exports.cleanup.service';
 import { ExportsController } from './exports.controller';
 import { AuditModule } from '../audit/audit.module';
 import { EXPORT_QUEUE } from './exports.queue';
@@ -10,7 +11,7 @@ import { EXPORT_QUEUE } from './exports.queue';
     BullModule.registerQueue({ name: EXPORT_QUEUE }),
     AuditModule,
   ],
-  providers: [ExportsService],
+  providers: [ExportsService, ExportsCleanupService],
   controllers: [ExportsController],
   exports: [ExportsService],
 })
