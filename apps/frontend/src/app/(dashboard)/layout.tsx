@@ -30,6 +30,7 @@ import {
   DesktopOutlined,
 } from '@ant-design/icons';
 import { AuthGuard } from '@/components/AuthGuard';
+import { ExportJobNotifier } from '@/components/ExportJobNotifier';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -319,6 +320,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             background: 'var(--brand-bg)',
           }}
         >
+          <ExportJobNotifier />
           {children}
         </Content>
       </Layout>

@@ -121,37 +121,6 @@ export default function ExportsPage() {
     return m;
   }, [sensors]);
 
-  // ── Job completion notifications ────────────────────────────────────────────
-  // Use a time-window approach so we catch jobs that finished before the page
-  // loaded (not just mid-session transitions). notifiedJobIdsRef prevents
-  // duplicate toasts across re-renders.
-  const notifiedJobIdsRef = useRef<Set<string>>(new Set());
-  const NOTIFY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
-  useEffect(() => {
-    if (jobs.length === 0) return;
-    const now = Date.now();
-
-    jobs.forEach((j) => {
-      if (notifiedJobIdsRef.current.has(j.id)) return;
-      if (j.status !== 'completed' && j.status !== 'failed') return;
-      if (!j.completedAt) return;
-      if (now - new Date(j.completedAt).getTime() > NOTIFY_WINDOW_MS) return;
-
-      notifiedJobIdsRef.current.add(j.id);
-
-      const label = sensorDisplayMap[j.sensorSn]
-        ? `${j.sensorSn} (${sensorDisplayMap[j.sensorSn]})`
-        : j.sensorSn;
-
-      if (j.status === 'completed') {
-        notifApi.success({ message: t('exports.jobCompleted'), description: label, duration: 8 });
-      } else {
-        notifApi.error({ message: t('exports.jobFailed'), description: label, duration: 8 });
-      }
-    });
-  }, [jobs, sensorDisplayMap, notifApi, t]);
-
   // ── Column search helpers ───────────────────────────────────────────────────
   const handleSearch = (confirm: FilterDropdownProps['confirm']) => confirm();
 
