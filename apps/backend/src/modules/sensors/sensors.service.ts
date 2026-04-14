@@ -49,7 +49,7 @@ export class SensorsService {
         FROM sensors s
         INNER JOIN user_sensor_permissions p ON p.sensor_id = s.id
         LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
-        WHERE p.user_id = ${userId} AND p.can_view = true
+        WHERE p.user_id = ${userId}::uuid AND p.can_view = true
         GROUP BY s.id
         ORDER BY s.created_at ASC
       `;
