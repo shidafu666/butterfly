@@ -24,7 +24,7 @@ import {
   ExportOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 import { api } from '@/lib/api';
 import { CurrentDataChart } from '@/components/CurrentDataChart';
@@ -57,6 +57,7 @@ interface QueryState {
 export default function CurrentDataPage() {
   const [notifApi, contextHolder] = notification.useNotification();
   const { t } = useLocale();
+  const queryClient = useQueryClient();
 
   const [selectedSensor, setSelectedSensor] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
@@ -162,6 +163,8 @@ export default function CurrentDataPage() {
         description: t('currentData.exportCreatedDesc'),
       });
       setExportModalOpen(false);
+      // Kick the global notifier into polling mode immediately.
+      queryClient.invalidateQueries({ queryKey: ['exports'] });
     },
     onError: () => {
       notifApi.error({ message: t('currentData.exportFailed') });
