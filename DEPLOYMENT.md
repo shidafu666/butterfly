@@ -263,7 +263,28 @@ node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data <MQ
 
 Default policy: raw measurements are retained for **30 days**; chunks older than 7 days are compressed automatically.
 
-### 5.2 Export job retention
+### 5.2 Scaling the ingestion worker
+
+When more than ~50 sensors send data simultaneously (e.g., at the top of the hour), a single ingestion worker instance may lag. The worker is stateless and idempotent (`ON CONFLICT DO NOTHING`), so it can be scaled horizontally without data loss or duplication.
+
+Workers use an MQTT **shared subscription** (`$share/ingestion-workers/wlpca/+/data`). Mosquitto delivers each message to exactly one worker in the group (round-robin), so adding replicas divides the load evenly.
+
+**Start multiple replicas:**
+
+```bash
+docker compose up -d --scale ingestion-worker=3
+```
+
+**Tune per-instance limits** in `.env` (or as environment overrides):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INGESTION_CONCURRENCY` | `10` | Max messages processed in parallel per replica |
+| `DB_POOL_MAX` | `20` | PostgreSQL connections per replica |
+
+With 3 replicas at default settings: up to **30 messages processed concurrently**, using up to **60 DB connections** total. Make sure PostgreSQL's `max_connections` (default 100 in TimescaleDB) has enough headroom for the backend and export-worker as well.
+
+### 5.3 Export job retention
 
 Completed export jobs (and their files in `data/exports`) are automatically deleted after **24 hours** by the backend cleanup service. This keeps disk usage bounded without manual intervention. Users who need the data again can create a new export job from the **电流数据** page.
 
@@ -273,14 +294,14 @@ To change the retention window, set `EXPORT_JOB_RETENTION_HOURS` in `.env` befor
 EXPORT_JOB_RETENTION_HOURS=48   # keep exports for 48 hours
 ```
 
-### 5.3 Change raw data retention on a running instance
+### 5.4 Change raw data retention on a running instance
 
 ```bash
 ./scripts/set-retention.sh 60   # keep 60 days
 ./scripts/set-retention.sh 90   # keep 90 days
 ```
 
-### 5.4 Change the default for new deployments
+### 5.5 Change the default for new deployments
 
 Edit the interval in `infra/docker/postgres/init/005_policies.sql`:
 
@@ -292,7 +313,7 @@ SELECT add_retention_policy('raw_current_measurements', INTERVAL '30 days');
 
 This file is only executed when the database is initialized from scratch (empty `data/postgres`).
 
-### 5.5 Query current retention setting
+### 5.6 Query current retention setting
 
 ```bash
 docker exec butterfly-postgres psql -U app -d current_platform -c \

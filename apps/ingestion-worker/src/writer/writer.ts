@@ -64,21 +64,11 @@ export async function upsertDevice(
   sensorSn: string,
   deviceId: string,
 ): Promise<void> {
-  // First ensure the sensor exists and get its id
-  const sensorResult = await pool.query<{ id: string }>(
-    `SELECT id FROM sensors WHERE sensor_sn = $1`,
-    [sensorSn],
-  );
-  if (sensorResult.rows.length === 0) {
-    // Sensor should already exist from upsertSensor, but guard anyway
-    return;
-  }
-  const sensorId = sensorResult.rows[0].id;
-
+  // Single query: look up sensor and insert device in one round-trip
   await pool.query(
     `INSERT INTO devices (sensor_id, device_id)
-     VALUES ($1, $2)
+     SELECT id, $2 FROM sensors WHERE sensor_sn = $1
      ON CONFLICT (sensor_id, device_id) DO NOTHING`,
-    [sensorId, deviceId],
+    [sensorSn, deviceId],
   );
 }

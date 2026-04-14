@@ -74,10 +74,11 @@ export async function handleMessage(
     const pointCount = rows.length;
 
     // 5. Upsert sensor and devices (auto-discovery)
+    // Sensor first (devices FK → sensor), then all devices in parallel
     await upsertSensor(pool, payload.sn);
-    for (const device of payload.devices) {
-      await upsertDevice(pool, payload.sn, device.deviceId);
-    }
+    await Promise.all(
+      payload.devices.map((d) => upsertDevice(pool, payload.sn, d.deviceId)),
+    );
 
     // 6. Bulk insert measurements
     await bulkInsert(pool, rows);

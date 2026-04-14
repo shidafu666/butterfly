@@ -1,11 +1,30 @@
 import mqtt from 'mqtt';
 import { Pool } from 'pg';
+import pLimit from 'p-limit';
+import os from 'os';
 import { handleMessage } from './handler';
 
 export async function startMqttClient(pool: Pool): Promise<void> {
   const mqttUrl = process.env.MQTT_URL ?? 'mqtt://mosquitto:1883';
-  const clientId = process.env.MQTT_CLIENT_ID ?? 'current-platform-ingestion-worker';
-  const topic = process.env.MQTT_TOPIC ?? 'wlpca/+/data';
+
+  // Append hostname so each scaled replica gets a unique clientId.
+  // Without this, a second instance would kick the first off the broker.
+  const baseClientId = process.env.MQTT_CLIENT_ID ?? 'current-platform-ingestion-worker';
+  const clientId = `${baseClientId}-${os.hostname()}`;
+
+  // Shared subscription: all replicas join the same group so each message is
+  // delivered to exactly ONE worker (Mosquitto 2 round-robin dispatch).
+  // Format: $share/<group>/<topic>
+  // The message handler still receives the original topic (e.g. wlpca/SN/data),
+  // not the $share/... prefix, so parseSensorSnFromTopic works unchanged.
+  const rawTopic = process.env.MQTT_TOPIC ?? 'wlpca/+/data';
+  const sharedGroup = process.env.MQTT_SHARED_GROUP ?? 'ingestion-workers';
+  const topic = `$share/${sharedGroup}/${rawTopic}`;
+
+  // Limit how many messages are processed concurrently on this instance.
+  // Prevents a burst of 100+ simultaneous messages from exhausting the DB pool.
+  const concurrency = parseInt(process.env.INGESTION_CONCURRENCY ?? '10', 10);
+  const limit = pLimit(concurrency);
 
   const username = process.env.MQTT_USERNAME;
   const password = process.env.MQTT_PASSWORD;
@@ -20,12 +39,15 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   });
 
   client.on('connect', () => {
-    console.log(`[ingestion-worker] Connected to MQTT broker at ${mqttUrl}`);
+    console.log(
+      `[ingestion-worker] Connected to ${mqttUrl} ` +
+      `(clientId=${clientId}, concurrency=${concurrency})`,
+    );
     client.subscribe(topic, { qos: 1 }, (err) => {
       if (err) {
         console.error(`[ingestion-worker] Failed to subscribe to ${topic}:`, err);
       } else {
-        console.log(`[ingestion-worker] Subscribed to topic: ${topic}`);
+        console.log(`[ingestion-worker] Subscribed: ${topic}`);
       }
     });
   });
@@ -47,7 +69,11 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   });
 
   client.on('message', (topic: string, buffer: Buffer) => {
-    handleMessage(topic, buffer, pool).catch((err) => {
+    // Wrap in p-limit: if concurrency slots are full, this queues in memory
+    // until a slot opens.  The MQTT ACK (QoS 1) is sent by the library when
+    // the message is handed to this callback, so backpressure is handled by
+    // the broker's inflight window rather than lost ACKs.
+    limit(() => handleMessage(topic, buffer, pool)).catch((err) => {
       console.error('[ingestion-worker] Unhandled error in handleMessage:', err);
     });
   });

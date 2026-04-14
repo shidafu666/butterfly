@@ -94,7 +94,10 @@ services:
     build:
       context: .
       dockerfile: apps/ingestion-worker/Dockerfile
-    container_name: butterfly-ingestion-worker
+    # No container_name here: allows horizontal scaling via
+    #   docker compose up --scale ingestion-worker=3
+    # Each replica joins the $share/ingestion-workers/... group so every
+    # message is processed by exactly one worker (no duplicates).
     env_file:
       - .env
     environment:
@@ -103,6 +106,9 @@ services:
       MQTT_URL: mqtt://mosquitto:1883
       MQTT_TOPIC: wlpca/+/data
       MQTT_CLIENT_ID: current-platform-ingestion-worker
+      MQTT_SHARED_GROUP: ingestion-workers
+      INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-10}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
     depends_on:
       postgres:
         condition: service_healthy
