@@ -28,18 +28,18 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/zh-cn';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { SensorOverviewDto } from '@butterfly/shared-types';
 
 dayjs.extend(relativeTime);
-dayjs.locale('zh-cn');
 
 const { Text, Title } = Typography;
 
 function DeviceList() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const searchInput = useRef<InputRef>(null);
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
@@ -74,10 +74,10 @@ function DeviceList() {
       );
       setEditingId(null);
       setEditingValue('');
-      message.success('名称已保存');
+      message.success(t('devices.saveSuccess'));
     },
     onError: () => {
-      message.error('保存失败，请重试');
+      message.error(t('devices.saveFailed'));
     },
   });
 
@@ -127,7 +127,7 @@ function DeviceList() {
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
           ref={searchInput}
-          placeholder={`搜索 ${placeholder}`}
+          placeholder={`${t('devices.searchPrefix')}${placeholder}`}
           value={selectedKeys[0] as string}
           onChange={(e) =>
             setSelectedKeys(e.target.value ? [e.target.value] : [])
@@ -146,13 +146,13 @@ function DeviceList() {
             icon={<SearchOutlined />}
             size="small"
           >
-            搜索
+            {t('common.search')}
           </Button>
           <Button
             onClick={() => clearFilters && handleReset(clearFilters, confirm)}
             size="small"
           >
-            重置
+            {t('common.reset')}
           </Button>
         </Space>
       </div>
@@ -174,7 +174,14 @@ function DeviceList() {
   // ── CSV export ─────────────────────────────────────────────────────────────
   const exportCsv = () => {
     const rows = sensors ?? [];
-    const header = ['SN', '显示名称', '最近上报时间', '在线状态', '注册状态', '注册时间'];
+    const csvHeaders = [
+      'SN',
+      t('devices.displayName'),
+      t('devices.lastReport'),
+      t('devices.onlineStatus'),
+      t('devices.regStatus'),
+      t('devices.regTime'),
+    ];
     const lines = rows.map((r) =>
       [
         r.sensorSn,
@@ -189,7 +196,7 @@ function DeviceList() {
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(','),
     );
-    const csvContent = [header.join(','), ...lines].join('\n');
+    const csvContent = [csvHeaders.join(','), ...lines].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], {
       type: 'text/csv;charset=utf-8;',
     });
@@ -204,7 +211,7 @@ function DeviceList() {
   // ── Table columns ──────────────────────────────────────────────────────────
   const columns: TableColumnType<SensorOverviewDto>[] = [
     {
-      title: '传感器 SN',
+      title: t('devices.sensorSn'),
       dataIndex: 'sensorSn',
       key: 'sensorSn',
       width: 180,
@@ -217,11 +224,11 @@ function DeviceList() {
       ),
     },
     {
-      title: '显示名称',
+      title: t('devices.displayName'),
       dataIndex: 'displayName',
       key: 'displayName',
       width: 220,
-      ...getColumnSearchProps('displayName', '名称'),
+      ...getColumnSearchProps('displayName', t('devices.displayName')),
       render: (v: string | null, record: SensorOverviewDto) => {
         if (editingId === record.id) {
           return (
@@ -237,9 +244,9 @@ function DeviceList() {
                 }}
                 style={{ width: 130 }}
                 maxLength={128}
-                placeholder="输入名称"
+                placeholder={t('devices.namePlaceholder')}
               />
-              <Tooltip title="保存 (Enter)">
+              <Tooltip title={t('devices.saveTooltip')}>
                 <Button
                   type="text"
                   size="small"
@@ -249,7 +256,7 @@ function DeviceList() {
                   style={{ color: '#3fb950', padding: '0 4px' }}
                 />
               </Tooltip>
-              <Tooltip title="取消 (Esc)">
+              <Tooltip title={t('devices.cancelTooltip')}>
                 <Button
                   type="text"
                   size="small"
@@ -271,9 +278,9 @@ function DeviceList() {
                 fontStyle: v ? 'normal' : 'italic',
               }}
             >
-              {v ?? '未命名'}
+              {v ?? t('devices.unnamed')}
             </Text>
-            <Tooltip title="编辑名称">
+            <Tooltip title={t('devices.editName')}>
               <Button
                 type="text"
                 size="small"
@@ -288,7 +295,7 @@ function DeviceList() {
       },
     },
     {
-      title: '最近上报时间',
+      title: t('devices.lastReport'),
       dataIndex: 'lastReportTime',
       key: 'lastReportTime',
       width: 160,
@@ -311,12 +318,12 @@ function DeviceList() {
           </Tooltip>
         ) : (
           <Text type="secondary" style={{ fontSize: 12 }}>
-            从未上报
+            {t('devices.neverReported')}
           </Text>
         ),
     },
     {
-      title: '在线状态',
+      title: t('devices.onlineStatus'),
       dataIndex: 'isActive',
       key: 'isActive',
       width: 110,
@@ -339,7 +346,7 @@ function DeviceList() {
         ),
     },
     {
-      title: '注册状态',
+      title: t('devices.regStatus'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -355,7 +362,7 @@ function DeviceList() {
       ),
     },
     {
-      title: '注册时间',
+      title: t('devices.regTime'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 120,
@@ -375,8 +382,8 @@ function DeviceList() {
   if (error) {
     return (
       <Alert
-        message="加载设备清单失败"
-        description="请检查权限后重试。"
+        message={t('devices.loadFailed')}
+        description={t('common.checkPermission')}
         type="error"
         showIcon
       />
@@ -403,10 +410,10 @@ function DeviceList() {
       >
         <div>
           <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-            设备清单
+            {t('devices.title')}
           </Title>
           <Text style={{ color: '#8b949e', fontSize: 13 }}>
-            共 {total} 个传感器 · {activeCount} 个在线
+            {t('devices.subtitle', { total, active: activeCount })}
           </Text>
         </div>
         <Space>
@@ -416,14 +423,14 @@ function DeviceList() {
             loading={isLoading}
             style={{ color: '#8b949e' }}
           >
-            刷新
+            {t('common.refresh')}
           </Button>
           <Button
             icon={<DownloadOutlined />}
             onClick={exportCsv}
             disabled={!sensors?.length}
           >
-            导出 CSV
+            {t('devices.exportCsv')}
           </Button>
         </Space>
       </div>
@@ -443,9 +450,9 @@ function DeviceList() {
             defaultPageSize: 100,
             pageSizeOptions: [50, 100, 200],
             showSizeChanger: true,
-            showTotal: (t, range) => `${range[0]}-${range[1]} / 共 ${t} 条`,
+            showTotal: (t2, range) => `${range[0]}-${range[1]} / ${t('common.total', { count: t2 })}`,
           }}
-          locale={{ emptyText: '暂无设备' }}
+          locale={{ emptyText: t('devices.empty') }}
         />
       </Card>
     </>

@@ -24,9 +24,11 @@ import {
   MenuUnfoldOutlined,
   ThunderboltOutlined,
   RadarChartOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocale } from '@/contexts/LocaleContext';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -35,49 +37,50 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout, isAdmin, isAuditor } = useAuth();
+  const { t, locale, setLocale } = useLocale();
   const [collapsed, setCollapsed] = useState(false);
 
   const menuItems = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
-      label: '概览',
+      label: t('nav.overview'),
     },
     {
       key: '/current-data',
       icon: <LineChartOutlined />,
-      label: '电流数据',
+      label: t('nav.currentData'),
     },
     {
       key: '/exports',
       icon: <ExportOutlined />,
-      label: '导出任务',
+      label: t('nav.exports'),
     },
     ...(isAdmin || isAuditor
       ? [
           {
             key: 'admin',
             icon: <TeamOutlined />,
-            label: '系统管理',
+            label: t('nav.system'),
             children: [
               ...(isAdmin
                 ? [
                     {
                       key: '/admin/users',
                       icon: <TeamOutlined />,
-                      label: '用户管理',
+                      label: t('nav.users'),
                     },
                     {
                       key: '/admin/devices',
                       icon: <RadarChartOutlined />,
-                      label: '设备清单',
+                      label: t('nav.devices'),
                     },
                   ]
                 : []),
               {
                 key: '/admin/audit',
                 icon: <AuditOutlined />,
-                label: '审计日志',
+                label: t('nav.audit'),
               },
             ],
           },
@@ -110,7 +113,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: t('nav.logout'),
       danger: true,
     },
   ];
@@ -213,7 +216,25 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             style={{ color: '#8b949e', fontSize: 16 }}
           />
 
-          <Space>
+          <Space size={8}>
+            <Tooltip title={locale === 'zh' ? 'Switch to English' : '切换为中文'}>
+              <Button
+                type="text"
+                icon={<GlobalOutlined />}
+                onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
+                style={{
+                  color: '#8b949e',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                {locale === 'zh' ? 'EN' : '中'}
+              </Button>
+            </Tooltip>
+
             {user && (
               <Tooltip title={user.email}>
                 <Dropdown

@@ -16,6 +16,7 @@ import { MailOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/ico
 import { api } from '@/lib/api';
 import { setToken, isAuthenticated } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { LoginResponse } from '@butterfly/shared-types';
 
 const { Title, Text } = Typography;
@@ -25,6 +26,7 @@ const SSO_ENABLED = !!(process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID);
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { t } = useLocale();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
@@ -47,8 +49,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(
-        axiosErr.response?.data?.message ||
-          '登录失败，请检查邮箱和密码后重试。'
+        axiosErr.response?.data?.message || t('login.loginFailed')
       );
     } finally {
       setLoading(false);
@@ -74,7 +75,7 @@ export default function LoginPage() {
       setError(
         axiosErr.response?.data?.message ||
           axiosErr.message ||
-          'SSO 登录失败，请稍后重试。'
+          t('login.ssoFailed')
       );
     } finally {
       setSsoLoading(false);
@@ -122,7 +123,7 @@ export default function LoginPage() {
             Butterfly
           </Title>
           <Text style={{ color: '#8b949e', fontSize: 13 }}>
-            电流数据采集与可视化平台
+            {t('login.subtitle')}
           </Text>
         </div>
 
@@ -147,13 +148,13 @@ export default function LoginPage() {
           <Form.Item
             name="email"
             rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效的邮箱地址' },
+              { required: true, message: t('login.emailRequired') },
+              { type: 'email', message: t('login.emailInvalid') },
             ]}
           >
             <Input
               prefix={<MailOutlined style={{ color: '#8b949e' }} />}
-              placeholder="邮箱"
+              placeholder={t('login.emailPlaceholder')}
               autoComplete="email"
               style={{ background: '#0d1117', borderColor: '#30363d' }}
             />
@@ -161,12 +162,12 @@ export default function LoginPage() {
 
           <Form.Item
             name="password"
-            rules={[{ required: true, message: '请输入密码' }]}
+            rules={[{ required: true, message: t('login.passwordRequired') }]}
             style={{ marginBottom: 24 }}
           >
             <Input.Password
               prefix={<LockOutlined style={{ color: '#8b949e' }} />}
-              placeholder="密码"
+              placeholder={t('login.passwordPlaceholder')}
               autoComplete="current-password"
               style={{ background: '#0d1117', borderColor: '#30363d' }}
             />
@@ -180,7 +181,7 @@ export default function LoginPage() {
               block
               style={{ height: 44 }}
             >
-              登录
+              {t('login.submit')}
             </Button>
           </Form.Item>
         </Form>
@@ -188,7 +189,7 @@ export default function LoginPage() {
         {SSO_ENABLED && (
           <>
             <Divider style={{ borderColor: '#30363d', color: '#8b949e', fontSize: 12 }}>
-              或
+              {t('login.or')}
             </Divider>
             <Space direction="vertical" style={{ width: '100%' }}>
               <Button
@@ -203,7 +204,7 @@ export default function LoginPage() {
                   color: '#c9d1d9',
                 }}
               >
-                Microsoft SSO 登录
+                {t('login.ssoButton')}
               </Button>
             </Space>
           </>

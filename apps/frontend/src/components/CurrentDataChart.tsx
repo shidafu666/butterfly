@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import type { EChartsOption } from 'echarts';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { RawDataPoint, AggregatedDataPoint } from '@butterfly/shared-types';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -56,12 +57,14 @@ const DATA_ZOOM_SLIDER = {
 const GRID = { left: 60, right: 24, top: 40, bottom: 64 };
 
 export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Props) {
+  const { t } = useLocale();
+
   const option: EChartsOption = useMemo(() => {
     if (points.length === 0) {
       return {
         backgroundColor: '#141414',
         title: {
-          text: '暂无数据',
+          text: t('chart.noData'),
           left: 'center',
           top: 'center',
           textStyle: { color: '#8b949e', fontSize: 14 },
@@ -99,7 +102,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
         },
         yAxis: {
           type: 'value',
-          name: '电流 (A)',
+          name: t('chart.currentUnit'),
           nameTextStyle: { ...AXIS_LABEL_STYLE },
           axisLabel: {
             ...AXIS_LABEL_STYLE,
@@ -137,6 +140,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
     const avgData = aggPoints.map((p) => p.avgCurrent);
     const minData = aggPoints.map((p) => p.minCurrent);
     const maxData = aggPoints.map((p) => p.maxCurrent);
+    const avgLabel = t('chart.avg');
 
     return {
       backgroundColor: '#141414',
@@ -147,17 +151,17 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
           const arr = params as Array<{ seriesName: string; data: number; axisValue: string }>;
           if (!arr.length) return '';
           let html = `<div style="font-size:12px;margin-bottom:4px">${arr[0].axisValue}</div>`;
-          const avg = arr.find((p) => p.seriesName === '平均值');
+          const avg = arr.find((p) => p.seriesName === avgLabel);
           const min = arr.find((p) => p.seriesName === 'Min');
           const max = arr.find((p) => p.seriesName === 'Max');
-          if (avg) html += `<div>平均: <b>${formatValue(avg.data)}</b></div>`;
-          if (min) html += `<div>最小: <b>${formatValue(min.data)}</b></div>`;
-          if (max) html += `<div>最大: <b>${formatValue(max.data)}</b></div>`;
+          if (avg) html += `<div>${t('chart.avgLabel')}: <b>${formatValue(avg.data)}</b></div>`;
+          if (min) html += `<div>${t('chart.minLabel')}: <b>${formatValue(min.data)}</b></div>`;
+          if (max) html += `<div>${t('chart.maxLabel')}: <b>${formatValue(max.data)}</b></div>`;
           return html;
         },
       },
       legend: {
-        data: ['平均值', 'Min', 'Max'],
+        data: [avgLabel, 'Min', 'Max'],
         textStyle: { color: '#8b949e' },
         top: 8,
         right: 24,
@@ -173,7 +177,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
       },
       yAxis: {
         type: 'value',
-        name: '电流 (A)',
+        name: t('chart.currentUnit'),
         nameTextStyle: { ...AXIS_LABEL_STYLE },
         axisLabel: {
           ...AXIS_LABEL_STYLE,
@@ -185,7 +189,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
       dataZoom: [DATA_ZOOM_SLIDER, { type: 'inside' }],
       series: [
         {
-          name: '平均值',
+          name: avgLabel,
           type: 'line',
           data: avgData,
           symbol: 'none',
@@ -223,7 +227,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
         },
       ],
     };
-  }, [points, resolution, sensorSn, deviceId]);
+  }, [points, resolution, sensorSn, deviceId, t]);
 
   return (
     <div style={{ height: 360, width: '100%', overflow: 'hidden' }}>

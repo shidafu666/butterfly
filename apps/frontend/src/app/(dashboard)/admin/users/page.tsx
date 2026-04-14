@@ -34,6 +34,7 @@ import dayjs from 'dayjs';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { AdminUserDto, SensorDto } from '@butterfly/shared-types';
 
 const { Text, Title } = Typography;
@@ -59,6 +60,7 @@ function CreateUserModal({
 }) {
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
 
   const mutation = useMutation({
     mutationFn: async (values: {
@@ -71,13 +73,13 @@ function CreateUserModal({
       return res.data;
     },
     onSuccess: () => {
-      notifApi.success({ message: '用户创建成功' });
+      notifApi.success({ message: t('users.createSuccess') });
       form.resetFields();
       onSuccess();
       onClose();
     },
     onError: () => {
-      notifApi.error({ message: '创建用户失败' });
+      notifApi.error({ message: t('users.createFailed') });
     },
   });
 
@@ -85,13 +87,13 @@ function CreateUserModal({
     <>
       {contextHolder}
       <Modal
-        title="创建用户"
+        title={t('users.createUserTitle')}
         open={open}
         onCancel={onClose}
         onOk={() => form.submit()}
         confirmLoading={mutation.isPending}
-        okText="创建"
-        cancelText="取消"
+        okText={t('common.create')}
+        cancelText={t('common.cancel')}
         destroyOnClose
       >
         <Form
@@ -102,33 +104,33 @@ function CreateUserModal({
         >
           <Form.Item
             name="email"
-            label="邮箱"
+            label={t('common.email')}
             rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效邮箱' },
+              { required: true, message: t('users.emailRequired') },
+              { type: 'email', message: t('users.emailInvalid') },
             ]}
           >
             <Input placeholder="user@example.com" />
           </Form.Item>
-          <Form.Item name="name" label="姓名">
-            <Input placeholder="用户姓名" />
+          <Form.Item name="name" label={t('users.name')}>
+            <Input placeholder={t('users.namePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="password"
-            label="密码"
+            label={t('users.password')}
             rules={[
-              { required: true, message: '请输入密码' },
-              { min: 8, message: '密码至少 8 位' },
+              { required: true, message: t('users.passwordRequired') },
+              { min: 8, message: t('users.passwordMinLength') },
             ]}
           >
-            <Input.Password placeholder="至少 8 位" />
+            <Input.Password placeholder={t('users.passwordPlaceholder')} />
           </Form.Item>
           <Form.Item
             name="roleCode"
-            label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
+            label={t('users.role')}
+            rules={[{ required: true, message: t('users.roleRequired') }]}
           >
-            <Select placeholder="选择角色">
+            <Select placeholder={t('users.selectRole')}>
               {ROLES.map((r) => (
                 <Option key={r} value={r}>
                   {r}
@@ -159,6 +161,7 @@ function SensorPermissionDrawer({
 }) {
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
   const queryClient = useQueryClient();
 
   // All sensors in the system
@@ -189,12 +192,12 @@ function SensorPermissionDrawer({
       await api.post(`/admin/users/${user!.id}/sensors/batch`, values);
     },
     onSuccess: () => {
-      notifApi.success({ message: '传感器权限已分配' });
+      notifApi.success({ message: t('users.sensorAssigned') });
       form.resetFields();
       queryClient.invalidateQueries({ queryKey: ['user-sensors', user?.id] });
     },
     onError: () => {
-      notifApi.error({ message: '权限分配失败' });
+      notifApi.error({ message: t('users.permFailed') });
     },
   });
 
@@ -204,11 +207,11 @@ function SensorPermissionDrawer({
       await api.delete(`/admin/users/${user!.id}/sensors/${sensorSn}`);
     },
     onSuccess: (_, sensorSn) => {
-      notifApi.success({ message: `已移除 ${sensorSn}` });
+      notifApi.success({ message: t('users.sensorRevoked', { sn: sensorSn }) });
       queryClient.invalidateQueries({ queryKey: ['user-sensors', user?.id] });
     },
     onError: () => {
-      notifApi.error({ message: '移除失败' });
+      notifApi.error({ message: t('users.revokeFailed') });
     },
   });
 
@@ -224,7 +227,7 @@ function SensorPermissionDrawer({
       <Drawer
         title={
           <Space direction="vertical" size={0}>
-            <Text strong style={{ color: '#c9d1d9' }}>传感器权限管理</Text>
+            <Text strong style={{ color: '#c9d1d9' }}>{t('users.sensorPerms')}</Text>
             <Text style={{ color: '#8b949e', fontSize: 12, fontWeight: 'normal' }}>
               {user?.email}
             </Text>
@@ -238,13 +241,13 @@ function SensorPermissionDrawer({
       >
         {/* Already assigned */}
         <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
-          已分配传感器
+          {t('users.assignedSensors')}
         </Text>
         <div style={{ marginTop: 8, marginBottom: 24, minHeight: 40 }}>
           {permsLoading ? (
             <Spin size="small" />
           ) : currentPerms.length === 0 ? (
-            <Text style={{ color: '#484f58', fontSize: 13 }}>暂未分配任何传感器</Text>
+            <Text style={{ color: '#484f58', fontSize: 13 }}>{t('users.noSensors')}</Text>
           ) : (
             <Space direction="vertical" size={6} style={{ width: '100%' }}>
               {currentPerms.map((p) => (
@@ -265,17 +268,17 @@ function SensorPermissionDrawer({
                       {p.sensorSn}
                     </Text>
                     <Tag color={p.canView ? 'blue' : 'default'} style={{ fontSize: 11 }}>
-                      {p.canView ? '可查看' : '禁查看'}
+                      {p.canView ? t('users.canView') : t('users.cannotView')}
                     </Tag>
                     <Tag color={p.canExport ? 'cyan' : 'default'} style={{ fontSize: 11 }}>
-                      {p.canExport ? '可导出' : '禁导出'}
+                      {p.canExport ? t('users.canExport') : t('users.cannotExport')}
                     </Tag>
                   </Space>
                   <Popconfirm
-                    title="确认移除此传感器权限？"
+                    title={t('users.confirmRevoke')}
                     onConfirm={() => revokeMutation.mutate(p.sensorSn)}
-                    okText="移除"
-                    cancelText="取消"
+                    okText={t('users.revoke')}
+                    cancelText={t('common.cancel')}
                     okButtonProps={{ danger: true }}
                   >
                     <Button
@@ -296,10 +299,10 @@ function SensorPermissionDrawer({
 
         {/* Batch assign */}
         <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
-          批量分配 / 更新权限
+          {t('users.batchAssign')}
         </Text>
         <Text style={{ color: '#8b949e', fontSize: 12, display: 'block', marginBottom: 12 }}>
-          已分配的传感器重新选择后将覆盖原有权限
+          {t('users.batchNote')}
         </Text>
 
         <Form
@@ -310,14 +313,14 @@ function SensorPermissionDrawer({
         >
           <Form.Item
             name="sensorSns"
-            label="传感器"
-            rules={[{ required: true, message: '请选择至少一个传感器' }]}
+            label={t('common.sensor')}
+            rules={[{ required: true, message: t('users.sensorRequired') }]}
           >
             <Select
               mode="multiple"
               allowClear
               showSearch
-              placeholder="选择传感器（可多选）"
+              placeholder={t('users.sensorPlaceholder')}
               options={sensorOptions}
               filterOption={(input, option) =>
                 String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
@@ -326,7 +329,7 @@ function SensorPermissionDrawer({
                 <Space size={6}>
                   <span>{option.label}</span>
                   {assignedSns.has(option.value as string) && (
-                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>已分配</Tag>
+                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>{t('users.assigned')}</Tag>
                   )}
                 </Space>
               )}
@@ -334,11 +337,11 @@ function SensorPermissionDrawer({
           </Form.Item>
 
           <Space size={16} style={{ width: '100%' }}>
-            <Form.Item name="canView" label="查看权限" valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Switch checkedChildren="允许" unCheckedChildren="禁止" defaultChecked />
+            <Form.Item name="canView" label={t('users.viewPerm')} valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Switch checkedChildren={t('common.allow')} unCheckedChildren={t('common.deny')} defaultChecked />
             </Form.Item>
-            <Form.Item name="canExport" label="导出权限" valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Switch checkedChildren="允许" unCheckedChildren="禁止" />
+            <Form.Item name="canExport" label={t('users.exportPerm')} valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Switch checkedChildren={t('common.allow')} unCheckedChildren={t('common.deny')} />
             </Form.Item>
           </Space>
 
@@ -348,7 +351,7 @@ function SensorPermissionDrawer({
             loading={assignMutation.isPending}
             style={{ marginTop: 20, width: '100%' }}
           >
-            确认分配
+            {t('users.confirmAssign')}
           </Button>
         </Form>
       </Drawer>
@@ -367,6 +370,7 @@ function EditUserModal({
 }) {
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
 
   const mutation = useMutation({
     mutationFn: async (values: {
@@ -376,18 +380,17 @@ function EditUserModal({
       status?: string;
     }) => {
       if (!user) return;
-      // Only send password if provided
       const payload = { ...values };
       if (!payload.password) delete payload.password;
       await api.patch(`/admin/users/${user.id}`, payload);
     },
     onSuccess: () => {
-      notifApi.success({ message: '用户信息已更新' });
+      notifApi.success({ message: t('users.updateSuccess') });
       onSuccess();
       onClose();
     },
     onError: () => {
-      notifApi.error({ message: '更新失败，邮箱可能已被使用' });
+      notifApi.error({ message: t('users.updateFailed') });
     },
   });
 
@@ -395,13 +398,13 @@ function EditUserModal({
     <>
       {contextHolder}
       <Modal
-        title="编辑用户"
+        title={t('users.editUserTitle')}
         open={!!user}
         onCancel={onClose}
         onOk={() => form.submit()}
         confirmLoading={mutation.isPending}
-        okText="保存"
-        cancelText="取消"
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
         destroyOnClose
       >
         <Form
@@ -417,29 +420,29 @@ function EditUserModal({
         >
           <Form.Item
             name="email"
-            label="邮箱"
+            label={t('common.email')}
             rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效邮箱' },
+              { required: true, message: t('users.emailRequired') },
+              { type: 'email', message: t('users.emailInvalid') },
             ]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name="name" label="姓名">
-            <Input placeholder="用户姓名" />
+          <Form.Item name="name" label={t('users.name')}>
+            <Input placeholder={t('users.namePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="password"
-            label="新密码"
-            extra="留空则不修改密码"
-            rules={[{ min: 8, message: '密码至少 8 位' }]}
+            label={t('users.newPassword')}
+            extra={t('users.passwordHint')}
+            rules={[{ min: 8, message: t('users.passwordMinLength') }]}
           >
-            <Input.Password placeholder="留空则不修改" />
+            <Input.Password placeholder={t('users.passwordHintShort')} />
           </Form.Item>
-          <Form.Item name="status" label="状态">
+          <Form.Item name="status" label={t('common.status')}>
             <Select>
-              <Option value="active">活跃</Option>
-              <Option value="inactive">停用</Option>
+              <Option value="active">{t('status.active')}</Option>
+              <Option value="inactive">{t('status.inactive')}</Option>
             </Select>
           </Form.Item>
         </Form>
@@ -459,6 +462,7 @@ function AssignRoleModal({
 }) {
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
 
   const mutation = useMutation({
     mutationFn: async (values: { roleCode: string }) => {
@@ -466,13 +470,13 @@ function AssignRoleModal({
       await api.post(`/admin/users/${user.id}/roles`, values);
     },
     onSuccess: () => {
-      notifApi.success({ message: '角色已分配' });
+      notifApi.success({ message: t('users.roleAssigned') });
       form.resetFields();
       onSuccess();
       onClose();
     },
     onError: () => {
-      notifApi.error({ message: '角色分配失败' });
+      notifApi.error({ message: t('users.roleAssignFailed') });
     },
   });
 
@@ -480,13 +484,13 @@ function AssignRoleModal({
     <>
       {contextHolder}
       <Modal
-        title={`分配角色 - ${user?.email}`}
+        title={`${t('users.assignRoleTitle')} - ${user?.email}`}
         open={!!user}
         onCancel={onClose}
         onOk={() => form.submit()}
         confirmLoading={mutation.isPending}
-        okText="确认"
-        cancelText="取消"
+        okText={t('common.confirm')}
+        cancelText={t('common.cancel')}
         destroyOnClose
       >
         <Form
@@ -497,10 +501,10 @@ function AssignRoleModal({
         >
           <Form.Item
             name="roleCode"
-            label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
+            label={t('users.role')}
+            rules={[{ required: true, message: t('users.roleRequired') }]}
           >
-            <Select placeholder="选择要分配的角色">
+            <Select placeholder={t('users.selectRolePlaceholder')}>
               {ROLES.map((r) => (
                 <Option key={r} value={r}>
                   {r}
@@ -516,6 +520,7 @@ function AssignRoleModal({
 
 function UsersTable() {
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
@@ -538,44 +543,44 @@ function UsersTable() {
       await api.delete(`/admin/users/${userId}`);
     },
     onSuccess: () => {
-      notifApi.success({ message: '用户已删除' });
+      notifApi.success({ message: t('users.deleteSuccess') });
       invalidate();
     },
     onError: () => {
-      notifApi.error({ message: '删除失败' });
+      notifApi.error({ message: t('users.deleteFailed') });
     },
   });
 
   const confirmDelete = (record: AdminUserDto) => {
     Modal.confirm({
-      title: '确认删除用户？',
+      title: t('users.confirmDelete'),
       content: (
         <span>
-          将永久删除用户 <strong>{record.email}</strong>，此操作不可恢复。
+          {t('users.confirmDeletePre')}<strong>{record.email}</strong>{t('users.confirmDeletePost')}
         </span>
       ),
-      okText: '删除',
+      okText: t('common.delete'),
       okButtonProps: { danger: true },
-      cancelText: '取消',
+      cancelText: t('common.cancel'),
       onOk: () => deleteMutation.mutateAsync(record.id),
     });
   };
 
   const columns = [
     {
-      title: '邮箱',
+      title: t('common.email'),
       dataIndex: 'email',
       key: 'email',
       render: (v: string) => <Text>{v}</Text>,
     },
     {
-      title: '姓名',
+      title: t('users.name'),
       dataIndex: 'name',
       key: 'name',
       render: (v: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
-      title: '角色',
+      title: t('users.role'),
       dataIndex: 'roles',
       key: 'roles',
       render: (roles: string[]) =>
@@ -588,19 +593,21 @@ function UsersTable() {
             ))}
           </Space>
         ) : (
-          <Text type="secondary">无角色</Text>
+          <Text type="secondary">{t('users.noRoles')}</Text>
         ),
     },
     {
-      title: '状态',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => (
-        <Tag color={v === 'active' ? 'green' : 'red'}>{v === 'active' ? '活跃' : '停用'}</Tag>
+        <Tag color={v === 'active' ? 'green' : 'red'}>
+          {v === 'active' ? t('status.active') : t('status.inactive')}
+        </Tag>
       ),
     },
     {
-      title: '创建时间',
+      title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (v: string) => (
@@ -610,7 +617,7 @@ function UsersTable() {
       ),
     },
     {
-      title: '操作',
+      title: t('common.actions'),
       key: 'actions',
       render: (_: unknown, record: AdminUserDto) => {
         const isSelf = record.email === currentUser?.email;
@@ -621,26 +628,26 @@ function UsersTable() {
                 {
                   key: 'edit',
                   icon: <EditOutlined />,
-                  label: '编辑用户',
+                  label: t('users.editUserTitle'),
                   onClick: () => setEditUser(record),
                 },
                 {
                   key: 'role',
                   icon: <UserAddOutlined />,
-                  label: '分配角色',
+                  label: t('users.assignRole'),
                   onClick: () => setRoleUser(record),
                 },
                 {
                   key: 'sensor',
                   icon: <ApiOutlined />,
-                  label: '分配传感器',
+                  label: t('users.assignSensor'),
                   onClick: () => setSensorUser(record),
                 },
                 { type: 'divider' },
                 {
                   key: 'delete',
                   icon: <DeleteOutlined />,
-                  label: isSelf ? '无法删除自己' : '删除用户',
+                  label: isSelf ? t('users.cannotDeleteSelf') : t('common.delete') + ' ' + t('common.user'),
                   danger: !isSelf,
                   disabled: isSelf,
                   onClick: () => confirmDelete(record),
@@ -663,8 +670,8 @@ function UsersTable() {
   if (error) {
     return (
       <Alert
-        message="加载用户列表失败"
-        description="请检查权限后重试。"
+        message={t('users.loadFailed')}
+        description={t('common.checkPermission')}
         type="error"
         showIcon
       />
@@ -684,10 +691,10 @@ function UsersTable() {
       >
         <div>
           <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-            用户管理
+            {t('users.title')}
           </Title>
           <Text style={{ color: '#8b949e', fontSize: 13 }}>
-            管理平台用户、角色和传感器权限
+            {t('users.subtitle')}
           </Text>
         </div>
         <Button
@@ -695,7 +702,7 @@ function UsersTable() {
           icon={<PlusOutlined />}
           onClick={() => setCreateOpen(true)}
         >
-          创建用户
+          {t('users.createUser')}
         </Button>
       </div>
 
@@ -710,9 +717,9 @@ function UsersTable() {
           loading={isLoading}
           pagination={{
             pageSize: 20,
-            showTotal: (total) => `共 ${total} 位用户`,
+            showTotal: (total) => t('users.total', { count: total }),
           }}
-          locale={{ emptyText: '暂无用户' }}
+          locale={{ emptyText: t('users.empty') }}
         />
       </Card>
 

@@ -20,26 +20,42 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { AuditLogDto } from '@butterfly/shared-types';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const COMMON_ACTIONS: { value: string; label: string }[] = [
-  { value: 'LOGIN',                    label: 'LOGIN — 用户登录' },
-  { value: 'CREATE_USER',              label: 'CREATE_USER — 创建用户' },
-  { value: 'ASSIGN_ROLE',              label: 'ASSIGN_ROLE — 分配角色' },
-  { value: 'REMOVE_ROLE',              label: 'REMOVE_ROLE — 移除角色' },
-  { value: 'ASSIGN_SENSOR_PERMISSION', label: 'ASSIGN_SENSOR_PERMISSION — 授权传感器' },
-  { value: 'REVOKE_SENSOR_PERMISSION', label: 'REVOKE_SENSOR_PERMISSION — 撤销传感器权限' },
-  { value: 'CREATE_EXPORT',            label: 'CREATE_EXPORT — 创建导出任务' },
-  { value: 'DOWNLOAD_EXPORT',          label: 'DOWNLOAD_EXPORT — 下载导出文件' },
-  { value: 'QUERY_CURRENT_DATA',       label: 'QUERY_CURRENT_DATA — 查询电流数据' },
-  { value: 'UPDATE_SENSOR',            label: 'UPDATE_SENSOR — 更新传感器名称' },
-  { value: 'UPDATE_USER',              label: 'UPDATE_USER — 编辑用户信息' },
-  { value: 'DELETE_USER',              label: 'DELETE_USER — 删除用户' },
-];
+const ACTION_VALUES = [
+  'LOGIN',
+  'CREATE_USER',
+  'ASSIGN_ROLE',
+  'REMOVE_ROLE',
+  'ASSIGN_SENSOR_PERMISSION',
+  'REVOKE_SENSOR_PERMISSION',
+  'CREATE_EXPORT',
+  'DOWNLOAD_EXPORT',
+  'QUERY_CURRENT_DATA',
+  'UPDATE_SENSOR',
+  'UPDATE_USER',
+  'DELETE_USER',
+] as const;
+
+const ACTION_KEY_MAP: Record<string, string> = {
+  LOGIN:                    'audit.actions.login',
+  CREATE_USER:              'audit.actions.createUser',
+  ASSIGN_ROLE:              'audit.actions.assignRole',
+  REMOVE_ROLE:              'audit.actions.removeRole',
+  ASSIGN_SENSOR_PERMISSION: 'audit.actions.assignSensorPerm',
+  REVOKE_SENSOR_PERMISSION: 'audit.actions.revokeSensorPerm',
+  CREATE_EXPORT:            'audit.actions.createExport',
+  DOWNLOAD_EXPORT:          'audit.actions.downloadExport',
+  QUERY_CURRENT_DATA:       'audit.actions.queryCurrentData',
+  UPDATE_SENSOR:            'audit.actions.updateSensor',
+  UPDATE_USER:              'audit.actions.updateUser',
+  DELETE_USER:              'audit.actions.deleteUser',
+};
 
 const ACTION_COLOR: Record<string, string> = {
   LOGIN:                    'green',
@@ -65,12 +81,18 @@ interface AuditFilter {
 }
 
 function AuditTable() {
+  const { t } = useLocale();
   const [filter, setFilter] = useState<AuditFilter>({ page: 1, limit: 50 });
   const [actionFilter, setActionFilter] = useState<string>('');
   const [timeRange, setTimeRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [appliedFilter, setAppliedFilter] = useState<AuditFilter>({ page: 1, limit: 50 });
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const COMMON_ACTIONS = ACTION_VALUES.map((value) => ({
+    value,
+    label: `${value} — ${t(ACTION_KEY_MAP[value] as Parameters<typeof t>[0])}`,
+  }));
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ['audit-logs', appliedFilter],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -113,7 +135,7 @@ function AuditTable() {
 
   const columns = [
     {
-      title: '时间',
+      title: t('common.time'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
@@ -126,14 +148,14 @@ function AuditTable() {
       ),
     },
     {
-      title: '用户',
+      title: t('common.user'),
       dataIndex: 'userEmail',
       key: 'userEmail',
       render: (v: string | null) =>
-        v ? <Text style={{ fontSize: 13 }}>{v}</Text> : <Text type="secondary">系统</Text>,
+        v ? <Text style={{ fontSize: 13 }}>{v}</Text> : <Text type="secondary">{t('audit.system')}</Text>,
     },
     {
-      title: '操作',
+      title: t('common.action'),
       dataIndex: 'action',
       key: 'action',
       render: (v: string) => (
@@ -143,14 +165,14 @@ function AuditTable() {
       ),
     },
     {
-      title: '资源类型',
+      title: t('audit.resourceType'),
       dataIndex: 'resourceType',
       key: 'resourceType',
       render: (v: string | null) =>
         v ? <Tag>{v}</Tag> : <Text type="secondary">—</Text>,
     },
     {
-      title: '资源 ID',
+      title: t('audit.resourceId'),
       dataIndex: 'resourceId',
       key: 'resourceId',
       render: (v: string | null) =>
@@ -163,7 +185,7 @@ function AuditTable() {
         ),
     },
     {
-      title: '元数据',
+      title: t('audit.metadata'),
       dataIndex: 'metadata',
       key: 'metadata',
       render: (v: Record<string, unknown> | null) =>
@@ -188,8 +210,8 @@ function AuditTable() {
   if (error) {
     return (
       <Alert
-        message="加载审计日志失败"
-        description="请检查权限后重试。"
+        message={t('audit.loadFailed')}
+        description={t('common.checkPermission')}
         type="error"
         showIcon
       />
@@ -200,10 +222,10 @@ function AuditTable() {
     <>
       <div style={{ marginBottom: 24 }}>
         <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-          审计日志
+          {t('audit.title')}
         </Title>
         <Text style={{ color: '#8b949e', fontSize: 13 }}>
-          查看系统操作记录和安全事件
+          {t('audit.subtitle')}
         </Text>
       </div>
 
@@ -215,7 +237,7 @@ function AuditTable() {
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={8} md={6}>
             <Select
-              placeholder="操作类型"
+              placeholder={t('audit.actionType')}
               style={{ width: '100%' }}
               value={actionFilter || undefined}
               onChange={(v) => setActionFilter(v || '')}
@@ -236,9 +258,9 @@ function AuditTable() {
               value={timeRange}
               onChange={(v) => setTimeRange(v as [Dayjs, Dayjs] | null)}
               presets={[
-                { label: '今天', value: [dayjs().startOf('day'), dayjs()] },
-                { label: '最近 7 天', value: [dayjs().subtract(7, 'day'), dayjs()] },
-                { label: '最近 30 天', value: [dayjs().subtract(30, 'day'), dayjs()] },
+                { label: t('time.today'), value: [dayjs().startOf('day'), dayjs()] },
+                { label: t('time.last7d'), value: [dayjs().subtract(7, 'day'), dayjs()] },
+                { label: t('time.last30d'), value: [dayjs().subtract(30, 'day'), dayjs()] },
               ]}
             />
           </Col>
@@ -250,10 +272,10 @@ function AuditTable() {
                 icon={<SearchOutlined />}
                 onClick={handleSearch}
               >
-                查询
+                {t('common.query')}
               </Button>
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
-                重置
+                {t('common.reset')}
               </Button>
             </Space>
           </Col>
@@ -273,7 +295,7 @@ function AuditTable() {
             current: appliedFilter.page,
             pageSize: appliedFilter.limit,
             total,
-            showTotal: (t) => `共 ${t} 条记录`,
+            showTotal: (tot) => t('audit.total', { count: tot }),
             onChange: (page) => {
               const newFilter = { ...filter, page };
               setFilter(newFilter);
@@ -281,7 +303,7 @@ function AuditTable() {
             },
             showSizeChanger: false,
           }}
-          locale={{ emptyText: '暂无审计日志' }}
+          locale={{ emptyText: t('audit.empty') }}
           scroll={{ x: 800 }}
         />
       </Card>

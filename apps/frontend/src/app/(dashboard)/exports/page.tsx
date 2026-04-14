@@ -16,12 +16,11 @@ import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-desi
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/zh-cn';
 import { api } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { ExportJobDto } from '@butterfly/shared-types';
 
 dayjs.extend(relativeTime);
-dayjs.locale('zh-cn');
 
 const { Text, Title } = Typography;
 
@@ -30,13 +29,6 @@ const STATUS_COLOR: Record<string, string> = {
   processing: 'blue',
   completed: 'green',
   failed: 'red',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: '等待中',
-  processing: '处理中',
-  completed: '已完成',
-  failed: '失败',
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -48,6 +40,7 @@ function formatFileSize(bytes: number | null): string {
 
 export default function ExportsPage() {
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -105,26 +98,26 @@ export default function ExportsPage() {
       URL.revokeObjectURL(url);
     },
     onError: () => {
-      notifApi.error({ message: '下载失败，请稍后重试。' });
+      notifApi.error({ message: t('exports.downloadFailed') });
     },
   });
 
   const columns = [
     {
-      title: '传感器',
+      title: t('common.sensor'),
       dataIndex: 'sensorSn',
       key: 'sensorSn',
       render: (v: string) => <Text code>{v}</Text>,
     },
     {
-      title: '设备',
+      title: t('common.device'),
       dataIndex: 'deviceId',
       key: 'deviceId',
       render: (v: string | null) =>
-        v ? <Text code>{v}</Text> : <Text type="secondary">全部</Text>,
+        v ? <Text code>{v}</Text> : <Text type="secondary">{t('exports.allDevices')}</Text>,
     },
     {
-      title: '时间范围',
+      title: t('common.timeRange'),
       key: 'timeRange',
       render: (_: unknown, record: ExportJobDto) => (
         <Text style={{ color: '#8b949e', fontSize: 12 }}>
@@ -135,40 +128,40 @@ export default function ExportsPage() {
       ),
     },
     {
-      title: '分辨率',
+      title: t('common.resolution'),
       dataIndex: 'resolution',
       key: 'resolution',
       render: (v: string) => <Tag>{v}</Tag>,
     },
     {
-      title: '格式',
+      title: t('common.format'),
       dataIndex: 'format',
       key: 'format',
       render: (v: string) => <Tag color="cyan">{v.toUpperCase()}</Tag>,
     },
     {
-      title: '状态',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => (
-        <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag>
+        <Tag color={STATUS_COLOR[v] || 'default'}>{t(`status.${v}` as Parameters<typeof t>[0]) || v}</Tag>
       ),
     },
     {
-      title: '行数',
+      title: t('exports.rowCount'),
       dataIndex: 'rowCount',
       key: 'rowCount',
       render: (v: number | null) =>
         v != null ? v.toLocaleString() : <Text type="secondary">—</Text>,
     },
     {
-      title: '文件大小',
+      title: t('exports.fileSize'),
       dataIndex: 'fileSize',
       key: 'fileSize',
       render: (v: number | null) => formatFileSize(v),
     },
     {
-      title: '创建时间',
+      title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (v: string) => (
@@ -178,12 +171,12 @@ export default function ExportsPage() {
       ),
     },
     {
-      title: '操作',
+      title: t('common.actions'),
       key: 'actions',
       render: (_: unknown, record: ExportJobDto) => (
         <Space>
           <Tooltip
-            title={record.status !== 'completed' ? '任务未完成，无法下载' : '下载文件'}
+            title={record.status !== 'completed' ? t('exports.downloadDisabled') : t('exports.downloadFile')}
           >
             <Button
               type="link"
@@ -193,7 +186,7 @@ export default function ExportsPage() {
               loading={downloadMutation.isPending && downloadMutation.variables === record.id}
               onClick={() => downloadMutation.mutate(record.id)}
             >
-              下载
+              {t('exports.download')}
             </Button>
           </Tooltip>
         </Space>
@@ -214,13 +207,13 @@ export default function ExportsPage() {
       >
         <div>
           <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-            导出任务
+            {t('exports.title')}
           </Title>
           <Text style={{ color: '#8b949e', fontSize: 13 }}>
-            查看和下载数据导出任务
+            {t('exports.subtitle')}
             {hasActiveJobs && (
               <Tag color="blue" style={{ marginLeft: 8 }}>
-                5 秒自动刷新
+                {t('exports.autoRefresh')}
               </Tag>
             )}
           </Text>
@@ -231,7 +224,7 @@ export default function ExportsPage() {
             queryClient.invalidateQueries({ queryKey: ['exports'] });
           }}
         >
-          刷新
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -242,13 +235,14 @@ export default function ExportsPage() {
         style={{ marginBottom: 16, background: '#0d2137', border: '1px solid #1d4b6e' }}
         message={
           <Text style={{ color: '#79c0ff', fontSize: 13 }}>
-            导出任务自动清理提示
+            {t('exports.cleanupTitle')}
           </Text>
         }
         description={
           <Text style={{ color: '#8b949e', fontSize: 12 }}>
-            系统每小时自动清理 <strong style={{ color: '#c9d1d9' }}>24 小时</strong>前创建的导出任务及对应文件。
-            如需重新获取数据，请在「电流数据」页面重新创建导出任务。
+            {t('exports.cleanupDescPre')}
+            <strong style={{ color: '#c9d1d9' }}>{t('exports.cleanupDescHighlight')}</strong>
+            {t('exports.cleanupDescPost')}
           </Text>
         }
       />
@@ -264,16 +258,16 @@ export default function ExportsPage() {
           loading={isLoading}
           pagination={{
             pageSize: 20,
-            showTotal: (total) => `共 ${total} 条`,
+            showTotal: (total) => t('common.total', { count: total }),
             showSizeChanger: false,
           }}
-          locale={{ emptyText: '暂无导出任务' }}
+          locale={{ emptyText: t('exports.empty') }}
           scroll={{ x: 900 }}
           expandable={{
             expandedRowRender: (record: ExportJobDto) =>
               record.errorMessage ? (
                 <div style={{ padding: '8px 16px' }}>
-                  <Text type="danger">错误信息：{record.errorMessage}</Text>
+                  <Text type="danger">{t('exports.errorPrefix')}{record.errorMessage}</Text>
                 </div>
               ) : null,
             rowExpandable: (record: ExportJobDto) => !!record.errorMessage,

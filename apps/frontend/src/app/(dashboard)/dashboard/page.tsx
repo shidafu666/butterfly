@@ -11,12 +11,11 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/zh-cn';
 import { api } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
 import type { SensorDto, ExportJobDto } from '@butterfly/shared-types';
 
 dayjs.extend(relativeTime);
-dayjs.locale('zh-cn');
 
 const { Title, Text } = Typography;
 
@@ -25,13 +24,6 @@ const STATUS_COLOR: Record<string, string> = {
   processing: 'blue',
   completed: 'green',
   failed: 'red',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: '等待中',
-  processing: '处理中',
-  completed: '已完成',
-  failed: '失败',
 };
 
 function StatCard({
@@ -81,6 +73,8 @@ function StatCard({
 }
 
 export default function DashboardPage() {
+  const { t } = useLocale();
+
   const { data: sensors, isLoading: sensorsLoading } = useQuery({
     queryKey: ['sensors'],
     queryFn: async () => {
@@ -115,33 +109,33 @@ export default function DashboardPage() {
 
   const exportColumns = [
     {
-      title: '传感器',
+      title: t('common.sensor'),
       dataIndex: 'sensorSn',
       key: 'sensorSn',
       render: (v: string) => <Text code>{v}</Text>,
     },
     {
-      title: '设备',
+      title: t('common.device'),
       dataIndex: 'deviceId',
       key: 'deviceId',
       render: (v: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
-      title: '格式',
+      title: t('common.format'),
       dataIndex: 'format',
       key: 'format',
       render: (v: string) => <Tag>{v.toUpperCase()}</Tag>,
     },
     {
-      title: '状态',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => (
-        <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag>
+        <Tag color={STATUS_COLOR[v] || 'default'}>{t(`status.${v}` as Parameters<typeof t>[0]) || v}</Tag>
       ),
     },
     {
-      title: '创建时间',
+      title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (v: string) => (
@@ -156,17 +150,17 @@ export default function DashboardPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-          系统概览
+          {t('dashboard.title')}
         </Title>
         <Text style={{ color: '#8b949e', fontSize: 13 }}>
-          实时监控平台运行状态
+          {t('dashboard.subtitle')}
         </Text>
       </div>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <StatCard
-            title="传感器总数"
+            title={t('dashboard.sensors')}
             value={sensors?.length ?? 0}
             icon={<ApiOutlined />}
             loading={sensorsLoading}
@@ -174,7 +168,7 @@ export default function DashboardPage() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <StatCard
-            title="设备总数"
+            title={t('dashboard.devices')}
             value={deviceCounts ?? 0}
             icon={<AppstoreOutlined />}
             loading={sensorsLoading}
@@ -182,7 +176,7 @@ export default function DashboardPage() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <StatCard
-            title="导出任务数"
+            title={t('dashboard.exports')}
             value={exports?.length ?? 0}
             icon={<FileOutlined />}
             loading={exportsLoading}
@@ -190,7 +184,7 @@ export default function DashboardPage() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <StatCard
-            title="活跃传感器"
+            title={t('dashboard.activeSensors')}
             value={sensors?.filter((s) => s.status === 'active').length ?? 0}
             icon={<ClockCircleOutlined />}
             loading={sensorsLoading}
@@ -201,9 +195,9 @@ export default function DashboardPage() {
       <Card
         title={
           <Space>
-            <Text style={{ color: '#c9d1d9' }}>最近导出任务</Text>
+            <Text style={{ color: '#c9d1d9' }}>{t('dashboard.recentExports')}</Text>
             <Text style={{ color: '#484f58', fontSize: 12, fontWeight: 'normal' }}>
-              · 仅保留 24 小时内
+              {t('dashboard.retentionNote')}
             </Text>
           </Space>
         }
@@ -216,7 +210,7 @@ export default function DashboardPage() {
           rowKey="id"
           loading={exportsLoading}
           pagination={false}
-          locale={{ emptyText: '暂无导出任务' }}
+          locale={{ emptyText: t('exports.empty') }}
           style={{ background: 'transparent' }}
         />
       </Card>

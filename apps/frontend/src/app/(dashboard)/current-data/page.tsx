@@ -28,6 +28,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 import { api } from '@/lib/api';
 import { CurrentDataChart } from '@/components/CurrentDataChart';
+import { useLocale } from '@/contexts/LocaleContext';
 import type {
   SensorDto,
   DeviceDto,
@@ -55,6 +56,7 @@ interface QueryState {
 
 export default function CurrentDataPage() {
   const [notifApi, contextHolder] = notification.useNotification();
+  const { t } = useLocale();
 
   const [selectedSensor, setSelectedSensor] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
@@ -87,8 +89,6 @@ export default function CurrentDataPage() {
   });
 
   // Auto-select the first device when the device list loads for a new sensor.
-  // Only fires when `devices` itself changes (i.e. sensor switch), so it does
-  // not override the user's manual device selection or clear action.
   useEffect(() => {
     if (devices.length > 0) {
       setSelectedDevice(devices[0].deviceId);
@@ -158,13 +158,13 @@ export default function CurrentDataPage() {
     },
     onSuccess: () => {
       notifApi.success({
-        message: '导出任务已创建',
-        description: '任务将在后台处理，完成后可在"导出任务"页面下载。',
+        message: t('currentData.exportCreated'),
+        description: t('currentData.exportCreatedDesc'),
       });
       setExportModalOpen(false);
     },
     onError: () => {
-      notifApi.error({ message: '创建导出任务失败' });
+      notifApi.error({ message: t('currentData.exportFailed') });
     },
   });
 
@@ -189,46 +189,46 @@ export default function CurrentDataPage() {
   const tableColumns = isAgg
     ? [
         {
-          title: '时间',
+          title: t('common.time'),
           dataIndex: 'timestamp',
           key: 'timestamp',
           render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm:ss'),
           width: 180,
         },
         {
-          title: '平均电流 (A)',
+          title: t('currentData.avgCurrent'),
           dataIndex: 'avgCurrent',
           key: 'avgCurrent',
           render: (v: number) => v?.toFixed(4),
         },
         {
-          title: '最小电流 (A)',
+          title: t('currentData.minCurrent'),
           dataIndex: 'minCurrent',
           key: 'minCurrent',
           render: (v: number) => v?.toFixed(4),
         },
         {
-          title: '最大电流 (A)',
+          title: t('currentData.maxCurrent'),
           dataIndex: 'maxCurrent',
           key: 'maxCurrent',
           render: (v: number) => v?.toFixed(4),
         },
         {
-          title: '样本数',
+          title: t('currentData.sampleCount'),
           dataIndex: 'sampleCount',
           key: 'sampleCount',
         },
       ]
     : [
         {
-          title: '时间',
+          title: t('common.time'),
           dataIndex: 'timestamp',
           key: 'timestamp',
           render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm:ss.SSS'),
           width: 220,
         },
         {
-          title: '电流值 (A)',
+          title: t('currentData.currentValue'),
           dataIndex: 'currentValue',
           key: 'currentValue',
           render: (v: number) => v?.toFixed(4),
@@ -242,10 +242,10 @@ export default function CurrentDataPage() {
       {contextHolder}
       <div style={{ marginBottom: 24 }}>
         <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
-          电流数据查询
+          {t('currentData.title')}
         </Title>
         <Text style={{ color: '#8b949e', fontSize: 13 }}>
-          查询并可视化传感器电流历史数据
+          {t('currentData.subtitle')}
         </Text>
       </div>
 
@@ -257,7 +257,7 @@ export default function CurrentDataPage() {
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="选择或搜索传感器 SN"
+              placeholder={t('currentData.selectSensor')}
               style={{ width: '100%' }}
               value={selectedSensor || undefined}
               loading={sensorsLoading}
@@ -286,7 +286,7 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="选择设备（可选）"
+              placeholder={t('currentData.selectDevice')}
               style={{ width: '100%' }}
               value={selectedDevice || undefined}
               loading={devicesLoading}
@@ -309,10 +309,10 @@ export default function CurrentDataPage() {
               value={timeRange}
               onChange={(v) => setTimeRange(v as [Dayjs, Dayjs] | null)}
               presets={[
-                { label: '最近 1 小时', value: [dayjs().subtract(1, 'hour'), dayjs()] },
-                { label: '最近 6 小时', value: [dayjs().subtract(6, 'hour'), dayjs()] },
-                { label: '最近 24 小时', value: [dayjs().subtract(24, 'hour'), dayjs()] },
-                { label: '最近 7 天', value: [dayjs().subtract(7, 'day'), dayjs()] },
+                { label: t('time.last1h'), value: [dayjs().subtract(1, 'hour'), dayjs()] },
+                { label: t('time.last6h'), value: [dayjs().subtract(6, 'hour'), dayjs()] },
+                { label: t('time.last24h'), value: [dayjs().subtract(24, 'hour'), dayjs()] },
+                { label: t('time.last7d'), value: [dayjs().subtract(7, 'day'), dayjs()] },
               ]}
             />
           </Col>
@@ -323,10 +323,10 @@ export default function CurrentDataPage() {
               value={resolution}
               onChange={(v) => setResolution(v as Resolution)}
             >
-              <Option value="auto">自动</Option>
-              <Option value="raw">原始</Option>
-              <Option value="1m">1 分钟</Option>
-              <Option value="1h">1 小时</Option>
+              <Option value="auto">{t('currentData.resAuto')}</Option>
+              <Option value="raw">{t('currentData.resRaw')}</Option>
+              <Option value="1m">{t('currentData.res1m')}</Option>
+              <Option value="1h">{t('currentData.res1h')}</Option>
             </Select>
           </Col>
 
@@ -339,10 +339,10 @@ export default function CurrentDataPage() {
                 loading={dataLoading}
                 disabled={!selectedSensor || !timeRange}
               >
-                查询
+                {t('common.query')}
               </Button>
               {queryState && (
-                <Tooltip title="刷新">
+                <Tooltip title={t('common.refresh')}>
                   <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
                 </Tooltip>
               )}
@@ -353,8 +353,8 @@ export default function CurrentDataPage() {
 
       {dataError && (
         <Alert
-          message="查询失败"
-          description="数据加载出错，请检查参数后重试。"
+          message={t('currentData.queryFailed')}
+          description={t('currentData.queryFailedDesc')}
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
@@ -365,10 +365,10 @@ export default function CurrentDataPage() {
       {summary && (
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
           {[
-            { title: '最小值', value: summary.min != null ? `${summary.min.toFixed(4)} A` : '—' },
-            { title: '最大值', value: summary.max != null ? `${summary.max.toFixed(4)} A` : '—' },
-            { title: '平均值', value: summary.avg != null ? `${summary.avg.toFixed(4)} A` : '—' },
-            { title: '数据点数', value: summary.count.toLocaleString() },
+            { title: t('currentData.min'), value: summary.min != null ? `${summary.min.toFixed(4)} A` : '—' },
+            { title: t('currentData.max'), value: summary.max != null ? `${summary.max.toFixed(4)} A` : '—' },
+            { title: t('currentData.avg'), value: summary.avg != null ? `${summary.avg.toFixed(4)} A` : '—' },
+            { title: t('currentData.count'), value: summary.count.toLocaleString() },
           ].map((item) => (
             <Col xs={12} sm={6} key={item.title}>
               <Card
@@ -400,7 +400,7 @@ export default function CurrentDataPage() {
                 </Text>
                 <Tag>{currentData.resolution}</Tag>
                 <Text style={{ color: '#8b949e', fontSize: 12 }}>
-                  共 {points.length} 个数据点
+                  {t('currentData.pointCount', { count: points.length })}
                 </Text>
               </Space>
             }
@@ -411,7 +411,7 @@ export default function CurrentDataPage() {
                 onClick={() => setExportModalOpen(true)}
                 disabled={!queryState}
               >
-                导出
+                {t('common.export')}
               </Button>
             }
           >
@@ -425,7 +425,7 @@ export default function CurrentDataPage() {
 
           {/* Data Table */}
           <Card
-            title={<Text style={{ color: '#c9d1d9' }}>数据明细</Text>}
+            title={<Text style={{ color: '#c9d1d9' }}>{t('currentData.dataDetail')}</Text>}
             style={{ background: '#161b22', border: '1px solid #30363d' }}
             bodyStyle={{ padding: 0 }}
           >
@@ -442,9 +442,9 @@ export default function CurrentDataPage() {
                 onShowSizeChange: (_, size) => { setPageSize(size); setCurrentPage(1); },
                 showSizeChanger: true,
                 pageSizeOptions: [20, 50, 100],
-                showTotal: (total) => `共 ${total} 条`,
+                showTotal: (total) => t('common.total', { count: total }),
               }}
-              locale={{ emptyText: '无数据' }}
+              locale={{ emptyText: t('currentData.noData') }}
             />
           </Card>
         </>
@@ -452,16 +452,16 @@ export default function CurrentDataPage() {
 
       {/* Export Modal */}
       <Modal
-        title="创建导出任务"
+        title={t('currentData.createExport')}
         open={exportModalOpen}
         onCancel={() => setExportModalOpen(false)}
         onOk={handleExport}
         confirmLoading={exportMutation.isPending}
-        okText="创建"
-        cancelText="取消"
+        okText={t('common.create')}
+        cancelText={t('common.cancel')}
       >
         <Form layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item label="导出格式">
+          <Form.Item label={t('currentData.exportFormat')}>
             <Select value={exportFormat} onChange={(v) => setExportFormat(v)}>
               <Option value="csv">CSV</Option>
               <Option value="log">LOG</Option>
@@ -469,16 +469,16 @@ export default function CurrentDataPage() {
           </Form.Item>
           {queryState && (
             <>
-              <Form.Item label="传感器">
+              <Form.Item label={t('common.sensor')}>
                 <Text code>{queryState.sensorSn}</Text>
               </Form.Item>
-              <Form.Item label="时间范围">
+              <Form.Item label={t('common.timeRange')}>
                 <Text style={{ color: '#8b949e', fontSize: 12 }}>
                   {dayjs(queryState.startTime).format('YYYY-MM-DD HH:mm')} —{' '}
                   {dayjs(queryState.endTime).format('YYYY-MM-DD HH:mm')}
                 </Text>
               </Form.Item>
-              <Form.Item label="分辨率">
+              <Form.Item label={t('common.resolution')}>
                 <Tag>{resolvedResolution}</Tag>
               </Form.Item>
             </>
