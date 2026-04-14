@@ -66,7 +66,7 @@ export default function ExportsPage() {
     if (hasActiveJobs) {
       intervalRef.current = setInterval(() => {
         refetch();
-      }, 5000);
+      }, 1000);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);

@@ -58,7 +58,7 @@ export function ExportJobNotifier() {
     refetchInterval: (query) => {
       const data = (query.state.data as ExportJobDto[] | undefined) ?? [];
       return data.some((j) => j.status === 'pending' || j.status === 'processing')
-        ? 5000
+        ? 1000
         : false;
     },
   });
