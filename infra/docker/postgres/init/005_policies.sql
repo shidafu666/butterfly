@@ -14,6 +14,13 @@ SELECT add_continuous_aggregate_policy('current_1m',
 SELECT add_continuous_aggregate_policy('current_1h',
   start_offset      => INTERVAL '90 days',
   end_offset        => INTERVAL '1 hour',
+  schedule_interval => INTERVAL '1 minute',
+  if_not_exists     => TRUE
+);
+
+SELECT add_continuous_aggregate_policy('current_1d',
+  start_offset      => INTERVAL '3 years',
+  end_offset        => INTERVAL '1 day',
   schedule_interval => INTERVAL '1 hour',
   if_not_exists     => TRUE
 );

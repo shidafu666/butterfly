@@ -44,7 +44,7 @@ const { RangePicker } = DatePicker;
 const { Text, Title } = Typography;
 const { Option } = Select;
 
-type Resolution = 'auto' | 'raw' | '1m' | '1h';
+type Resolution = 'auto' | 'raw' | '1m' | '1h' | '1d';
 
 interface QueryState {
   sensorSn: string;
@@ -168,8 +168,16 @@ export default function CurrentDataPage() {
     },
   });
 
-  // The resolved resolution from the last query response (always 'raw' | '1m' | '1h')
-  const resolvedResolution = (currentData?.resolution ?? 'raw') as 'raw' | '1m' | '1h';
+  // The resolved resolution from the last query response (always 'raw' | '1m' | '1h' | '1d')
+  const resolvedResolution = (currentData?.resolution ?? 'raw') as 'raw' | '1m' | '1h' | '1d';
+
+  const resolutionLabel: Record<string, string> = {
+    auto: t('currentData.resAuto'),
+    raw:  t('currentData.resRaw'),
+    '1m': t('currentData.res1m'),
+    '1h': t('currentData.res1h'),
+    '1d': t('currentData.res1d'),
+  };
 
   const handleExport = () => {
     if (!queryState) return;
@@ -317,17 +325,23 @@ export default function CurrentDataPage() {
             />
           </Col>
 
-          <Col xs={24} sm={10} md={3}>
-            <Select
-              style={{ width: '100%' }}
-              value={resolution}
-              onChange={(v) => setResolution(v as Resolution)}
-            >
-              <Option value="auto">{t('currentData.resAuto')}</Option>
-              <Option value="raw">{t('currentData.resRaw')}</Option>
-              <Option value="1m">{t('currentData.res1m')}</Option>
-              <Option value="1h">{t('currentData.res1h')}</Option>
-            </Select>
+          <Col xs={24} sm={10} md={4}>
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Text style={{ color: '#8b949e', fontSize: 12 }}>
+                {t('currentData.resolutionLabel')}
+              </Text>
+              <Select
+                style={{ width: '100%' }}
+                value={resolution}
+                onChange={(v) => setResolution(v as Resolution)}
+              >
+                <Option value="auto">{t('currentData.resAuto')}</Option>
+                <Option value="raw">{t('currentData.resRaw')}</Option>
+                <Option value="1m">{t('currentData.res1m')}</Option>
+                <Option value="1h">{t('currentData.res1h')}</Option>
+                <Option value="1d">{t('currentData.res1d')}</Option>
+              </Select>
+            </Space>
           </Col>
 
           <Col xs={24} sm={24} md={3}>
@@ -398,7 +412,7 @@ export default function CurrentDataPage() {
                   {selectedSensor}
                   {selectedDevice ? ` / ${selectedDevice}` : ''}
                 </Text>
-                <Tag>{currentData.resolution}</Tag>
+                <Tag>{resolutionLabel[currentData.resolution] ?? currentData.resolution}</Tag>
                 <Text style={{ color: '#8b949e', fontSize: 12 }}>
                   {t('currentData.pointCount', { count: points.length })}
                 </Text>
@@ -479,7 +493,7 @@ export default function CurrentDataPage() {
                 </Text>
               </Form.Item>
               <Form.Item label={t('common.resolution')}>
-                <Tag>{resolvedResolution}</Tag>
+                <Tag>{resolutionLabel[resolvedResolution] ?? resolvedResolution}</Tag>
               </Form.Item>
             </>
           )}
