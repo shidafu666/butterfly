@@ -122,42 +122,34 @@ export default function ExportsPage() {
   }, [sensors]);
 
   // ── Job completion notifications ────────────────────────────────────────────
-  const prevStatusesRef = useRef<Record<string, string> | null>(null);
+  // Use a time-window approach so we catch jobs that finished before the page
+  // loaded (not just mid-session transitions). notifiedJobIdsRef prevents
+  // duplicate toasts across re-renders.
+  const notifiedJobIdsRef = useRef<Set<string>>(new Set());
+  const NOTIFY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
   useEffect(() => {
     if (jobs.length === 0) return;
+    const now = Date.now();
 
-    const current: Record<string, string> = {};
-    jobs.forEach((j) => { current[j.id] = j.status; });
+    jobs.forEach((j) => {
+      if (notifiedJobIdsRef.current.has(j.id)) return;
+      if (j.status !== 'completed' && j.status !== 'failed') return;
+      if (!j.completedAt) return;
+      if (now - new Date(j.completedAt).getTime() > NOTIFY_WINDOW_MS) return;
 
-    if (prevStatusesRef.current !== null) {
-      const prev = prevStatusesRef.current;
-      jobs.forEach((j) => {
-        const prevStatus = prev[j.id];
-        if (!prevStatus || prevStatus === j.status) return;
-        if (prevStatus !== 'pending' && prevStatus !== 'processing') return;
+      notifiedJobIdsRef.current.add(j.id);
 
-        const label = sensorDisplayMap[j.sensorSn]
-          ? `${j.sensorSn} (${sensorDisplayMap[j.sensorSn]})`
-          : j.sensorSn;
+      const label = sensorDisplayMap[j.sensorSn]
+        ? `${j.sensorSn} (${sensorDisplayMap[j.sensorSn]})`
+        : j.sensorSn;
 
-        if (j.status === 'completed') {
-          notifApi.success({
-            message: t('exports.jobCompleted'),
-            description: label,
-            duration: 8,
-          });
-        } else if (j.status === 'failed') {
-          notifApi.error({
-            message: t('exports.jobFailed'),
-            description: label,
-            duration: 8,
-          });
-        }
-      });
-    }
-
-    prevStatusesRef.current = current;
+      if (j.status === 'completed') {
+        notifApi.success({ message: t('exports.jobCompleted'), description: label, duration: 8 });
+      } else {
+        notifApi.error({ message: t('exports.jobFailed'), description: label, duration: 8 });
+      }
+    });
   }, [jobs, sensorDisplayMap, notifApi, t]);
 
   // ── Column search helpers ───────────────────────────────────────────────────
