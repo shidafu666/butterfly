@@ -235,4 +235,4 @@ To change the default for fresh deployments, edit `INTERVAL '30 days'` in `infra
 
 ## License
 
-MIT
+GPL-3.0
