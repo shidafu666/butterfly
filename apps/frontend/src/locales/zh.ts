@@ -82,6 +82,9 @@ export const zh = {
   currentData: {
     title: '电流数据查询',
     subtitle: '查询并可视化传感器电流历史数据',
+    sensorLabel: '传感器',
+    deviceLabel: '设备',
+    timeRangeLabel: '时间范围',
     selectSensor: '选择或搜索传感器 SN',
     selectDevice: '选择设备（可选）',
     resolutionLabel: '时间分辨率',

@@ -262,74 +262,81 @@ export default function CurrentDataPage() {
         style={{ background: '#161b22', border: '1px solid #30363d', marginBottom: 16 }}
         bodyStyle={{ padding: '16px 20px' }}
       >
-        <Row gutter={[12, 12]} align="middle">
+        <Row gutter={[12, 16]} align="top">
           <Col xs={24} sm={12} md={6}>
-            <Select
-              placeholder={t('currentData.selectSensor')}
-              style={{ width: '100%' }}
-              value={selectedSensor || undefined}
-              loading={sensorsLoading}
-              onChange={(v) => {
-                setSelectedSensor(v);
-                setSelectedDevice('');
-              }}
-              allowClear
-              showSearch
-              filterOption={(input, option) =>
-                String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {sensors.map((s) => (
-                <Option key={s.sensorSn} value={s.sensorSn}>
-                  <span style={{ fontFamily: 'monospace' }}>{s.sensorSn}</span>
-                  {s.displayName && (
-                    <span style={{ color: '#8b949e', marginLeft: 8, fontSize: 12 }}>
-                      {s.displayName}
-                    </span>
-                  )}
-                </Option>
-              ))}
-            </Select>
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.sensorLabel')}</Text>
+              <Select
+                placeholder={t('currentData.selectSensor')}
+                style={{ width: '100%' }}
+                value={selectedSensor || undefined}
+                loading={sensorsLoading}
+                onChange={(v) => {
+                  setSelectedSensor(v);
+                  setSelectedDevice('');
+                }}
+                allowClear
+                showSearch
+                filterOption={(input, option) =>
+                  String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {sensors.map((s) => (
+                  <Option key={s.sensorSn} value={s.sensorSn}>
+                    <span style={{ fontFamily: 'monospace' }}>{s.sensorSn}</span>
+                    {s.displayName && (
+                      <span style={{ color: '#8b949e', marginLeft: 8, fontSize: 12 }}>
+                        {s.displayName}
+                      </span>
+                    )}
+                  </Option>
+                ))}
+              </Select>
+            </Space>
           </Col>
 
-          <Col xs={24} sm={12} md={5}>
-            <Select
-              placeholder={t('currentData.selectDevice')}
-              style={{ width: '100%' }}
-              value={selectedDevice || undefined}
-              loading={devicesLoading}
-              onChange={(v) => setSelectedDevice(v || '')}
-              disabled={!selectedSensor}
-              allowClear
-            >
-              {devices.map((d) => (
-                <Option key={d.deviceId} value={d.deviceId}>
-                  {d.displayName || d.deviceId}
-                </Option>
-              ))}
-            </Select>
+          <Col xs={24} sm={12} md={4}>
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.deviceLabel')}</Text>
+              <Select
+                placeholder={t('currentData.selectDevice')}
+                style={{ width: '100%' }}
+                value={selectedDevice || undefined}
+                loading={devicesLoading}
+                onChange={(v) => setSelectedDevice(v || '')}
+                disabled={!selectedSensor}
+                allowClear
+              >
+                {devices.map((d) => (
+                  <Option key={d.deviceId} value={d.deviceId}>
+                    {d.displayName || d.deviceId}
+                  </Option>
+                ))}
+              </Select>
+            </Space>
           </Col>
 
           <Col xs={24} sm={14} md={7}>
-            <RangePicker
-              showTime
-              style={{ width: '100%' }}
-              value={timeRange}
-              onChange={(v) => setTimeRange(v as [Dayjs, Dayjs] | null)}
-              presets={[
-                { label: t('time.last1h'), value: [dayjs().subtract(1, 'hour'), dayjs()] },
-                { label: t('time.last6h'), value: [dayjs().subtract(6, 'hour'), dayjs()] },
-                { label: t('time.last24h'), value: [dayjs().subtract(24, 'hour'), dayjs()] },
-                { label: t('time.last7d'), value: [dayjs().subtract(7, 'day'), dayjs()] },
-              ]}
-            />
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.timeRangeLabel')}</Text>
+              <RangePicker
+                showTime
+                style={{ width: '100%' }}
+                value={timeRange}
+                onChange={(v) => setTimeRange(v as [Dayjs, Dayjs] | null)}
+                presets={[
+                  { label: t('time.last1h'), value: [dayjs().subtract(1, 'hour'), dayjs()] },
+                  { label: t('time.last6h'), value: [dayjs().subtract(6, 'hour'), dayjs()] },
+                  { label: t('time.last24h'), value: [dayjs().subtract(24, 'hour'), dayjs()] },
+                  { label: t('time.last7d'), value: [dayjs().subtract(7, 'day'), dayjs()] },
+                ]}
+              />
+            </Space>
           </Col>
 
           <Col xs={24} sm={10} md={4}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: '#8b949e', fontSize: 12 }}>
-                {t('currentData.resolutionLabel')}
-              </Text>
+              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.resolutionLabel')}</Text>
               <Select
                 style={{ width: '100%' }}
                 value={resolution}
@@ -345,21 +352,24 @@ export default function CurrentDataPage() {
           </Col>
 
           <Col xs={24} sm={24} md={3}>
-            <Space>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={handleQuery}
-                loading={dataLoading}
-                disabled={!selectedSensor || !timeRange}
-              >
-                {t('common.query')}
-              </Button>
-              {queryState && (
-                <Tooltip title={t('common.refresh')}>
-                  <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
-                </Tooltip>
-              )}
+            <Space direction="vertical" size={2}>
+              <Text style={{ color: 'transparent', fontSize: 12, userSelect: 'none' }}>{'.'}</Text>
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<SearchOutlined />}
+                  onClick={handleQuery}
+                  loading={dataLoading}
+                  disabled={!selectedSensor || !timeRange}
+                >
+                  {t('common.query')}
+                </Button>
+                {queryState && (
+                  <Tooltip title={t('common.refresh')}>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
+                  </Tooltip>
+                )}
+              </Space>
             </Space>
           </Col>
         </Row>

@@ -84,6 +84,9 @@ export const en: Translations = {
   currentData: {
     title: 'Current Data Query',
     subtitle: 'Query and visualize sensor current history',
+    sensorLabel: 'Sensor',
+    deviceLabel: 'Device',
+    timeRangeLabel: 'Time Range',
     selectSensor: 'Select or search sensor SN',
     selectDevice: 'Select device (optional)',
     resolutionLabel: 'Time Resolution',
