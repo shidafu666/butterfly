@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -21,6 +21,8 @@ import {
   Popconfirm,
   Spin,
 } from 'antd';
+import type { InputRef, TableColumnType } from 'antd';
+import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
   PlusOutlined,
   UserAddOutlined,
@@ -28,6 +30,7 @@ import {
   MoreOutlined,
   DeleteOutlined,
   EditOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -527,6 +530,69 @@ function UsersTable() {
   const [editUser, setEditUser] = useState<AdminUserDto | null>(null);
   const [roleUser, setRoleUser] = useState<AdminUserDto | null>(null);
   const [sensorUser, setSensorUser] = useState<AdminUserDto | null>(null);
+  const searchInput = useRef<InputRef>(null);
+
+  const handleSearch = (
+    selectedKeys: string[],
+    confirm: FilterDropdownProps['confirm'],
+  ) => {
+    confirm();
+  };
+
+  const handleReset = (
+    clearFilters: () => void,
+    confirm: FilterDropdownProps['confirm'],
+  ) => {
+    clearFilters();
+    confirm();
+  };
+
+  const getColumnSearchProps = (
+    dataIndex: keyof AdminUserDto,
+    placeholder: string,
+  ): Pick<
+    TableColumnType<AdminUserDto>,
+    'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'
+  > => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          ref={searchInput}
+          placeholder={placeholder}
+          value={selectedKeys[0] as string}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => handleSearch(selectedKeys as string[], confirm)}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => handleSearch(selectedKeys as string[], confirm)}
+            icon={<SearchOutlined />}
+            size="small"
+          >
+            {t('common.search')}
+          </Button>
+          <Button
+            onClick={() => clearFilters && handleReset(clearFilters, confirm)}
+            size="small"
+          >
+            {t('common.reset')}
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => (
+      <SearchOutlined style={{ color: filtered ? '#1677ff' : 'var(--brand-text-secondary)' }} />
+    ),
+    onFilter: (value, record) => {
+      const val = record[dataIndex];
+      return val ? String(val).toLowerCase().includes(String(value).toLowerCase()) : false;
+    },
+    onFilterDropdownOpenChange: (visible) => {
+      if (visible) setTimeout(() => searchInput.current?.select(), 100);
+    },
+  });
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -566,23 +632,27 @@ function UsersTable() {
     });
   };
 
-  const columns = [
+  const columns: TableColumnType<AdminUserDto>[] = [
     {
       title: t('common.email'),
       dataIndex: 'email',
       key: 'email',
       render: (v: string) => <Text>{v}</Text>,
+      ...getColumnSearchProps('email', t('common.email')),
     },
     {
       title: t('users.name'),
       dataIndex: 'name',
       key: 'name',
       render: (v: string | null) => v || <Text type="secondary">—</Text>,
+      ...getColumnSearchProps('name', t('users.name')),
     },
     {
       title: t('users.role'),
       dataIndex: 'roles',
       key: 'roles',
+      filters: ROLES.map((r) => ({ text: r, value: r })),
+      onFilter: (value, record) => record.roles?.includes(String(value)) ?? false,
       render: (roles: string[]) =>
         roles?.length ? (
           <Space size={4} wrap>
@@ -600,6 +670,11 @@ function UsersTable() {
       title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
+      filters: [
+        { text: t('status.active'), value: 'active' },
+        { text: t('status.inactive'), value: 'inactive' },
+      ],
+      onFilter: (value, record) => record.status === value,
       render: (v: string) => (
         <Tag color={v === 'active' ? 'green' : 'red'}>
           {v === 'active' ? t('status.active') : t('status.inactive')}
@@ -610,6 +685,7 @@ function UsersTable() {
       title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (v: string) => (
         <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
           {dayjs(v).format('YYYY-MM-DD HH:mm')}
