@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
-import { AdminUserDto, AuditLogDto } from '@butterfly/shared-types';
+import { AdminUserDto, AuditLogDto, SensorOverviewDto } from '@butterfly/shared-types';
 import { CreateAdminUserDto, AssignSensorPermissionDto } from './dto/admin.dto';
 
 @Injectable()
@@ -100,6 +100,56 @@ export class AdminService {
       `${userId}:${sensorSn}`,
       { sensorSn },
     );
+  }
+
+  async listSensorOverview(): Promise<SensorOverviewDto[]> {
+    const thresholdHours = parseInt(
+      process.env.SENSOR_ACTIVE_THRESHOLD_HOURS || '24',
+      10,
+    );
+    const thresholdMs = thresholdHours * 60 * 60 * 1000;
+
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        sensorSn: string;
+        displayName: string | null;
+        status: string;
+        createdAt: Date;
+        lastReportTime: Date | null;
+      }[]
+    >`
+      SELECT
+        s.id,
+        s.sensor_sn        AS "sensorSn",
+        s.display_name     AS "displayName",
+        s.status,
+        s.created_at       AS "createdAt",
+        MAX(r.ts)          AS "lastReportTime"
+      FROM sensors s
+      LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
+      GROUP BY s.id
+      ORDER BY s.created_at DESC
+    `;
+
+    const now = Date.now();
+
+    return rows.map((row) => {
+      const lastReportTime = row.lastReportTime
+        ? new Date(row.lastReportTime)
+        : null;
+      return {
+        id: row.id,
+        sensorSn: row.sensorSn,
+        displayName: row.displayName,
+        status: row.status,
+        createdAt: new Date(row.createdAt).toISOString(),
+        lastReportTime: lastReportTime ? lastReportTime.toISOString() : null,
+        isActive: lastReportTime
+          ? now - lastReportTime.getTime() < thresholdMs
+          : false,
+      };
+    });
   }
 
   async listAuditLogs(

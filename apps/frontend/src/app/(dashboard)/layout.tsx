@@ -23,6 +23,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ThunderboltOutlined,
+  RadarChartOutlined,
 } from '@ant-design/icons';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +67,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                       icon: <TeamOutlined />,
                       label: '用户管理',
                     },
+                    {
+                      key: '/admin/devices',
+                      icon: <RadarChartOutlined />,
+                      label: '设备清单',
+                    },
                   ]
                 : []),
               {
@@ -81,6 +87,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const getSelectedKeys = () => {
     if (pathname.startsWith('/admin/users')) return ['/admin/users'];
+    if (pathname.startsWith('/admin/devices')) return ['/admin/devices'];
     if (pathname.startsWith('/admin/audit')) return ['/admin/audit'];
     if (pathname.startsWith('/current-data')) return ['/current-data'];
     if (pathname.startsWith('/exports')) return ['/exports'];

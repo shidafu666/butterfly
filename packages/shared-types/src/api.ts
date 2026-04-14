@@ -111,6 +111,18 @@ export interface ExportJobDto {
   completedAt: string | null;
 }
 
+// ─── Sensor Overview ───────────────────────────────────────
+
+export interface SensorOverviewDto {
+  id: string;
+  sensorSn: string;
+  displayName: string | null;
+  status: string;
+  createdAt: string;
+  lastReportTime: string | null;
+  isActive: boolean;
+}
+
 // ─── Admin ─────────────────────────────────────────────────
 
 export interface AdminUserDto {

@@ -110,6 +110,12 @@ export class AdminController {
     return this.adminService.getUserSensorPermissions(userId);
   }
 
+  @Get('sensors')
+  @ApiOperation({ summary: 'List all sensors with last report time and active status' })
+  async listSensorOverview() {
+    return this.adminService.listSensorOverview();
+  }
+
   @Get('audit-logs')
   @ApiOperation({ summary: 'List audit logs with pagination' })
   async listAuditLogs(@Query() query: AuditLogQueryDto) {
