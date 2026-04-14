@@ -295,7 +295,7 @@ export default function CurrentDataPage() {
             </Space>
           </Col>
 
-          <Col xs={24} sm={12} md={4}>
+          <Col xs={24} sm={12} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
               <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.deviceLabel')}</Text>
               <Select
@@ -316,7 +316,7 @@ export default function CurrentDataPage() {
             </Space>
           </Col>
 
-          <Col xs={24} sm={14} md={7}>
+          <Col xs={24} sm={14} md={9}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
               <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.timeRangeLabel')}</Text>
               <RangePicker
@@ -334,7 +334,7 @@ export default function CurrentDataPage() {
             </Space>
           </Col>
 
-          <Col xs={24} sm={10} md={4}>
+          <Col xs={24} sm={10} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
               <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.resolutionLabel')}</Text>
               <Select
