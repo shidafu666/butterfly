@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Row,
   Col,
@@ -85,6 +85,15 @@ export default function CurrentDataPage() {
     },
     enabled: !!selectedSensor,
   });
+
+  // Auto-select the first device when the device list loads for a new sensor.
+  // Only fires when `devices` itself changes (i.e. sensor switch), so it does
+  // not override the user's manual device selection or clear action.
+  useEffect(() => {
+    if (devices.length > 0) {
+      setSelectedDevice(devices[0].deviceId);
+    }
+  }, [devices]);
 
   // Current data
   const {
