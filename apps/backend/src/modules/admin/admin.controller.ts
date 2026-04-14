@@ -26,6 +26,7 @@ import {
   CreateAdminUserDto,
   AssignRoleDto,
   AssignSensorPermissionDto,
+  BatchAssignSensorPermissionDto,
   UpdateSensorDto,
   AuditLogQueryDto,
 } from './dto/admin.dto';
@@ -89,6 +90,18 @@ export class AdminController {
   ) {
     await this.adminService.assignSensorPermission(userId, dto, actor.sub);
     return { message: 'Sensor permission granted successfully' };
+  }
+
+  @Post('users/:userId/sensors/batch')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Batch grant sensor permissions to user' })
+  @ApiParam({ name: 'userId', description: 'User UUID' })
+  async batchAssignSensorPermissions(
+    @Param('userId') userId: string,
+    @Body() dto: BatchAssignSensorPermissionDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    await this.adminService.batchAssignSensorPermissions(userId, dto, actor.sub);
   }
 
   @Delete('users/:userId/sensors/:sensorSn')

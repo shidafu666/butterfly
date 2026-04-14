@@ -3,7 +3,12 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { AdminUserDto, AuditLogDto, SensorOverviewDto } from '@butterfly/shared-types';
-import { CreateAdminUserDto, AssignSensorPermissionDto, UpdateSensorDto } from './dto/admin.dto';
+import {
+  CreateAdminUserDto,
+  AssignSensorPermissionDto,
+  BatchAssignSensorPermissionDto,
+  UpdateSensorDto,
+} from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -80,6 +85,33 @@ export class AdminService {
       `${userId}:${dto.sensorSn}`,
       {
         sensorSn: dto.sensorSn,
+        canView: dto.canView,
+        canExport: dto.canExport,
+      },
+    );
+  }
+
+  async batchAssignSensorPermissions(
+    userId: string,
+    dto: BatchAssignSensorPermissionDto,
+    actorId: string,
+  ): Promise<void> {
+    for (const sensorSn of dto.sensorSns) {
+      await this.usersService.grantSensorPermission(
+        userId,
+        sensorSn,
+        dto.canView,
+        dto.canExport,
+      );
+    }
+
+    await this.auditService.log(
+      actorId,
+      'ASSIGN_SENSOR_PERMISSION',
+      'user_sensor_permission',
+      userId,
+      {
+        sensorSns: dto.sensorSns,
         canView: dto.canView,
         canExport: dto.canExport,
       },

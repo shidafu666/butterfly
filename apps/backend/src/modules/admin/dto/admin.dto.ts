@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsNotEmpty,
@@ -46,6 +47,22 @@ export class AssignSensorPermissionDto {
   @IsString()
   @IsNotEmpty()
   sensorSn: string;
+
+  @ApiProperty({ default: true })
+  @IsBoolean()
+  canView: boolean;
+
+  @ApiProperty({ default: false })
+  @IsBoolean()
+  canExport: boolean;
+}
+
+export class BatchAssignSensorPermissionDto {
+  @ApiProperty({ example: ['SENSOR-001', 'SENSOR-002'], type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  sensorSns: string[];
 
   @ApiProperty({ default: true })
   @IsBoolean()

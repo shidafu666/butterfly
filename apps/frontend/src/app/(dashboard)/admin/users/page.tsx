@@ -11,16 +11,22 @@ import {
   Form,
   Input,
   Select,
+  Switch,
   notification,
   Dropdown,
   Card,
   Alert,
+  Drawer,
+  Divider,
+  Popconfirm,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
   UserAddOutlined,
   ApiOutlined,
   MoreOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -134,7 +140,15 @@ function CreateUserModal({
   );
 }
 
-function AssignSensorModal({
+interface UserSensorPerm {
+  sensorSn: string;
+  sensorId: string;
+  canView: boolean;
+  canExport: boolean;
+  createdAt: string;
+}
+
+function SensorPermissionDrawer({
   user,
   onClose,
 }: {
@@ -143,81 +157,199 @@ function AssignSensorModal({
 }) {
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
+  const queryClient = useQueryClient();
 
-  const { data: sensors = [] } = useQuery({
+  // All sensors in the system
+  const { data: allSensors = [] } = useQuery({
     queryKey: ['sensors'],
     queryFn: async () => {
       const res = await api.get<SensorDto[]>('/sensors');
       return res.data;
     },
+    enabled: !!user,
   });
 
-  const mutation = useMutation({
-    mutationFn: async (values: {
-      sensorSn: string;
-      canView: boolean;
-      canExport: boolean;
-    }) => {
-      if (!user) return;
-      await api.post(`/admin/users/${user.id}/sensors`, values);
+  // Current permissions for this user
+  const { data: currentPerms = [], isLoading: permsLoading } = useQuery({
+    queryKey: ['user-sensors', user?.id],
+    queryFn: async () => {
+      const res = await api.get<UserSensorPerm[]>(`/admin/users/${user!.id}/sensors`);
+      return res.data;
+    },
+    enabled: !!user,
+  });
+
+  const assignedSns = new Set(currentPerms.map((p) => p.sensorSn));
+
+  // Batch assign
+  const assignMutation = useMutation({
+    mutationFn: async (values: { sensorSns: string[]; canView: boolean; canExport: boolean }) => {
+      await api.post(`/admin/users/${user!.id}/sensors/batch`, values);
     },
     onSuccess: () => {
       notifApi.success({ message: '传感器权限已分配' });
       form.resetFields();
-      onClose();
+      queryClient.invalidateQueries({ queryKey: ['user-sensors', user?.id] });
     },
     onError: () => {
       notifApi.error({ message: '权限分配失败' });
     },
   });
 
+  // Revoke single sensor
+  const revokeMutation = useMutation({
+    mutationFn: async (sensorSn: string) => {
+      await api.delete(`/admin/users/${user!.id}/sensors/${sensorSn}`);
+    },
+    onSuccess: (_, sensorSn) => {
+      notifApi.success({ message: `已移除 ${sensorSn}` });
+      queryClient.invalidateQueries({ queryKey: ['user-sensors', user?.id] });
+    },
+    onError: () => {
+      notifApi.error({ message: '移除失败' });
+    },
+  });
+
+  const sensorOptions = allSensors.map((s) => ({
+    value: s.sensorSn,
+    label: s.displayName ? `${s.sensorSn}（${s.displayName}）` : s.sensorSn,
+    disabled: false,
+  }));
+
   return (
     <>
       {contextHolder}
-      <Modal
-        title={`分配传感器权限 - ${user?.email}`}
+      <Drawer
+        title={
+          <Space direction="vertical" size={0}>
+            <Text strong style={{ color: '#c9d1d9' }}>传感器权限管理</Text>
+            <Text style={{ color: '#8b949e', fontSize: 12, fontWeight: 'normal' }}>
+              {user?.email}
+            </Text>
+          </Space>
+        }
         open={!!user}
-        onCancel={onClose}
-        onOk={() => form.submit()}
-        confirmLoading={mutation.isPending}
-        okText="确认"
-        cancelText="取消"
+        onClose={onClose}
+        width={480}
         destroyOnClose
+        styles={{ body: { padding: '16px 24px' } }}
       >
+        {/* Already assigned */}
+        <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
+          已分配传感器
+        </Text>
+        <div style={{ marginTop: 8, marginBottom: 24, minHeight: 40 }}>
+          {permsLoading ? (
+            <Spin size="small" />
+          ) : currentPerms.length === 0 ? (
+            <Text style={{ color: '#484f58', fontSize: 13 }}>暂未分配任何传感器</Text>
+          ) : (
+            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+              {currentPerms.map((p) => (
+                <div
+                  key={p.sensorSn}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#0d1117',
+                    border: '1px solid #30363d',
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                  }}
+                >
+                  <Space size={8}>
+                    <Text code style={{ fontSize: 12, color: '#79c0ff' }}>
+                      {p.sensorSn}
+                    </Text>
+                    <Tag color={p.canView ? 'blue' : 'default'} style={{ fontSize: 11 }}>
+                      {p.canView ? '可查看' : '禁查看'}
+                    </Tag>
+                    <Tag color={p.canExport ? 'cyan' : 'default'} style={{ fontSize: 11 }}>
+                      {p.canExport ? '可导出' : '禁导出'}
+                    </Tag>
+                  </Space>
+                  <Popconfirm
+                    title="确认移除此传感器权限？"
+                    onConfirm={() => revokeMutation.mutate(p.sensorSn)}
+                    okText="移除"
+                    cancelText="取消"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      loading={revokeMutation.isPending}
+                      style={{ color: '#484f58' }}
+                    />
+                  </Popconfirm>
+                </div>
+              ))}
+            </Space>
+          )}
+        </div>
+
+        <Divider style={{ borderColor: '#30363d', margin: '0 0 20px' }} />
+
+        {/* Batch assign */}
+        <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
+          批量分配 / 更新权限
+        </Text>
+        <Text style={{ color: '#8b949e', fontSize: 12, display: 'block', marginBottom: 12 }}>
+          已分配的传感器重新选择后将覆盖原有权限
+        </Text>
+
         <Form
           form={form}
           layout="vertical"
           initialValues={{ canView: true, canExport: false }}
-          onFinish={(v) => mutation.mutate(v)}
-          style={{ marginTop: 16 }}
+          onFinish={(v) => assignMutation.mutate(v)}
         >
           <Form.Item
-            name="sensorSn"
+            name="sensorSns"
             label="传感器"
-            rules={[{ required: true, message: '请选择传感器' }]}
+            rules={[{ required: true, message: '请选择至少一个传感器' }]}
           >
-            <Select placeholder="选择传感器">
-              {sensors.map((s) => (
-                <Option key={s.sensorSn} value={s.sensorSn}>
-                  {s.displayName || s.sensorSn}
-                </Option>
-              ))}
-            </Select>
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="选择传感器（可多选）"
+              options={sensorOptions}
+              filterOption={(input, option) =>
+                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              optionRender={(option) => (
+                <Space size={6}>
+                  <span>{option.label}</span>
+                  {assignedSns.has(option.value as string) && (
+                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>已分配</Tag>
+                  )}
+                </Space>
+              )}
+            />
           </Form.Item>
-          <Form.Item name="canView" label="查看权限">
-            <Select>
-              <Option value={true}>允许</Option>
-              <Option value={false}>禁止</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="canExport" label="导出权限">
-            <Select>
-              <Option value={true}>允许</Option>
-              <Option value={false}>禁止</Option>
-            </Select>
-          </Form.Item>
+
+          <Space size={16} style={{ width: '100%' }}>
+            <Form.Item name="canView" label="查看权限" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Switch checkedChildren="允许" unCheckedChildren="禁止" defaultChecked />
+            </Form.Item>
+            <Form.Item name="canExport" label="导出权限" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Switch checkedChildren="允许" unCheckedChildren="禁止" />
+            </Form.Item>
+          </Space>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={assignMutation.isPending}
+            style={{ marginTop: 20, width: '100%' }}
+          >
+            确认分配
+          </Button>
         </Form>
-      </Modal>
+      </Drawer>
     </>
   );
 }
@@ -452,7 +584,7 @@ function UsersTable() {
         onClose={() => setRoleUser(null)}
         onSuccess={invalidate}
       />
-      <AssignSensorModal user={sensorUser} onClose={() => setSensorUser(null)} />
+      <SensorPermissionDrawer user={sensorUser} onClose={() => setSensorUser(null)} />
     </>
   );
 }
