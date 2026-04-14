@@ -232,18 +232,14 @@ export default function ExportsPage() {
         icon={<ClockCircleOutlined />}
         type="info"
         showIcon
-        style={{ marginBottom: 16, background: '#0d2137', border: '1px solid #1d4b6e' }}
-        message={
-          <Text style={{ color: '#79c0ff', fontSize: 13 }}>
-            {t('exports.cleanupTitle')}
-          </Text>
-        }
+        style={{ marginBottom: 16 }}
+        message={<span style={{ fontSize: 13 }}>{t('exports.cleanupTitle')}</span>}
         description={
-          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+          <span style={{ fontSize: 12 }}>
             {t('exports.cleanupDescPre')}
-            <strong style={{ color: 'var(--brand-text)' }}>{t('exports.cleanupDescHighlight')}</strong>
+            <strong>{t('exports.cleanupDescHighlight')}</strong>
             {t('exports.cleanupDescPost')}
-          </Text>
+          </span>
         }
       />
 
