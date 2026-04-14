@@ -27,13 +27,10 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useLocale } from '@/contexts/LocaleContext';
 import type { SensorOverviewDto } from '@butterfly/shared-types';
-
-dayjs.extend(relativeTime);
 
 const { Text, Title } = Typography;
 
@@ -311,11 +308,9 @@ function DeviceList() {
       defaultSortOrder: 'descend',
       render: (v: string | null) =>
         v ? (
-          <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
-            <Text style={{ color: '#8b949e', fontSize: 12 }}>
-              {dayjs(v).fromNow()}
-            </Text>
-          </Tooltip>
+          <Text style={{ color: '#8b949e', fontSize: 12 }}>
+            {dayjs(v).format('YYYY-MM-DD HH:mm:ss')}
+          </Text>
         ) : (
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t('devices.neverReported')}
