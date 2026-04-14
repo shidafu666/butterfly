@@ -110,7 +110,7 @@ export function ExportJobNotifier() {
         notifApi.success({
           message: t('exports.jobCompleted'),
           description: sensorLabel,
-          duration: 10,
+          duration: 5,
           style: { cursor: 'pointer' },
           onClick,
         });
@@ -118,7 +118,7 @@ export function ExportJobNotifier() {
         notifApi.error({
           message: t('exports.jobFailed'),
           description: sensorLabel,
-          duration: 10,
+          duration: 5,
           style: { cursor: 'pointer' },
           onClick,
         });
