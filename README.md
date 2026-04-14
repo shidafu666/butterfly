@@ -166,6 +166,8 @@ Key variables:
 - `MQTT_USERNAME` / `MQTT_PASSWORD` — broker auth credentials; sensors must use these same credentials
 - `JWT_SECRET` — secret for signing local JWTs (change in production!)
 - `INITIAL_ADMIN_*` — initial admin account credentials (used only on first startup)
+- `SENSOR_ACTIVE_THRESHOLD_HOURS` — hours since last report before a sensor is marked Inactive (default: `24`)
+- `EXPORT_JOB_RETENTION_HOURS` — hours before export jobs and their files are automatically deleted (default: `24`)
 - `NEXT_PUBLIC_ENTRA_*` — Microsoft Entra ID SSO (optional)
 
 ## Microsoft Entra ID SSO (Optional)
@@ -203,7 +205,13 @@ Key endpoints:
 - `GET /api/v1/sensors` — list sensors
 - `GET /api/v1/current-data` — query time-series data
 - `POST /api/v1/exports` — create an export job
-- `GET /api/v1/admin/users` — manage users (admin only)
+- `GET /api/v1/exports` — list export jobs (auto-cleaned after 24 h)
+- `GET /api/v1/admin/users` — list users (admin only)
+- `PATCH /api/v1/admin/users/:userId` — edit user email / name / password / status (admin only)
+- `DELETE /api/v1/admin/users/:userId` — delete user (admin only)
+- `GET /api/v1/admin/sensors` — list sensors with last-report time and active status (admin only)
+- `PATCH /api/v1/admin/sensors/:sensorSn` — update sensor display name (admin only)
+- `POST /api/v1/admin/users/:userId/sensors/batch` — batch-assign sensor permissions to a user (admin only)
 
 ## Data Retention
 

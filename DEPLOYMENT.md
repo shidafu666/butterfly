@@ -165,6 +165,8 @@ All variables live in `.env` (copied from `.env.example`).
 | `JWT_SECRET` | *(placeholder)* | HS256 signing secret — **must be changed in production** |
 | `JWT_EXPIRES_IN` | `24h` | Token lifetime |
 | `EXPORT_DIR` | `/app/exports` | Container path for export files (do not change) |
+| `SENSOR_ACTIVE_THRESHOLD_HOURS` | `24` | Hours since a sensor's last report before it is marked **Inactive** in the device list |
+| `EXPORT_JOB_RETENTION_HOURS` | `24` | Hours before completed export jobs and their files are automatically deleted |
 
 ### Initial Admin
 
@@ -257,16 +259,28 @@ node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data <MQ
 
 ## 5. Data Retention
 
+### 5.1 Raw measurement data
+
 Default policy: raw measurements are retained for **30 days**; chunks older than 7 days are compressed automatically.
 
-### Change retention on a running instance
+### 5.2 Export job retention
+
+Completed export jobs (and their files in `data/exports`) are automatically deleted after **24 hours** by the backend cleanup service. This keeps disk usage bounded without manual intervention. Users who need the data again can create a new export job from the **电流数据** page.
+
+To change the retention window, set `EXPORT_JOB_RETENTION_HOURS` in `.env` before starting the backend:
+
+```env
+EXPORT_JOB_RETENTION_HOURS=48   # keep exports for 48 hours
+```
+
+### 5.3 Change raw data retention on a running instance
 
 ```bash
 ./scripts/set-retention.sh 60   # keep 60 days
 ./scripts/set-retention.sh 90   # keep 90 days
 ```
 
-### Change the default for new deployments
+### 5.4 Change the default for new deployments
 
 Edit the interval in `infra/docker/postgres/init/005_policies.sql`:
 
@@ -278,7 +292,7 @@ SELECT add_retention_policy('raw_current_measurements', INTERVAL '30 days');
 
 This file is only executed when the database is initialized from scratch (empty `data/postgres`).
 
-### Query current retention setting
+### 5.5 Query current retention setting
 
 ```bash
 docker exec butterfly-postgres psql -U app -d current_platform -c \
