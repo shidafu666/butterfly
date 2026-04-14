@@ -136,6 +136,8 @@ export const en: Translations = {
     allDevices: 'All',
     empty: 'No export jobs',
     downloadFailed: 'Download failed. Please try again later.',
+    jobCompleted: 'Export job completed',
+    jobFailed: 'Export job failed',
     errorPrefix: 'Error: ',
   },
   users: {

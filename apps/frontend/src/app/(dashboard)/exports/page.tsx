@@ -121,6 +121,45 @@ export default function ExportsPage() {
     return m;
   }, [sensors]);
 
+  // ── Job completion notifications ────────────────────────────────────────────
+  const prevStatusesRef = useRef<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    if (jobs.length === 0) return;
+
+    const current: Record<string, string> = {};
+    jobs.forEach((j) => { current[j.id] = j.status; });
+
+    if (prevStatusesRef.current !== null) {
+      const prev = prevStatusesRef.current;
+      jobs.forEach((j) => {
+        const prevStatus = prev[j.id];
+        if (!prevStatus || prevStatus === j.status) return;
+        if (prevStatus !== 'pending' && prevStatus !== 'processing') return;
+
+        const label = sensorDisplayMap[j.sensorSn]
+          ? `${j.sensorSn} (${sensorDisplayMap[j.sensorSn]})`
+          : j.sensorSn;
+
+        if (j.status === 'completed') {
+          notifApi.success({
+            message: t('exports.jobCompleted'),
+            description: label,
+            duration: 8,
+          });
+        } else if (j.status === 'failed') {
+          notifApi.error({
+            message: t('exports.jobFailed'),
+            description: label,
+            duration: 8,
+          });
+        }
+      });
+    }
+
+    prevStatusesRef.current = current;
+  }, [jobs, sensorDisplayMap, notifApi, t]);
+
   // ── Column search helpers ───────────────────────────────────────────────────
   const handleSearch = (confirm: FilterDropdownProps['confirm']) => confirm();
 

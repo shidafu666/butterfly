@@ -134,6 +134,8 @@ export const zh = {
     allDevices: '全部',
     empty: '暂无导出任务',
     downloadFailed: '下载失败，请稍后重试。',
+    jobCompleted: '导出任务已完成',
+    jobFailed: '导出任务失败',
     errorPrefix: '错误信息：',
   },
   users: {
