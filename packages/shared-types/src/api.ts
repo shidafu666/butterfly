@@ -34,6 +34,8 @@ export interface SensorDto {
   displayName: string | null;
   status: string;
   createdAt: string;
+  lastReportTime: string | null;
+  isActive: boolean;
 }
 
 export interface DeviceDto {

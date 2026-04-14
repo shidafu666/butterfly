@@ -75,7 +75,7 @@ export const zh = {
     sensors: '传感器总数',
     devices: '设备总数',
     exports: '导出任务数',
-    activeSensors: '活跃传感器',
+    onlineSensors: '在线传感器',
     recentExports: '最近导出任务',
     retentionNote: '· 仅保留 24 小时内',
   },

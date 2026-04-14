@@ -6,21 +6,57 @@ import { SensorDto } from '@butterfly/shared-types';
 export class SensorsService {
   constructor(private prisma: PrismaService) {}
 
+  private get thresholdMs(): number {
+    const hours = parseInt(process.env.SENSOR_ACTIVE_THRESHOLD_HOURS || '24', 10);
+    return hours * 60 * 60 * 1000;
+  }
+
   async findAllForUser(userId: string, userRoles: string[]): Promise<SensorDto[]> {
-    if (userRoles.includes('admin')) {
-      const sensors = await this.prisma.sensor.findMany({
-        orderBy: { createdAt: 'asc' },
-      });
-      return sensors.map(this.toDto);
+    interface SensorRow {
+      id: string;
+      sensorSn: string;
+      displayName: string | null;
+      status: string;
+      createdAt: Date;
+      lastReportTime: Date | null;
     }
 
-    // Return only sensors user has view permission for
-    const permissions = await this.prisma.userSensorPermission.findMany({
-      where: { userId, canView: true },
-      include: { sensor: true },
-    });
+    let rows: SensorRow[];
 
-    return permissions.map((p) => this.toDto(p.sensor));
+    if (userRoles.includes('admin')) {
+      rows = await this.prisma.$queryRaw<SensorRow[]>`
+        SELECT
+          s.id,
+          s.sensor_sn     AS "sensorSn",
+          s.display_name  AS "displayName",
+          s.status,
+          s.created_at    AS "createdAt",
+          MAX(r.ts)       AS "lastReportTime"
+        FROM sensors s
+        LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
+        GROUP BY s.id
+        ORDER BY s.created_at ASC
+      `;
+    } else {
+      rows = await this.prisma.$queryRaw<SensorRow[]>`
+        SELECT
+          s.id,
+          s.sensor_sn     AS "sensorSn",
+          s.display_name  AS "displayName",
+          s.status,
+          s.created_at    AS "createdAt",
+          MAX(r.ts)       AS "lastReportTime"
+        FROM sensors s
+        INNER JOIN user_sensor_permissions p ON p.sensor_id = s.id
+        LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
+        WHERE p.user_id = ${userId} AND p.can_view = true
+        GROUP BY s.id
+        ORDER BY s.created_at ASC
+      `;
+    }
+
+    const now = Date.now();
+    return rows.map((row) => this.toDto(row, now));
   }
 
   async findBySn(sensorSn: string): Promise<SensorDto> {
@@ -28,7 +64,7 @@ export class SensorsService {
     if (!sensor) {
       throw new NotFoundException(`Sensor '${sensorSn}' not found`);
     }
-    return this.toDto(sensor);
+    return this.toDto({ ...sensor, lastReportTime: null }, Date.now());
   }
 
   async findBySnForUser(
@@ -51,7 +87,7 @@ export class SensorsService {
       }
     }
 
-    return this.toDto(sensor);
+    return this.toDto({ ...sensor, lastReportTime: null }, Date.now());
   }
 
   async upsert(sensorSn: string): Promise<SensorDto> {
@@ -60,22 +96,31 @@ export class SensorsService {
       update: { updatedAt: new Date() },
       create: { sensorSn, status: 'active' },
     });
-    return this.toDto(sensor);
+    return this.toDto({ ...sensor, lastReportTime: null }, Date.now());
   }
 
-  private toDto(sensor: {
-    id: string;
-    sensorSn: string;
-    displayName: string | null;
-    status: string;
-    createdAt: Date;
-  }): SensorDto {
+  private toDto(
+    sensor: {
+      id: string;
+      sensorSn: string;
+      displayName: string | null;
+      status: string;
+      createdAt: Date;
+      lastReportTime: Date | null;
+    },
+    now: number,
+  ): SensorDto {
+    const lastReportTime = sensor.lastReportTime
+      ? new Date(sensor.lastReportTime)
+      : null;
     return {
       id: sensor.id,
       sensorSn: sensor.sensorSn,
       displayName: sensor.displayName,
       status: sensor.status,
-      createdAt: sensor.createdAt.toISOString(),
+      createdAt: new Date(sensor.createdAt).toISOString(),
+      lastReportTime: lastReportTime ? lastReportTime.toISOString() : null,
+      isActive: lastReportTime ? now - lastReportTime.getTime() < this.thresholdMs : false,
     };
   }
 }

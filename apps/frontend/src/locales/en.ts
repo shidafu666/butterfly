@@ -77,7 +77,7 @@ export const en: Translations = {
     sensors: 'Total Sensors',
     devices: 'Total Devices',
     exports: 'Export Jobs',
-    activeSensors: 'Active Sensors',
+    onlineSensors: 'Online Sensors',
     recentExports: 'Recent Exports',
     retentionNote: '· Retained for 24 hours',
   },

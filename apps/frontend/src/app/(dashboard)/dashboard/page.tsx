@@ -184,8 +184,8 @@ export default function DashboardPage() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <StatCard
-            title={t('dashboard.activeSensors')}
-            value={sensors?.filter((s) => s.status === 'active').length ?? 0}
+            title={t('dashboard.onlineSensors')}
+            value={sensors?.filter((s) => s.isActive).length ?? 0}
             icon={<ClockCircleOutlined />}
             loading={sensorsLoading}
           />
