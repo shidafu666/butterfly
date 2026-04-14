@@ -20,6 +20,7 @@ Redis → Export Worker → CSV/Log files → shared volume → Frontend downloa
 ### Prerequisites
 - Docker & Docker Compose v2+
 - (For test scripts) Node.js 20+ and pnpm
+- `make` (pre-installed on macOS/Linux)
 
 ### 1. Clone and Start
 
@@ -28,10 +29,10 @@ git clone <repo-url>
 cd butterfly
 
 # Start all services (creates .env from .env.example if missing)
-./scripts/up.sh
+make up
 ```
 
-Or manually:
+Or without make:
 ```bash
 cp .env.example .env
 # Edit .env if needed (especially passwords for production)
@@ -65,10 +66,10 @@ Install test script dependencies, then publish a mock message:
 # Install dependencies (only needed for test scripts)
 cd scripts && npm install --save-dev mqtt msgpackr && cd ..
 
-# Send a mock message (credentials from .env)
-node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data <MQTT_USERNAME> <MQTT_PASSWORD>
+# Send a mock message
+make test-mqtt
 
-# Example using default .env values
+# Or directly:
 node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data iot_device change-me-mqtt-password
 ```
 
@@ -85,20 +86,16 @@ This will:
 ### Local Development (without Docker)
 
 ```bash
-# Install all dependencies
-pnpm install
+make install        # install all workspace dependencies
 
-# Start backend
-pnpm dev:backend
+make dev-backend    # start backend in watch mode
+make dev-ingestion  # start ingestion worker
+make dev-export     # start export worker
+make dev-frontend   # start frontend (localhost:3000)
 
-# Start ingestion worker
-pnpm dev:ingestion
-
-# Start export worker
-pnpm dev:export
-
-# Start frontend
-pnpm dev:frontend
+make typecheck      # TypeScript type-check across all packages
+make lint           # run linters
+make build          # build all packages and apps
 ```
 
 Update `DATABASE_URL`, `MQTT_URL`, `REDIS_HOST` in `.env` to point to local services.
@@ -124,11 +121,13 @@ butterfly/
 │   ├── down.sh           # Stop all services
 │   ├── logs.sh           # View logs
 │   ├── reset.sh          # Reset data and restart
+│   ├── set-retention.sh  # Change raw data retention window
 │   └── test-mqtt.js      # Send mock MQTT message
 ├── data/
 │   ├── postgres/         # DB data (gitignored)
 │   └── exports/          # Export files (gitignored)
 ├── docker-compose.yml
+├── Makefile              # Convenience targets (run `make help`)
 ├── .env.example
 └── architecture.md
 ```
@@ -189,16 +188,30 @@ To enable SSO:
 
 Local username/password login always remains available regardless of SSO configuration.
 
-## Operational Scripts
+## Common Operations
 
 ```bash
-./scripts/up.sh              # Start everything (copies .env.example if .env missing)
-./scripts/down.sh            # Stop everything
-./scripts/logs.sh            # View all logs
-./scripts/logs.sh backend    # View backend logs only
-./scripts/reset.sh           # ⚠️  Wipe data and restart fresh
-./scripts/set-retention.sh 30  # Set raw data retention to N days
+make up                       # start all services
+make down                     # stop all services
+make restart                  # stop then start
+make rebuild                  # rebuild app images and restart (no infra restart)
+make reset                    # ⚠️  wipe data directories and restart fresh
+
+make logs                     # tail all logs
+make logs-backend             # tail backend logs only
+make logs-frontend            # tail frontend logs only
+make logs-ingestion           # tail ingestion-worker logs
+make logs-infra               # tail postgres / redis / mosquitto logs
+
+make ps                       # show container status
+
+make db-shell                 # open psql inside the postgres container
+make set-retention DAYS=30    # set raw data retention to N days
+make scale-ingestion N=3      # run N ingestion-worker replicas
+make test-mqtt                # send a test MQTT message
 ```
+
+Run `make help` to see all available targets.
 
 ## API Documentation
 
@@ -227,8 +240,8 @@ Default configuration:
 To change the retention window on a running instance:
 
 ```bash
-./scripts/set-retention.sh 60   # keep 60 days
-./scripts/set-retention.sh 7    # keep 7 days
+make set-retention DAYS=60   # keep 60 days
+make set-retention DAYS=7    # keep 7 days
 ```
 
 To change the default for fresh deployments, edit `INTERVAL '30 days'` in `infra/docker/postgres/init/005_policies.sql`.

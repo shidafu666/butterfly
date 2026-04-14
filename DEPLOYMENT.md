@@ -9,6 +9,7 @@ This guide covers deploying Butterfly via Docker Compose, from first-time setup 
 - Docker Engine 24+ and Docker Compose v2+
 - 2 GB RAM minimum (4 GB recommended for production)
 - Ports 3000, 3001, 1883, 5432, 6379 available on the host
+- `make` (pre-installed on macOS/Linux; on Windows use WSL or run the underlying commands directly)
 
 ---
 
@@ -40,10 +41,10 @@ These directories are mounted into the containers and are gitignored. `data/post
 ### 1.4 Start all services
 
 ```bash
-./scripts/up.sh
+make up
 ```
 
-Or manually:
+This script copies `.env.example` → `.env` if no `.env` is present, creates the `data/` directories, and runs `docker compose up -d --build`. Alternatively:
 
 ```bash
 docker compose up -d --build
@@ -54,7 +55,7 @@ On first startup, Docker will build all images and initialize the database schem
 ### 1.5 Verify services are healthy
 
 ```bash
-docker compose ps
+make ps
 ```
 
 All 7 services should reach `healthy` or `running` status:
@@ -260,6 +261,9 @@ The ingestion worker auto-creates sensor and device records on first message rec
 cd scripts && npm install --save-dev mqtt msgpackr && cd ..
 
 # Publish a test message
+make test-mqtt
+
+# Or directly:
 node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data <MQTT_USERNAME> <MQTT_PASSWORD>
 ```
 
@@ -280,6 +284,9 @@ Workers use an MQTT **shared subscription** (`$share/ingestion-workers/wlpca/+/d
 **Start multiple replicas:**
 
 ```bash
+make scale-ingestion N=3
+
+# Or directly:
 docker compose up -d --scale ingestion-worker=3
 ```
 
@@ -305,8 +312,8 @@ EXPORT_JOB_RETENTION_HOURS=48   # keep exports for 48 hours
 ### 5.4 Change raw data retention on a running instance
 
 ```bash
-./scripts/set-retention.sh 60   # keep 60 days
-./scripts/set-retention.sh 90   # keep 90 days
+make set-retention DAYS=60   # keep 60 days
+make set-retention DAYS=90   # keep 90 days
 ```
 
 ### 5.5 Change the default for new deployments
@@ -335,24 +342,35 @@ docker exec butterfly-postgres psql -U app -d current_platform -c \
 ### Start / stop
 
 ```bash
-./scripts/up.sh          # start all services (builds if needed)
-./scripts/down.sh        # stop all services (data is preserved)
+make up          # start all services (builds if needed)
+make down        # stop all services (data is preserved)
+make restart     # stop then start
 ```
 
 ### View logs
 
 ```bash
-./scripts/logs.sh                  # all services
-./scripts/logs.sh backend          # backend only
-./scripts/logs.sh ingestion-worker # ingestion worker only
-docker compose logs -f frontend    # follow frontend logs
+make logs                # all services
+make logs-backend        # backend only
+make logs-frontend       # frontend only
+make logs-ingestion      # ingestion-worker only
+make logs-export         # export-worker only
+make logs-infra          # postgres / redis / mosquitto
 ```
 
-### Rebuild a single service after code changes
+### Rebuild app containers after code changes
 
 ```bash
-docker compose build backend
-docker compose up -d backend
+make rebuild     # rebuild & recreate all app containers (no infra restart)
+
+# Or for a single service:
+docker compose build backend && docker compose up -d backend
+```
+
+### Database shell
+
+```bash
+make db-shell    # open psql inside the postgres container
 ```
 
 ### Health check
@@ -369,8 +387,13 @@ When pulling new code:
 
 ```bash
 git pull
-docker compose build          # rebuild changed images
-docker compose up -d          # restart changed services
+make rebuild    # rebuild app images and restart changed services
+```
+
+Or manually:
+
+```bash
+docker compose build && docker compose up -d
 ```
 
 The database schema is managed by Prisma migrations. If a release includes schema changes, the backend applies them automatically on startup.
@@ -404,7 +427,7 @@ openssl rand -hex 64
 > **Warning:** This deletes all data including the database and export files.
 
 ```bash
-./scripts/reset.sh
+make reset
 ```
 
 This stops all containers, removes `data/postgres` and `data/exports`, and restarts fresh. The database is re-initialized from the SQL scripts in `infra/docker/postgres/init/`.
@@ -418,6 +441,10 @@ This stops all containers, removes `data/postgres` and `data/exports`, and resta
 Check logs for the failing service:
 
 ```bash
+make logs-backend
+make logs-infra
+
+# Or directly:
 docker compose logs backend
 docker compose logs postgres
 ```
@@ -437,9 +464,9 @@ docker compose build backend
 
 ### MQTT messages not ingested
 
-1. Verify the broker is running: `docker compose logs mosquitto`
+1. Verify the broker is running: `make logs-infra`
 2. Check credentials: anonymous connections are rejected
-3. Check ingestion worker logs: `docker compose logs ingestion-worker` (works for all replicas)
+3. Check ingestion worker logs: `make logs-ingestion` (works for all replicas)
 4. Confirm sensors publish to `wlpca/<sn>/data` — the worker subscribes internally via a shared subscription, but the sensor-facing topic is unchanged
 
 ### Export download fails ("file not found")
