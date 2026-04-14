@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { notification } from 'antd';
+import { App } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -41,7 +41,7 @@ function writeNotifiedIds(ids: Set<string>) {
  *    so a hard page reload won't re-fire toasts for recently-completed jobs.
  */
 export function ExportJobNotifier() {
-  const [notifApi, contextHolder] = notification.useNotification();
+  const { notification: notifApi } = App.useApp();
   const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -129,5 +129,5 @@ export function ExportJobNotifier() {
     if (changed) writeNotifiedIds(notifiedJobIdsRef.current);
   }, [jobs, sensorDisplayMap, notifApi, t, router, queryClient]);
 
-  return <>{contextHolder}</>;
+  return null;
 }

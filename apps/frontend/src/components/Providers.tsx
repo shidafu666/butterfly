@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { ConfigProvider, theme } from 'antd';
+import { App, ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -87,7 +87,7 @@ function AntdConfigProvider({ children }: { children: React.ReactNode }) {
         components: isDark ? DARK_COMPONENTS : LIGHT_COMPONENTS,
       }}
     >
-      {children}
+      <App>{children}</App>
     </ConfigProvider>
   );
 }

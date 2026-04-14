@@ -15,7 +15,7 @@ import {
   Space,
   Modal,
   Form,
-  notification,
+  App,
   Tooltip,
   Alert,
 } from 'antd';
@@ -55,7 +55,7 @@ interface QueryState {
 }
 
 export default function CurrentDataPage() {
-  const [notifApi, contextHolder] = notification.useNotification();
+  const { notification: notifApi } = App.useApp();
   const { t } = useLocale();
   const queryClient = useQueryClient();
 
@@ -250,7 +250,6 @@ export default function CurrentDataPage() {
 
   return (
     <div>
-      {contextHolder}
       <div style={{ marginBottom: 24 }}>
         <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
           {t('currentData.title')}
