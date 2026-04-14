@@ -248,7 +248,7 @@ export default function CurrentDataPage() {
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="选择传感器"
+              placeholder="选择或搜索传感器 SN"
               style={{ width: '100%' }}
               value={selectedSensor || undefined}
               loading={sensorsLoading}
@@ -257,10 +257,19 @@ export default function CurrentDataPage() {
                 setSelectedDevice('');
               }}
               allowClear
+              showSearch
+              filterOption={(input, option) =>
+                String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+              }
             >
               {sensors.map((s) => (
                 <Option key={s.sensorSn} value={s.sensorSn}>
-                  {s.displayName || s.sensorSn}
+                  <span style={{ fontFamily: 'monospace' }}>{s.sensorSn}</span>
+                  {s.displayName && (
+                    <span style={{ color: '#8b949e', marginLeft: 8, fontSize: 12 }}>
+                      {s.displayName}
+                    </span>
+                  )}
                 </Option>
               ))}
             </Select>
