@@ -57,6 +57,29 @@ export class AssignSensorPermissionDto {
   canExport: boolean;
 }
 
+export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'NewSecurePass@123' })
+  @IsString()
+  @IsOptional()
+  @MinLength(8)
+  password?: string;
+
+  @ApiPropertyOptional({ example: 'active', enum: ['active', 'inactive'] })
+  @IsString()
+  @IsOptional()
+  status?: string;
+}
+
 export class BatchAssignSensorPermissionDto {
   @ApiProperty({ example: ['SENSOR-001', 'SENSOR-002'], type: [String] })
   @IsArray()

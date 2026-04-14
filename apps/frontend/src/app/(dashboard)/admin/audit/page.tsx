@@ -37,6 +37,8 @@ const COMMON_ACTIONS: { value: string; label: string }[] = [
   { value: 'DOWNLOAD_EXPORT',          label: 'DOWNLOAD_EXPORT — 下载导出文件' },
   { value: 'QUERY_CURRENT_DATA',       label: 'QUERY_CURRENT_DATA — 查询电流数据' },
   { value: 'UPDATE_SENSOR',            label: 'UPDATE_SENSOR — 更新传感器名称' },
+  { value: 'UPDATE_USER',              label: 'UPDATE_USER — 编辑用户信息' },
+  { value: 'DELETE_USER',              label: 'DELETE_USER — 删除用户' },
 ];
 
 const ACTION_COLOR: Record<string, string> = {
@@ -50,6 +52,8 @@ const ACTION_COLOR: Record<string, string> = {
   DOWNLOAD_EXPORT:          'geekblue',
   QUERY_CURRENT_DATA:       'purple',
   UPDATE_SENSOR:            'lime',
+  UPDATE_USER:              'geekblue',
+  DELETE_USER:              'red',
 };
 
 interface AuditFilter {

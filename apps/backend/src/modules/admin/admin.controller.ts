@@ -28,6 +28,7 @@ import {
   AssignSensorPermissionDto,
   BatchAssignSensorPermissionDto,
   UpdateSensorDto,
+  UpdateUserDto,
   AuditLogQueryDto,
 } from './dto/admin.dto';
 
@@ -53,6 +54,28 @@ export class AdminController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.adminService.createUser(dto, actor.sub);
+  }
+
+  @Patch('users/:userId')
+  @ApiOperation({ summary: 'Update user info (name, email, password, status)' })
+  @ApiParam({ name: 'userId', description: 'User UUID' })
+  async updateUser(
+    @Param('userId') userId: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.adminService.updateUser(userId, dto, actor.sub);
+  }
+
+  @Delete('users/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a user' })
+  @ApiParam({ name: 'userId', description: 'User UUID' })
+  async deleteUser(
+    @Param('userId') userId: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    await this.adminService.deleteUser(userId, actor.sub);
   }
 
   @Post('users/:userId/roles')

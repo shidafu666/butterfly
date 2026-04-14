@@ -8,6 +8,7 @@ import {
   AssignSensorPermissionDto,
   BatchAssignSensorPermissionDto,
   UpdateSensorDto,
+  UpdateUserDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -36,6 +37,26 @@ export class AdminService {
     });
 
     return user;
+  }
+
+  async updateUser(
+    userId: string,
+    dto: UpdateUserDto,
+    actorId: string,
+  ): Promise<AdminUserDto> {
+    const user = await this.usersService.updateUser(userId, dto);
+    await this.auditService.log(actorId, 'UPDATE_USER', 'user', userId, {
+      fields: Object.keys(dto).filter((k) => k !== 'password'),
+    });
+    return user;
+  }
+
+  async deleteUser(userId: string, actorId: string): Promise<void> {
+    const user = await this.usersService.getUserWithRoles(userId);
+    await this.usersService.deleteUser(userId, actorId);
+    await this.auditService.log(actorId, 'DELETE_USER', 'user', userId, {
+      email: user.email,
+    });
   }
 
   async assignRole(

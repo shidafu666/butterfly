@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AdminUserDto } from '@butterfly/shared-types';
@@ -179,6 +179,45 @@ export class UsersService {
       roles: user.userRoles.map((ur) => ur.role.code),
       createdAt: user.createdAt.toISOString(),
     };
+  }
+
+  async updateUser(
+    userId: string,
+    dto: {
+      email?: string;
+      name?: string;
+      password?: string;
+      status?: string;
+    },
+  ): Promise<AdminUserDto> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    if (dto.email && dto.email.toLowerCase() !== user.email) {
+      const existing = await this.prisma.user.findUnique({
+        where: { email: dto.email.toLowerCase() },
+      });
+      if (existing) throw new ConflictException(`Email ${dto.email} is already in use`);
+    }
+
+    const data: Record<string, unknown> = { updatedAt: new Date() };
+    if (dto.name !== undefined) data.name = dto.name?.trim() || null;
+    if (dto.email) data.email = dto.email.toLowerCase();
+    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
+    if (dto.status) data.status = dto.status;
+
+    await this.prisma.user.update({ where: { id: userId }, data });
+    return this.getUserWithRoles(userId);
+  }
+
+  async deleteUser(userId: string, actorId: string): Promise<void> {
+    if (userId === actorId) {
+      throw new ForbiddenException('Cannot delete your own account');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    await this.prisma.user.delete({ where: { id: userId } });
   }
 
   async grantSensorPermission(

@@ -27,11 +27,13 @@ import {
   ApiOutlined,
   MoreOutlined,
   DeleteOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AdminUserDto, SensorDto } from '@butterfly/shared-types';
 
 const { Text, Title } = Typography;
@@ -354,6 +356,98 @@ function SensorPermissionDrawer({
   );
 }
 
+function EditUserModal({
+  user,
+  onClose,
+  onSuccess,
+}: {
+  user: AdminUserDto | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [form] = Form.useForm();
+  const [notifApi, contextHolder] = notification.useNotification();
+
+  const mutation = useMutation({
+    mutationFn: async (values: {
+      email?: string;
+      name?: string;
+      password?: string;
+      status?: string;
+    }) => {
+      if (!user) return;
+      // Only send password if provided
+      const payload = { ...values };
+      if (!payload.password) delete payload.password;
+      await api.patch(`/admin/users/${user.id}`, payload);
+    },
+    onSuccess: () => {
+      notifApi.success({ message: '用户信息已更新' });
+      onSuccess();
+      onClose();
+    },
+    onError: () => {
+      notifApi.error({ message: '更新失败，邮箱可能已被使用' });
+    },
+  });
+
+  return (
+    <>
+      {contextHolder}
+      <Modal
+        title="编辑用户"
+        open={!!user}
+        onCancel={onClose}
+        onOk={() => form.submit()}
+        confirmLoading={mutation.isPending}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{
+            email: user?.email,
+            name: user?.name ?? '',
+            status: user?.status ?? 'active',
+          }}
+          onFinish={(v) => mutation.mutate(v)}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="email"
+            label="邮箱"
+            rules={[
+              { required: true, message: '请输入邮箱' },
+              { type: 'email', message: '请输入有效邮箱' },
+            ]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="name" label="姓名">
+            <Input placeholder="用户姓名" />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="新密码"
+            extra="留空则不修改密码"
+            rules={[{ min: 8, message: '密码至少 8 位' }]}
+          >
+            <Input.Password placeholder="留空则不修改" />
+          </Form.Item>
+          <Form.Item name="status" label="状态">
+            <Select>
+              <Option value="active">活跃</Option>
+              <Option value="inactive">停用</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
+}
+
 function AssignRoleModal({
   user,
   onClose,
@@ -421,9 +515,11 @@ function AssignRoleModal({
 }
 
 function UsersTable() {
-  const [_notifApi, contextHolder] = notification.useNotification();
+  const [notifApi, contextHolder] = notification.useNotification();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editUser, setEditUser] = useState<AdminUserDto | null>(null);
   const [roleUser, setRoleUser] = useState<AdminUserDto | null>(null);
   const [sensorUser, setSensorUser] = useState<AdminUserDto | null>(null);
 
@@ -436,6 +532,34 @@ function UsersTable() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      notifApi.success({ message: '用户已删除' });
+      invalidate();
+    },
+    onError: () => {
+      notifApi.error({ message: '删除失败' });
+    },
+  });
+
+  const confirmDelete = (record: AdminUserDto) => {
+    Modal.confirm({
+      title: '确认删除用户？',
+      content: (
+        <span>
+          将永久删除用户 <strong>{record.email}</strong>，此操作不可恢复。
+        </span>
+      ),
+      okText: '删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => deleteMutation.mutateAsync(record.id),
+    });
+  };
 
   const columns = [
     {
@@ -488,33 +612,51 @@ function UsersTable() {
     {
       title: '操作',
       key: 'actions',
-      render: (_: unknown, record: AdminUserDto) => (
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'role',
-                icon: <UserAddOutlined />,
-                label: '分配角色',
-                onClick: () => setRoleUser(record),
-              },
-              {
-                key: 'sensor',
-                icon: <ApiOutlined />,
-                label: '分配传感器',
-                onClick: () => setSensorUser(record),
-              },
-            ],
-          }}
-          trigger={['click']}
-        >
-          <Button
-            type="text"
-            icon={<MoreOutlined />}
-            style={{ color: '#8b949e' }}
-          />
-        </Dropdown>
-      ),
+      render: (_: unknown, record: AdminUserDto) => {
+        const isSelf = record.email === currentUser?.email;
+        return (
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'edit',
+                  icon: <EditOutlined />,
+                  label: '编辑用户',
+                  onClick: () => setEditUser(record),
+                },
+                {
+                  key: 'role',
+                  icon: <UserAddOutlined />,
+                  label: '分配角色',
+                  onClick: () => setRoleUser(record),
+                },
+                {
+                  key: 'sensor',
+                  icon: <ApiOutlined />,
+                  label: '分配传感器',
+                  onClick: () => setSensorUser(record),
+                },
+                { type: 'divider' },
+                {
+                  key: 'delete',
+                  icon: <DeleteOutlined />,
+                  label: isSelf ? '无法删除自己' : '删除用户',
+                  danger: !isSelf,
+                  disabled: isSelf,
+                  onClick: () => confirmDelete(record),
+                },
+              ],
+            }}
+            trigger={['click']}
+          >
+            <Button
+              type="text"
+              icon={<MoreOutlined />}
+              style={{ color: '#8b949e' }}
+            />
+          </Dropdown>
+        );
+      },
     },
   ];
 
@@ -577,6 +719,11 @@ function UsersTable() {
       <CreateUserModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+        onSuccess={invalidate}
+      />
+      <EditUserModal
+        user={editUser}
+        onClose={() => setEditUser(null)}
         onSuccess={invalidate}
       />
       <AssignRoleModal
