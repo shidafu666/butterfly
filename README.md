@@ -15,6 +15,17 @@ Redis ← Export Job Queue ← Backend API
 Redis → Export Worker → CSV/Log files → shared volume → Frontend download
 ```
 
+## Features
+
+- **Time-series visualization** — browse raw current data at 1 s / 1 m / 1 h / 1 d resolution with an interactive chart
+- **Sensor management** — auto-discovery of sensors and devices from incoming MQTT messages; admin can assign sensors to users
+- **Export jobs** — export raw or aggregated data to CSV; receive an in-app toast notification when the job completes or fails
+- **Admin panel** — manage users and sensors with search, role/status filters, and sortable columns
+- **Online Sensors dashboard** — real-time count of sensors that have reported within the active threshold
+- **Internationalisation** — Chinese (简体中文) and English UI, switchable at runtime
+- **Theme support** — light / dark / system theme, persisted per browser
+- **SSO** — optional Microsoft Entra ID (Azure AD) login alongside local username/password auth
+
 ## Quick Start
 
 ### Prerequisites
@@ -66,20 +77,22 @@ Install test script dependencies, then publish a mock message:
 # Install dependencies (only needed for test scripts)
 cd scripts && npm install --save-dev mqtt msgpackr && cd ..
 
-# Send a mock message
+# Send a mock message (3 consecutive hourly batches = 3 h of data)
 make test-mqtt
 
 # Or directly:
-node scripts/test-mqtt.js mqtt://localhost:1883 SN123456 wlpca/SN123456/data iot_device change-me-mqtt-password
+node scripts/test-mqtt.js mqtt://localhost:1883 863434080879965 iot_device change-me-mqtt-password
 ```
 
 > The MQTT broker requires authentication. Credentials are set via `MQTT_USERNAME` / `MQTT_PASSWORD` in `.env`.
 
 This will:
-1. Publish a MessagePack-encoded MQTT message to `wlpca/SN123456/data`
-2. The ingestion worker will decode it and insert ~20 data points into the DB
-3. The sensor `SN123456` and its devices will be auto-discovered
+1. Publish 3 MessagePack-encoded MQTT messages (one per hour) to `wlpca/863434080879965/data`
+2. The ingestion worker will decode each batch and insert 3 600 data points per batch into the DB
+3. The sensor `863434080879965` and its devices will be auto-discovered
 4. Open the frontend to see the data
+
+See `scripts/mock-payload.json` for a reference payload that matches the real sensor format.
 
 ## Development
 
@@ -122,7 +135,8 @@ butterfly/
 │   ├── logs.sh           # View logs
 │   ├── reset.sh          # Reset data and restart
 │   ├── set-retention.sh  # Change raw data retention window
-│   └── test-mqtt.js      # Send mock MQTT message
+│   ├── test-mqtt.js      # Send mock MQTT messages (3 hourly batches)
+│   └── mock-payload.json # Reference payload matching real sensor format
 ├── data/
 │   ├── postgres/         # DB data (gitignored)
 │   └── exports/          # Export files (gitignored)
@@ -140,21 +154,33 @@ Expected MessagePack-encoded payload:
 
 ```json
 {
-  "msgId": "abc-001",
-  "sn": "SN123456",
+  "msgId": 1,
+  "rssi": -69,
+  "timestamp": 1776153610,
+  "sn": "863434080879965",
+  "version": "001.002.014",
+  "battery": 50,
   "devices": [
     {
       "deviceId": "slave1",
+      "deviceFirmware": 28,
+      "deviceState": 1,
       "deviceData": {
-        "timestamp": 1710000000,
-        "rms": [0.11, 0.12, 0.10]
+        "timestamp": 1776150347,
+        "rms": [3.1, 3.2, 3.0]
       }
     }
   ]
 }
 ```
 
-Each `rms[i]` corresponds to `timestamp + i` seconds. The array is expanded into individual `raw_current_measurements` rows.
+Key fields:
+- `msgId` — integer message identifier (older firmware may send a string; both are accepted)
+- `timestamp` (top-level) — Unix epoch when the message was sent by the sensor
+- `deviceData.timestamp` — Unix epoch of the first RMS sample in the batch
+- `rms` — array of RMS current readings (A); each `rms[i]` corresponds to `deviceData.timestamp + i` seconds and is expanded into an individual `raw_current_measurements` row
+
+A full reference payload is available in `scripts/mock-payload.json`.
 
 ## Environment Variables
 
@@ -201,11 +227,14 @@ make logs                     # tail all logs
 make logs-backend             # tail backend logs only
 make logs-frontend            # tail frontend logs only
 make logs-ingestion           # tail ingestion-worker logs
+make logs-export              # tail export-worker logs
 make logs-infra               # tail postgres / redis / mosquitto logs
 
 make ps                       # show container status
 
 make db-shell                 # open psql inside the postgres container
+make db-push                  # push Prisma schema changes to the database
+make db-generate              # regenerate Prisma client after schema changes
 make set-retention DAYS=30    # set raw data retention to N days
 make scale-ingestion N=3      # run N ingestion-worker replicas
 make test-mqtt                # send a test MQTT message
