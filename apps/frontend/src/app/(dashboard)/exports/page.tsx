@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Table,
   Tag,
@@ -11,14 +11,17 @@ import {
   notification,
   Card,
   Alert,
+  Input,
 } from 'antd';
-import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import type { InputRef, TableColumnType } from 'antd';
+import type { FilterDropdownProps } from 'antd/es/table/interface';
+import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { api } from '@/lib/api';
 import { useLocale } from '@/contexts/LocaleContext';
-import type { ExportJobDto } from '@butterfly/shared-types';
+import type { ExportJobDto, SensorDto, DeviceDto } from '@butterfly/shared-types';
 
 dayjs.extend(relativeTime);
 
@@ -43,6 +46,7 @@ export default function ExportsPage() {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const searchInput = useRef<InputRef>(null);
 
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['exports'],
@@ -102,19 +106,130 @@ export default function ExportsPage() {
     },
   });
 
-  const columns = [
+  // ── Sensor display name lookup ─────────────────────────────────────────────
+  const { data: sensors = [] } = useQuery({
+    queryKey: ['sensors'],
+    queryFn: async () => {
+      const res = await api.get<SensorDto[]>('/sensors');
+      return res.data;
+    },
+  });
+
+  const sensorDisplayMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    sensors.forEach((s) => { m[s.sensorSn] = s.displayName ?? ''; });
+    return m;
+  }, [sensors]);
+
+  // ── Device display name lookup ──────────────────────────────────────────────
+  const uniqueSensorSns = useMemo(
+    () => [...new Set(jobs.map((j) => j.sensorSn))],
+    [jobs],
+  );
+
+  const { data: allDevices = [] } = useQuery({
+    queryKey: ['export-devices', uniqueSensorSns],
+    queryFn: async () => {
+      const results = await Promise.all(
+        uniqueSensorSns.map((sn) =>
+          api.get<DeviceDto[]>(`/sensors/${sn}/devices`).then((r) =>
+            r.data.map((d) => ({ ...d, _sensorSn: sn })),
+          ),
+        ),
+      );
+      return results.flat();
+    },
+    enabled: uniqueSensorSns.length > 0,
+  });
+
+  const deviceDisplayMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    (allDevices as (DeviceDto & { _sensorSn: string })[]).forEach((d) => {
+      if (d.displayName) m[`${d._sensorSn}:${d.deviceId}`] = d.displayName;
+    });
+    return m;
+  }, [allDevices]);
+
+  const getDeviceDisplay = (record: ExportJobDto): string | null => {
+    if (!record.deviceId) return null;
+    return deviceDisplayMap[`${record.sensorSn}:${record.deviceId}`] ?? record.deviceId;
+  };
+
+  // ── Column search helpers ───────────────────────────────────────────────────
+  const handleSearch = (confirm: FilterDropdownProps['confirm']) => confirm();
+
+  const handleReset = (clearFilters: () => void, confirm: FilterDropdownProps['confirm']) => {
+    clearFilters();
+    confirm();
+  };
+
+  function makeSearchProps(
+    filterFn: (value: string, record: ExportJobDto) => boolean,
+    placeholder: string,
+  ): Pick<TableColumnType<ExportJobDto>, 'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'> {
+    return {
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+          <Input
+            ref={searchInput}
+            placeholder={placeholder}
+            value={selectedKeys[0] as string}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(confirm)}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => handleSearch(confirm)}
+              icon={<SearchOutlined />}
+              size="small"
+            >
+              {t('common.search')}
+            </Button>
+            <Button onClick={() => clearFilters && handleReset(clearFilters, confirm)} size="small">
+              {t('common.reset')}
+            </Button>
+          </Space>
+        </div>
+      ),
+      filterIcon: (filtered: boolean) => (
+        <SearchOutlined style={{ color: filtered ? '#1677ff' : 'var(--brand-text-secondary)' }} />
+      ),
+      onFilter: (value, record) => filterFn(String(value), record),
+      onFilterDropdownOpenChange: (visible) => {
+        if (visible) setTimeout(() => searchInput.current?.select(), 100);
+      },
+    };
+  }
+
+  const columns: TableColumnType<ExportJobDto>[] = [
     {
       title: t('common.sensor'),
       dataIndex: 'sensorSn',
       key: 'sensorSn',
       render: (v: string) => <Text code>{v}</Text>,
+      ...makeSearchProps((value, record) => {
+        const sn = record.sensorSn.toLowerCase();
+        const name = (sensorDisplayMap[record.sensorSn] ?? '').toLowerCase();
+        const q = value.toLowerCase();
+        return sn.includes(q) || name.includes(q);
+      }, t('common.sensor')),
     },
     {
       title: t('common.device'),
       dataIndex: 'deviceId',
       key: 'deviceId',
-      render: (v: string | null) =>
-        v ? <Text code>{v}</Text> : <Text type="secondary">{t('exports.allDevices')}</Text>,
+      render: (_: unknown, record: ExportJobDto) => {
+        const display = getDeviceDisplay(record);
+        return display
+          ? <Text code>{display}</Text>
+          : <Text type="secondary">{t('exports.allDevices')}</Text>;
+      },
+      ...makeSearchProps((value, record) => {
+        const display = getDeviceDisplay(record) ?? '';
+        return display.toLowerCase().includes(value.toLowerCase());
+      }, t('common.device')),
     },
     {
       title: t('common.timeRange'),
@@ -143,6 +258,11 @@ export default function ExportsPage() {
       title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
+      filters: (['pending', 'processing', 'completed', 'failed'] as const).map((s) => ({
+        text: t(`status.${s}` as Parameters<typeof t>[0]) || s,
+        value: s,
+      })),
+      onFilter: (value, record) => record.status === value,
       render: (v: string) => (
         <Tag color={STATUS_COLOR[v] || 'default'}>{t(`status.${v}` as Parameters<typeof t>[0]) || v}</Tag>
       ),
@@ -164,6 +284,8 @@ export default function ExportsPage() {
       title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      defaultSortOrder: 'descend',
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
           <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{dayjs(v).fromNow()}</Text>
