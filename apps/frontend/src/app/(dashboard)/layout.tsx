@@ -25,10 +25,15 @@ import {
   ThunderboltOutlined,
   RadarChartOutlined,
   GlobalOutlined,
+  SunOutlined,
+  MoonOutlined,
+  DesktopOutlined,
 } from '@ant-design/icons';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import type { ThemePreference } from '@/contexts/ThemeContext';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -38,7 +43,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout, isAdmin, isAuditor } = useAuth();
   const { t, locale, setLocale } = useLocale();
+  const { themeMode, themePreference, setThemePreference } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+
+  const isDark = themeMode === 'dark';
 
   const menuItems = [
     {
@@ -118,8 +126,31 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     },
   ];
 
+  const themeMenuItems = [
+    {
+      key: 'system',
+      icon: <DesktopOutlined />,
+      label: t('common.themeSystem'),
+    },
+    {
+      key: 'light',
+      icon: <SunOutlined />,
+      label: t('common.themeLight'),
+    },
+    {
+      key: 'dark',
+      icon: <MoonOutlined />,
+      label: t('common.themeDark'),
+    },
+  ];
+
+  const themeIcon =
+    themePreference === 'light' ? <SunOutlined /> :
+    themePreference === 'dark'  ? <MoonOutlined /> :
+    <DesktopOutlined />;
+
   return (
-    <Layout style={{ minHeight: '100vh', background: '#0d1117' }}>
+    <Layout style={{ minHeight: '100vh', background: 'var(--brand-bg)' }}>
       <Sider
         collapsible
         collapsed={collapsed}
@@ -127,8 +158,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         trigger={null}
         width={220}
         style={{
-          background: '#161b22',
-          borderRight: '1px solid #30363d',
+          background: 'var(--brand-surface)',
+          borderRight: '1px solid var(--brand-border)',
           position: 'fixed',
           left: 0,
           top: 0,
@@ -145,7 +176,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
             padding: collapsed ? '0' : '0 16px',
-            borderBottom: '1px solid #30363d',
+            borderBottom: '1px solid var(--brand-border)',
             gap: 10,
             cursor: 'pointer',
             flexShrink: 0,
@@ -167,21 +198,21 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <ThunderboltOutlined style={{ fontSize: 16, color: '#fff' }} />
           </div>
           {!collapsed && (
-            <Text strong style={{ color: '#c9d1d9', fontSize: 16, letterSpacing: 1 }}>
+            <Text strong style={{ color: 'var(--brand-text)', fontSize: 16, letterSpacing: 1 }}>
               Butterfly
             </Text>
           )}
         </div>
 
         <Menu
-          theme="dark"
+          theme={isDark ? 'dark' : 'light'}
           mode="inline"
           selectedKeys={getSelectedKeys()}
           defaultOpenKeys={getOpenKeys()}
           items={menuItems}
           onClick={({ key }) => router.push(key)}
           style={{
-            background: '#161b22',
+            background: 'var(--brand-surface)',
             border: 'none',
             marginTop: 8,
           }}
@@ -192,13 +223,13 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         style={{
           marginLeft: collapsed ? 80 : 220,
           transition: 'margin-left 0.2s',
-          background: '#0d1117',
+          background: 'var(--brand-bg)',
         }}
       >
         <Header
           style={{
-            background: '#161b22',
-            borderBottom: '1px solid #30363d',
+            background: 'var(--brand-surface)',
+            borderBottom: '1px solid var(--brand-border)',
             padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
@@ -213,17 +244,36 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
-            style={{ color: '#8b949e', fontSize: 16 }}
+            style={{ color: 'var(--brand-text-secondary)', fontSize: 16 }}
           />
 
           <Space size={8}>
+            {/* Theme switcher */}
+            <Dropdown
+              menu={{
+                items: themeMenuItems,
+                selectedKeys: [themePreference],
+                onClick: ({ key }) => setThemePreference(key as ThemePreference),
+              }}
+              trigger={['click']}
+            >
+              <Tooltip title={t('common.theme')}>
+                <Button
+                  type="text"
+                  icon={themeIcon}
+                  style={{ color: 'var(--brand-text-secondary)', fontSize: 15 }}
+                />
+              </Tooltip>
+            </Dropdown>
+
+            {/* Language switcher */}
             <Tooltip title={locale === 'zh' ? 'Switch to English' : '切换为中文'}>
               <Button
                 type="text"
                 icon={<GlobalOutlined />}
                 onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
                 style={{
-                  color: '#8b949e',
+                  color: 'var(--brand-text-secondary)',
                   fontSize: 13,
                   fontWeight: 500,
                   display: 'flex',
@@ -252,7 +302,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                       style={{ background: '#1677ff', cursor: 'pointer' }}
                       icon={<UserOutlined />}
                     />
-                    <Text style={{ color: '#c9d1d9', fontSize: 13 }}>
+                    <Text style={{ color: 'var(--brand-text)', fontSize: 13 }}>
                       {user.name || user.email}
                     </Text>
                   </Space>
@@ -266,7 +316,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           style={{
             padding: 24,
             minHeight: 'calc(100vh - 64px)',
-            background: '#0d1117',
+            background: 'var(--brand-bg)',
           }}
         >
           {children}

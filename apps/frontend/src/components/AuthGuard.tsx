@@ -39,7 +39,7 @@ export function AuthGuard({ children, requireAdmin, requireAuditor }: AuthGuardP
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0d1117',
+          background: 'var(--brand-bg)',
         }}
       >
         <Spin size="large" />

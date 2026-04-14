@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import type { EChartsOption } from 'echarts';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { RawDataPoint, AggregatedDataPoint } from '@butterfly/shared-types';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -33,41 +34,65 @@ function formatTimestamp(v: string): string {
   return `${mm}/${dd} ${hh}:${min}`;
 }
 
-const AXIS_LABEL_STYLE = { color: '#8b949e', fontSize: 11 };
-const SPLIT_LINE_STYLE = { lineStyle: { color: '#30363d', type: 'dashed' as const } };
-const TOOLTIP_STYLE = {
-  backgroundColor: '#1c2128',
-  borderColor: '#30363d',
-  textStyle: { color: '#c9d1d9' },
-};
-const DATA_ZOOM_SLIDER = {
-  type: 'slider' as const,
-  bottom: 8,
-  height: 18,
-  borderColor: '#30363d',
-  backgroundColor: '#1c2128',
-  dataBackground: {
-    lineStyle: { color: '#1677ff' },
-    areaStyle: { color: '#1677ff22' },
-  },
-  fillerColor: 'rgba(22,119,255,0.1)',
-  handleStyle: { color: '#1677ff' },
-  textStyle: { color: '#8b949e', fontSize: 10 },
-};
 const GRID = { left: 60, right: 24, top: 40, bottom: 64 };
+
+// Theme-specific color palettes for ECharts (must be actual color strings, not CSS vars)
+function makeChartColors(isDark: boolean) {
+  return {
+    axisLabel:   { color: isDark ? '#8b949e' : '#57606a', fontSize: 11 },
+    splitLine:   { lineStyle: { color: isDark ? '#30363d' : '#d0d7de', type: 'dashed' as const } },
+    axisLine:    { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
+    axisTick:    { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
+    legendText:  isDark ? '#8b949e' : '#57606a',
+    tooltipBg:   isDark ? '#1c2128' : '#ffffff',
+    tooltipBorder: isDark ? '#30363d' : '#d0d7de',
+    tooltipText: isDark ? '#c9d1d9' : '#24292f',
+    chartBg:     isDark ? '#161b22' : '#ffffff',
+    zoomBg:      isDark ? '#1c2128' : '#f0f2f4',
+    zoomBorder:  isDark ? '#30363d' : '#d0d7de',
+    zoomText:    isDark ? '#8b949e' : '#57606a',
+    noDataText:  isDark ? '#8b949e' : '#57606a',
+  };
+}
 
 export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Props) {
   const { t } = useLocale();
+  const { themeMode } = useTheme();
+  const isDark = themeMode === 'dark';
 
   const option: EChartsOption = useMemo(() => {
+    const c = makeChartColors(isDark);
+
+    const AXIS_LABEL_STYLE = c.axisLabel;
+    const SPLIT_LINE_STYLE = c.splitLine;
+    const TOOLTIP_STYLE = {
+      backgroundColor: c.tooltipBg,
+      borderColor: c.tooltipBorder,
+      textStyle: { color: c.tooltipText },
+    };
+    const DATA_ZOOM_SLIDER = {
+      type: 'slider' as const,
+      bottom: 8,
+      height: 18,
+      borderColor: c.zoomBorder,
+      backgroundColor: c.zoomBg,
+      dataBackground: {
+        lineStyle: { color: '#1677ff' },
+        areaStyle: { color: '#1677ff22' },
+      },
+      fillerColor: 'rgba(22,119,255,0.1)',
+      handleStyle: { color: '#1677ff' },
+      textStyle: { color: c.zoomText, fontSize: 10 },
+    };
+
     if (points.length === 0) {
       return {
-        backgroundColor: '#141414',
+        backgroundColor: c.chartBg,
         title: {
           text: t('chart.noData'),
           left: 'center',
           top: 'center',
-          textStyle: { color: '#8b949e', fontSize: 14 },
+          textStyle: { color: c.noDataText, fontSize: 14 },
         },
       };
     }
@@ -81,7 +106,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
       const label = `${sensorSn}${deviceId ? ' / ' + deviceId : ''}`;
 
       return {
-        backgroundColor: '#141414',
+        backgroundColor: c.chartBg,
         tooltip: {
           trigger: 'axis',
           ...TOOLTIP_STYLE,
@@ -96,8 +121,8 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
           type: 'category',
           data: times,
           axisLabel: { ...AXIS_LABEL_STYLE, rotate: 30 },
-          axisLine: { lineStyle: { color: '#30363d' } },
-          axisTick: { lineStyle: { color: '#30363d' } },
+          ...c.axisLine,
+          axisTick: c.axisTick,
           splitLine: { show: false },
         },
         yAxis: {
@@ -143,7 +168,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
     const avgLabel = t('chart.avg');
 
     return {
-      backgroundColor: '#141414',
+      backgroundColor: c.chartBg,
       tooltip: {
         trigger: 'axis',
         ...TOOLTIP_STYLE,
@@ -162,7 +187,7 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
       },
       legend: {
         data: [avgLabel, 'Min', 'Max'],
-        textStyle: { color: '#8b949e' },
+        textStyle: { color: c.legendText },
         top: 8,
         right: 24,
       },
@@ -171,8 +196,8 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
         type: 'category',
         data: times,
         axisLabel: { ...AXIS_LABEL_STYLE, rotate: 30 },
-        axisLine: { lineStyle: { color: '#30363d' } },
-        axisTick: { lineStyle: { color: '#30363d' } },
+        ...c.axisLine,
+        axisTick: c.axisTick,
         splitLine: { show: false },
       },
       yAxis: {
@@ -227,14 +252,13 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
         },
       ],
     };
-  }, [points, resolution, sensorSn, deviceId, t]);
+  }, [points, resolution, sensorSn, deviceId, t, isDark]);
 
   return (
     <div style={{ height: 360, width: '100%', overflow: 'hidden' }}>
       <ReactECharts
         option={option}
         style={{ height: '100%', width: '100%' }}
-        theme="dark"
         opts={{ renderer: 'canvas' }}
         notMerge
       />

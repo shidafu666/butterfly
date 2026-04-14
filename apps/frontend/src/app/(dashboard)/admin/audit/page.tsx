@@ -141,7 +141,7 @@ function AuditTable() {
       width: 180,
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
-          <Text style={{ color: '#8b949e', fontSize: 12 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
             {dayjs(v).format('MM-DD HH:mm:ss')}
           </Text>
         </Tooltip>
@@ -197,7 +197,7 @@ function AuditTable() {
               </pre>
             }
           >
-            <Text style={{ color: '#8b949e', fontSize: 12, cursor: 'help' }}>
+            <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12, cursor: 'help' }}>
               {Object.keys(v).join(', ')}
             </Text>
           </Tooltip>
@@ -221,17 +221,17 @@ function AuditTable() {
   return (
     <>
       <div style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
+        <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
           {t('audit.title')}
         </Title>
-        <Text style={{ color: '#8b949e', fontSize: 13 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
           {t('audit.subtitle')}
         </Text>
       </div>
 
       {/* Filter bar */}
       <Card
-        style={{ background: '#161b22', border: '1px solid #30363d', marginBottom: 16 }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
         bodyStyle={{ padding: '16px 20px' }}
       >
         <Row gutter={[12, 12]} align="middle">
@@ -283,7 +283,7 @@ function AuditTable() {
       </Card>
 
       <Card
-        style={{ background: '#161b22', border: '1px solid #30363d' }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
         bodyStyle={{ padding: 0 }}
       >
         <Table

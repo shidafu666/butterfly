@@ -31,6 +31,10 @@ export const en: Translations = {
     user: 'User',
     action: 'Action',
     total: 'Total {{count}} items',
+    theme: 'Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System',
   },
   status: {
     pending: 'Pending',

@@ -155,7 +155,7 @@ function DeviceList() {
       </div>
     ),
     filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? '#1677ff' : '#8b949e' }} />
+      <SearchOutlined style={{ color: filtered ? '#1677ff' : 'var(--brand-text-secondary)' }} />
     ),
     onFilter: (value, record) => {
       const val = record[dataIndex];
@@ -270,7 +270,7 @@ function DeviceList() {
           <Space size={4} className="device-name-cell">
             <Text
               style={{
-                color: v ? '#c9d1d9' : '#484f58',
+                color: v ? 'var(--brand-text)' : '#484f58',
                 fontSize: 13,
                 fontStyle: v ? 'normal' : 'italic',
               }}
@@ -308,7 +308,7 @@ function DeviceList() {
       defaultSortOrder: 'descend',
       render: (v: string | null) =>
         v ? (
-          <Text style={{ color: '#8b949e', fontSize: 12 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
             {dayjs(v).format('YYYY-MM-DD HH:mm:ss')}
           </Text>
         ) : (
@@ -365,7 +365,7 @@ function DeviceList() {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
-          <Text style={{ color: '#8b949e', fontSize: 12 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
             {dayjs(v).format('YYYY-MM-DD')}
           </Text>
         </Tooltip>
@@ -404,10 +404,10 @@ function DeviceList() {
         }}
       >
         <div>
-          <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
+          <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
             {t('devices.title')}
           </Title>
-          <Text style={{ color: '#8b949e', fontSize: 13 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
             {t('devices.subtitle', { total, active: activeCount })}
           </Text>
         </div>
@@ -416,7 +416,7 @@ function DeviceList() {
             icon={<ReloadOutlined />}
             onClick={() => refetch()}
             loading={isLoading}
-            style={{ color: '#8b949e' }}
+            style={{ color: 'var(--brand-text-secondary)' }}
           >
             {t('common.refresh')}
           </Button>
@@ -431,7 +431,7 @@ function DeviceList() {
       </div>
 
       <Card
-        style={{ background: '#161b22', border: '1px solid #30363d' }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
         bodyStyle={{ padding: 0 }}
       >
         <Table<SensorOverviewDto>

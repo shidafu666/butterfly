@@ -86,7 +86,7 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#0d1117',
+        background: 'var(--brand-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -97,8 +97,8 @@ export default function LoginPage() {
         style={{
           width: '100%',
           maxWidth: 420,
-          background: '#161b22',
-          border: '1px solid #30363d',
+          background: 'var(--brand-surface)',
+          border: '1px solid var(--brand-border)',
           borderRadius: 12,
         }}
         bodyStyle={{ padding: '40px 40px 32px' }}
@@ -119,10 +119,10 @@ export default function LoginPage() {
           >
             <ThunderboltOutlined style={{ fontSize: 28, color: '#fff' }} />
           </div>
-          <Title level={3} style={{ color: '#c9d1d9', margin: 0 }}>
+          <Title level={3} style={{ color: 'var(--brand-text)', margin: 0 }}>
             Butterfly
           </Title>
-          <Text style={{ color: '#8b949e', fontSize: 13 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
             {t('login.subtitle')}
           </Text>
         </div>
@@ -153,10 +153,10 @@ export default function LoginPage() {
             ]}
           >
             <Input
-              prefix={<MailOutlined style={{ color: '#8b949e' }} />}
+              prefix={<MailOutlined style={{ color: 'var(--brand-text-secondary)' }} />}
               placeholder={t('login.emailPlaceholder')}
               autoComplete="email"
-              style={{ background: '#0d1117', borderColor: '#30363d' }}
+              style={{ background: 'var(--brand-bg)', borderColor: 'var(--brand-border)' }}
             />
           </Form.Item>
 
@@ -166,10 +166,10 @@ export default function LoginPage() {
             style={{ marginBottom: 24 }}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#8b949e' }} />}
+              prefix={<LockOutlined style={{ color: 'var(--brand-text-secondary)' }} />}
               placeholder={t('login.passwordPlaceholder')}
               autoComplete="current-password"
-              style={{ background: '#0d1117', borderColor: '#30363d' }}
+              style={{ background: 'var(--brand-bg)', borderColor: 'var(--brand-border)' }}
             />
           </Form.Item>
 
@@ -188,7 +188,7 @@ export default function LoginPage() {
 
         {SSO_ENABLED && (
           <>
-            <Divider style={{ borderColor: '#30363d', color: '#8b949e', fontSize: 12 }}>
+            <Divider style={{ borderColor: 'var(--brand-border)', color: 'var(--brand-text-secondary)', fontSize: 12 }}>
               {t('login.or')}
             </Divider>
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -199,9 +199,9 @@ export default function LoginPage() {
                 onClick={handleSsoLogin}
                 style={{
                   height: 44,
-                  background: '#0d1117',
-                  borderColor: '#30363d',
-                  color: '#c9d1d9',
+                  background: 'var(--brand-bg)',
+                  borderColor: 'var(--brand-border)',
+                  color: 'var(--brand-text)',
                 }}
               >
                 {t('login.ssoButton')}

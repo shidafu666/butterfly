@@ -39,7 +39,7 @@ function StatCard({
 }) {
   return (
     <Card
-      style={{ background: '#161b22', border: '1px solid #30363d' }}
+      style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
       bodyStyle={{ padding: '20px 24px' }}
     >
       {loading ? (
@@ -62,9 +62,9 @@ function StatCard({
             {icon}
           </div>
           <Statistic
-            title={<Text style={{ color: '#8b949e', fontSize: 12 }}>{title}</Text>}
+            title={<Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{title}</Text>}
             value={value}
-            valueStyle={{ color: '#c9d1d9', fontSize: 24, fontWeight: 600 }}
+            valueStyle={{ color: 'var(--brand-text)', fontSize: 24, fontWeight: 600 }}
           />
         </Space>
       )}
@@ -139,7 +139,7 @@ export default function DashboardPage() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (v: string) => (
-        <Text style={{ color: '#8b949e', fontSize: 12 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
           {dayjs(v).fromNow()}
         </Text>
       ),
@@ -149,10 +149,10 @@ export default function DashboardPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
+        <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
           {t('dashboard.title')}
         </Title>
-        <Text style={{ color: '#8b949e', fontSize: 13 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
           {t('dashboard.subtitle')}
         </Text>
       </div>
@@ -195,13 +195,13 @@ export default function DashboardPage() {
       <Card
         title={
           <Space>
-            <Text style={{ color: '#c9d1d9' }}>{t('dashboard.recentExports')}</Text>
+            <Text style={{ color: 'var(--brand-text)' }}>{t('dashboard.recentExports')}</Text>
             <Text style={{ color: '#484f58', fontSize: 12, fontWeight: 'normal' }}>
               {t('dashboard.retentionNote')}
             </Text>
           </Space>
         }
-        style={{ background: '#161b22', border: '1px solid #30363d' }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
         bodyStyle={{ padding: 0 }}
       >
         <Table

@@ -29,6 +29,10 @@ export const zh = {
     user: '用户',
     action: '操作',
     total: '共 {{count}} 条',
+    theme: '主题',
+    themeLight: '浅色',
+    themeDark: '深色',
+    themeSystem: '跟随系统',
   },
   status: {
     pending: '等待中',

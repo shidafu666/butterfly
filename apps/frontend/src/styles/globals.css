@@ -1,10 +1,24 @@
-:root {
-  --brand-primary: #1677ff;
-  --brand-bg: #0d1117;
-  --brand-surface: #161b22;
-  --brand-border: #30363d;
-  --brand-text: #c9d1d9;
+/* ── Dark theme (default) ─────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  --brand-primary:        #1677ff;
+  --brand-bg:             #0d1117;
+  --brand-surface:        #161b22;
+  --brand-surface-elevated: #1c2128;
+  --brand-border:         #30363d;
+  --brand-text:           #c9d1d9;
   --brand-text-secondary: #8b949e;
+}
+
+/* ── Light theme ──────────────────────────────────────── */
+:root[data-theme="light"] {
+  --brand-primary:        #1677ff;
+  --brand-bg:             #f6f8fa;
+  --brand-surface:        #ffffff;
+  --brand-surface-elevated: #f0f2f4;
+  --brand-border:         #d0d7de;
+  --brand-text:           #24292f;
+  --brand-text-secondary: #57606a;
 }
 
 *,
@@ -33,40 +47,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #161b22;
+  background: var(--brand-surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: var(--brand-border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
-}
-
-/* Ant Design overrides */
-.ant-layout {
-  background: var(--brand-bg) !important;
-}
-
-.ant-layout-sider {
-  background: var(--brand-surface) !important;
-  border-right: 1px solid var(--brand-border) !important;
-}
-
-.ant-menu-dark {
-  background: var(--brand-surface) !important;
-}
-
-.ant-layout-header {
-  background: var(--brand-surface) !important;
-  border-bottom: 1px solid var(--brand-border) !important;
-}
-
-.ant-card {
-  background: var(--brand-surface) !important;
-  border-color: var(--brand-border) !important;
+  background: var(--brand-text-secondary);
 }
 
 /* Chart container */
@@ -78,15 +68,7 @@ body {
 }
 
 /* Status badges */
-.status-pending {
-  color: #e3b341;
-}
-.status-processing {
-  color: var(--brand-primary);
-}
-.status-completed {
-  color: #3fb950;
-}
-.status-failed {
-  color: #f85149;
-}
+.status-pending    { color: #e3b341; }
+.status-processing { color: var(--brand-primary); }
+.status-completed  { color: #3fb950; }
+.status-failed     { color: #f85149; }

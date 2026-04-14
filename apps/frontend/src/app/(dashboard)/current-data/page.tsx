@@ -249,23 +249,23 @@ export default function CurrentDataPage() {
     <div>
       {contextHolder}
       <div style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
+        <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
           {t('currentData.title')}
         </Title>
-        <Text style={{ color: '#8b949e', fontSize: 13 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
           {t('currentData.subtitle')}
         </Text>
       </div>
 
       {/* Filter bar */}
       <Card
-        style={{ background: '#161b22', border: '1px solid #30363d', marginBottom: 16 }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
         bodyStyle={{ padding: '16px 20px' }}
       >
         <Row gutter={[12, 16]} align="top">
           <Col xs={24} sm={12} md={6}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.sensorLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.sensorLabel')}</Text>
               <Select
                 placeholder={t('currentData.selectSensor')}
                 style={{ width: '100%' }}
@@ -285,7 +285,7 @@ export default function CurrentDataPage() {
                   <Option key={s.sensorSn} value={s.sensorSn}>
                     <span style={{ fontFamily: 'monospace' }}>{s.sensorSn}</span>
                     {s.displayName && (
-                      <span style={{ color: '#8b949e', marginLeft: 8, fontSize: 12 }}>
+                      <span style={{ color: 'var(--brand-text-secondary)', marginLeft: 8, fontSize: 12 }}>
                         {s.displayName}
                       </span>
                     )}
@@ -297,7 +297,7 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={12} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.deviceLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.deviceLabel')}</Text>
               <Select
                 placeholder={t('currentData.selectDevice')}
                 style={{ width: '100%' }}
@@ -318,7 +318,7 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={14} md={9}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.timeRangeLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.timeRangeLabel')}</Text>
               <RangePicker
                 showTime
                 style={{ width: '100%' }}
@@ -336,7 +336,7 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={10} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: '#8b949e', fontSize: 12 }}>{t('currentData.resolutionLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.resolutionLabel')}</Text>
               <Select
                 style={{ width: '100%' }}
                 value={resolution}
@@ -396,13 +396,13 @@ export default function CurrentDataPage() {
           ].map((item) => (
             <Col xs={12} sm={6} key={item.title}>
               <Card
-                style={{ background: '#161b22', border: '1px solid #30363d' }}
+                style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
                 bodyStyle={{ padding: '14px 18px' }}
               >
                 <Statistic
-                  title={<Text style={{ color: '#8b949e', fontSize: 12 }}>{item.title}</Text>}
+                  title={<Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{item.title}</Text>}
                   value={item.value}
-                  valueStyle={{ color: '#c9d1d9', fontSize: 18, fontWeight: 600 }}
+                  valueStyle={{ color: 'var(--brand-text)', fontSize: 18, fontWeight: 600 }}
                 />
               </Card>
             </Col>
@@ -414,16 +414,16 @@ export default function CurrentDataPage() {
       {currentData && (
         <>
           <Card
-            style={{ background: '#161b22', border: '1px solid #30363d', marginBottom: 16 }}
+            style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
             bodyStyle={{ padding: '12px 16px 16px' }}
             title={
               <Space>
-                <Text style={{ color: '#c9d1d9' }}>
+                <Text style={{ color: 'var(--brand-text)' }}>
                   {selectedSensor}
                   {selectedDevice ? ` / ${selectedDevice}` : ''}
                 </Text>
                 <Tag>{resolutionLabel[currentData.resolution] ?? currentData.resolution}</Tag>
-                <Text style={{ color: '#8b949e', fontSize: 12 }}>
+                <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
                   {t('currentData.pointCount', { count: points.length })}
                 </Text>
               </Space>
@@ -449,8 +449,8 @@ export default function CurrentDataPage() {
 
           {/* Data Table */}
           <Card
-            title={<Text style={{ color: '#c9d1d9' }}>{t('currentData.dataDetail')}</Text>}
-            style={{ background: '#161b22', border: '1px solid #30363d' }}
+            title={<Text style={{ color: 'var(--brand-text)' }}>{t('currentData.dataDetail')}</Text>}
+            style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
             bodyStyle={{ padding: 0 }}
           >
             <Table
@@ -497,7 +497,7 @@ export default function CurrentDataPage() {
                 <Text code>{queryState.sensorSn}</Text>
               </Form.Item>
               <Form.Item label={t('common.timeRange')}>
-                <Text style={{ color: '#8b949e', fontSize: 12 }}>
+                <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
                   {dayjs(queryState.startTime).format('YYYY-MM-DD HH:mm')} —{' '}
                   {dayjs(queryState.endTime).format('YYYY-MM-DD HH:mm')}
                 </Text>

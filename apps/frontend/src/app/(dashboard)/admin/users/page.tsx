@@ -227,8 +227,8 @@ function SensorPermissionDrawer({
       <Drawer
         title={
           <Space direction="vertical" size={0}>
-            <Text strong style={{ color: '#c9d1d9' }}>{t('users.sensorPerms')}</Text>
-            <Text style={{ color: '#8b949e', fontSize: 12, fontWeight: 'normal' }}>
+            <Text strong style={{ color: 'var(--brand-text)' }}>{t('users.sensorPerms')}</Text>
+            <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12, fontWeight: 'normal' }}>
               {user?.email}
             </Text>
           </Space>
@@ -240,7 +240,7 @@ function SensorPermissionDrawer({
         styles={{ body: { padding: '16px 24px' } }}
       >
         {/* Already assigned */}
-        <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
+        <Text strong style={{ color: 'var(--brand-text)', fontSize: 13 }}>
           {t('users.assignedSensors')}
         </Text>
         <div style={{ marginTop: 8, marginBottom: 24, minHeight: 40 }}>
@@ -257,8 +257,8 @@ function SensorPermissionDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: '#0d1117',
-                    border: '1px solid #30363d',
+                    background: 'var(--brand-bg)',
+                    border: '1px solid var(--brand-border)',
                     borderRadius: 6,
                     padding: '6px 12px',
                   }}
@@ -295,13 +295,13 @@ function SensorPermissionDrawer({
           )}
         </div>
 
-        <Divider style={{ borderColor: '#30363d', margin: '0 0 20px' }} />
+        <Divider style={{ borderColor: 'var(--brand-border)', margin: '0 0 20px' }} />
 
         {/* Batch assign */}
-        <Text strong style={{ color: '#c9d1d9', fontSize: 13 }}>
+        <Text strong style={{ color: 'var(--brand-text)', fontSize: 13 }}>
           {t('users.batchAssign')}
         </Text>
-        <Text style={{ color: '#8b949e', fontSize: 12, display: 'block', marginBottom: 12 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12, display: 'block', marginBottom: 12 }}>
           {t('users.batchNote')}
         </Text>
 
@@ -611,7 +611,7 @@ function UsersTable() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (v: string) => (
-        <Text style={{ color: '#8b949e', fontSize: 12 }}>
+        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
           {dayjs(v).format('YYYY-MM-DD HH:mm')}
         </Text>
       ),
@@ -659,7 +659,7 @@ function UsersTable() {
             <Button
               type="text"
               icon={<MoreOutlined />}
-              style={{ color: '#8b949e' }}
+              style={{ color: 'var(--brand-text-secondary)' }}
             />
           </Dropdown>
         );
@@ -690,10 +690,10 @@ function UsersTable() {
         }}
       >
         <div>
-          <Title level={4} style={{ color: '#c9d1d9', margin: 0 }}>
+          <Title level={4} style={{ color: 'var(--brand-text)', margin: 0 }}>
             {t('users.title')}
           </Title>
-          <Text style={{ color: '#8b949e', fontSize: 13 }}>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
             {t('users.subtitle')}
           </Text>
         </div>
@@ -707,7 +707,7 @@ function UsersTable() {
       </div>
 
       <Card
-        style={{ background: '#161b22', border: '1px solid #30363d' }}
+        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
         bodyStyle={{ padding: 0 }}
       >
         <Table
