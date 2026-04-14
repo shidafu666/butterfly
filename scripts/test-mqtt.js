@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /**
  * Test MQTT Publisher
- * Sends a mock MessagePack-encoded MQTT message to the broker,
+ * Sends mock MessagePack-encoded MQTT messages to the broker,
  * matching the real sensor payload format (see scripts/mock-payload.json).
  *
- * Simulates a single 1-hour batch: one device, 3600 rms values.
+ * Simulates 3 consecutive 1-hour batches (3 hours total):
+ *   batch 1: [now-3h, now-2h)
+ *   batch 2: [now-2h, now-1h)
+ *   batch 3: [now-1h, now)
  *
  * Usage:
  *   node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password]
@@ -26,7 +29,8 @@ const USERNAME   = process.argv[4] || process.env.MQTT_USERNAME || '';
 const PASSWORD   = process.argv[5] || process.env.MQTT_PASSWORD || '';
 const TOPIC      = `wlpca/${SENSOR_SN}/data`;
 
-const RMS_COUNT = 3600; // 1 hour of 1-second samples
+const RMS_COUNT   = 3600; // 1 hour of 1-second samples
+const BATCH_COUNT = 3;    // number of 1-hour batches to send
 
 /**
  * Generate realistic current readings (A) based on the observed sensor pattern.
@@ -34,10 +38,6 @@ const RMS_COUNT = 3600; // 1 hour of 1-second samples
  */
 function generateRms(count) {
   const values = [];
-  // Quantization levels seen in real data (0.1A steps)
-  const levels = [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9,
-                  3.0, 3.1, 3.2, 3.3, 3.4, 3.5];
-
   let current = 3.1; // start near the typical load
 
   for (let i = 0; i < count; i++) {
@@ -57,57 +57,50 @@ function generateRms(count) {
   return values;
 }
 
+// Build all 3 batches up front
 const now = Math.floor(Date.now() / 1000);
-const dataStartTimestamp = now - RMS_COUNT; // 1 hour ago
 
-const rms = generateRms(RMS_COUNT);
+const batches = Array.from({ length: BATCH_COUNT }, (_, i) => {
+  const batchStart = now - (BATCH_COUNT - i) * RMS_COUNT; // e.g. now-3h, now-2h, now-1h
+  const rms = generateRms(RMS_COUNT);
+  const minRms = Math.min(...rms).toFixed(3);
+  const maxRms = Math.max(...rms).toFixed(3);
+  const avgRms = (rms.reduce((s, v) => s + v, 0) / rms.length).toFixed(3);
 
-// Mirrors the real payload structure from mock-payload.json
-const payload = {
-  msgId:     Date.now(),           // integer, as in real payload
-  rssi:      -69,
-  timestamp: now,
-  sn:        SENSOR_SN,
-  version:   '001.002.014',
-  battery:   80,
-  devices: [
-    {
-      deviceId:       'slave1',
-      deviceFirmware: 28,
-      deviceState:    1,
-      deviceData: {
-        timestamp: dataStartTimestamp,
-        rms,
-      },
+  return {
+    windowLabel: `[${new Date(batchStart * 1000).toISOString()} → ${new Date((batchStart + RMS_COUNT) * 1000).toISOString()}]`,
+    payload: {
+      msgId:     Date.now() + i, // unique integer per message
+      rssi:      -69,
+      timestamp: batchStart + RMS_COUNT, // end of the window, as in real payloads
+      sn:        SENSOR_SN,
+      version:   '001.002.014',
+      battery:   80,
+      devices: [
+        {
+          deviceId:       'slave1',
+          deviceFirmware: 28,
+          deviceState:    1,
+          deviceData: {
+            timestamp: batchStart,
+            rms,
+          },
+        },
+      ],
     },
-  ],
-};
-
-const packed = pack(payload);
-
-const minRms = Math.min(...rms).toFixed(3);
-const maxRms = Math.max(...rms).toFixed(3);
-const avgRms = (rms.reduce((s, v) => s + v, 0) / rms.length).toFixed(3);
-const dataStart = new Date(dataStartTimestamp * 1000).toISOString();
-const dataEnd   = new Date(now * 1000).toISOString();
+    stats: { minRms, maxRms, avgRms },
+  };
+});
 
 console.log('╔═══════════════════════════════════════════╗');
 console.log('║  Butterfly - MQTT Test Publisher           ║');
 console.log('╚═══════════════════════════════════════════╝');
 console.log('');
-console.log(`Broker:      ${BROKER_URL}`);
-console.log(`Topic:       ${TOPIC}`);
-console.log(`SensorSN:    ${SENSOR_SN}`);
-console.log(`Auth:        ${USERNAME ? `user=${USERNAME}` : '(anonymous)'}`);
-console.log(`Packed size: ${packed.length} bytes`);
-console.log('');
-console.log('Payload summary:');
-console.log(`  device:      ${payload.devices[0].deviceId}`);
-console.log(`  rms count:   ${rms.length} samples (1-second intervals)`);
-console.log(`  data window: ${dataStart} → ${dataEnd}`);
-console.log(`  current:     min=${minRms}A  avg=${avgRms}A  max=${maxRms}A`);
-console.log(`  rssi:        ${payload.rssi} dBm`);
-console.log(`  battery:     ${payload.battery}%`);
+console.log(`Broker:    ${BROKER_URL}`);
+console.log(`Topic:     ${TOPIC}`);
+console.log(`SensorSN:  ${SENSOR_SN}`);
+console.log(`Auth:      ${USERNAME ? `user=${USERNAME}` : '(anonymous)'}`);
+console.log(`Batches:   ${BATCH_COUNT} × ${RMS_COUNT} samples (${BATCH_COUNT} hours total)`);
 console.log('');
 
 const client = mqtt.connect(BROKER_URL, {
@@ -119,15 +112,35 @@ const client = mqtt.connect(BROKER_URL, {
 
 client.on('connect', () => {
   console.log('✅ Connected to MQTT broker');
-  client.publish(TOPIC, packed, { qos: 1 }, (err) => {
-    if (err) {
-      console.error('❌ Publish failed:', err.message);
-      process.exit(1);
+  console.log('');
+
+  // Publish batches sequentially
+  let index = 0;
+
+  function publishNext() {
+    if (index >= batches.length) {
+      console.log(`✅ Done — ${BATCH_COUNT} batches published for sensor ${SENSOR_SN} / device slave1`);
+      console.log('   → data should now appear in the frontend');
+      client.end();
+      return;
     }
-    console.log(`✅ Published ${rms.length} data points for sensor ${SENSOR_SN}`);
-    console.log(`   → sensor ${SENSOR_SN} / device slave1 should appear in the frontend`);
-    client.end();
-  });
+
+    const { windowLabel, payload, stats } = batches[index];
+    const packed = pack(payload);
+
+    client.publish(TOPIC, packed, { qos: 1 }, (err) => {
+      if (err) {
+        console.error(`❌ Batch ${index + 1} publish failed:`, err.message);
+        process.exit(1);
+      }
+      console.log(`  [${index + 1}/${BATCH_COUNT}] ${windowLabel}`);
+      console.log(`         current: min=${stats.minRms}A  avg=${stats.avgRms}A  max=${stats.maxRms}A  (${packed.length} bytes)`);
+      index++;
+      publishNext();
+    });
+  }
+
+  publishNext();
 });
 
 client.on('error', (err) => {
