@@ -122,8 +122,8 @@ db-shell: ## Open a psql shell inside the postgres container
 ## Utilities
 .PHONY: test-mqtt set-retention scale-ingestion
 
-test-mqtt: ## Send a test MQTT message (requires services running)
-	node scripts/test-mqtt.js
+test-mqtt: ## Send a test MQTT message (reads MQTT credentials from .env)
+	@set -a && . ./.env && set +a && node scripts/test-mqtt.js
 
 set-retention: ## Set raw data retention  (DAYS=30)
 	@[ -n "$(DAYS)" ] || { echo "Usage: make set-retention DAYS=<number>"; exit 1; }
