@@ -6,20 +6,23 @@
 
 ## 1. 文档信息
 
-- 项目名称：电流数据采集与可视化平台
-- 版本：V1.0
+- 项目名称：电流数据采集与可视化平台（代号：Butterfly）
+- 版本：V1.1（As-Built — 反映已实现状态）
 - 目标：指导研发实现可通过 `docker compose up -d` 一键启动的完整应用
 - 设计原则：职责拆分清晰、接入链路稳定、查询与导出可扩展、权限边界明确
+- 实现状态：**已完成并交付**
 
 ### 1.1 技术方向
 
-- 前端：Next.js + TypeScript + Ant Design + ECharts
-- 后端：NestJS + TypeScript
-- 数据库：PostgreSQL + TimescaleDB
+- 前端：Next.js 14 App Router + TypeScript + Ant Design + ECharts
+- 后端：NestJS + TypeScript + Prisma
+- 数据库：PostgreSQL 16 + TimescaleDB
 - 消息接入：Mosquitto + MQTT + MessagePack
-- 鉴权：Microsoft Entra ID SSO
+- 鉴权：Microsoft Entra ID SSO（可选）+ 本地用户名密码登录
 - 导出任务：Redis + BullMQ
-- 部署方式：Docker Compose
+- 部署方式：Docker Compose（monorepo，pnpm workspaces）
+- 国际化：简体中文 / English，运行时切换
+- 主题：Light / Dark / System，浏览器级持久化
 
 ---
 
@@ -78,21 +81,40 @@ wlpca/SN123456/data
 
 ### 3.3 Payload 结构
 
+实际传感器固件发送的完整格式（部分字段旧固件可能缺失，解码时应宽容处理）：
+
 ```json
 {
-  "msgId": "abc-001",
-  "sn": "SN123456",
+  "msgId": 1,
+  "rssi": -69,
+  "timestamp": 1776153610,
+  "sn": "863434080879965",
+  "version": "001.002.014",
+  "battery": 50,
   "devices": [
     {
       "deviceId": "slave1",
+      "deviceFirmware": 28,
+      "deviceState": 1,
       "deviceData": {
-        "timestamp": 1710000000,
-        "rms": [0.11, 0.12, 0.1]
+        "timestamp": 1776150347,
+        "rms": [3.1, 3.2, 3.0]
       }
     }
   ]
 }
 ```
+
+字段说明：
+
+- `msgId` — 消息标识符，新固件为整数，旧固件可能为字符串；两者均接受
+- `timestamp`（顶层）— 传感器发送消息时的 Unix 时间戳（秒）
+- `rssi`、`version`、`battery` — 可选元数据，不参与入库
+- `devices[].deviceFirmware`、`devices[].deviceState` — 可选设备状态字段，不参与入库
+- `devices[].deviceData.timestamp` — 该设备 RMS 序列的第一个采样点时间戳（秒）
+- `devices[].deviceData.rms` — RMS 电流值数组（单位 A）
+
+完整参考 Payload 见 `scripts/mock-payload.json`。
 
 ### 3.4 数据解释规则
 
@@ -125,47 +147,70 @@ wlpca/SN123456/data
 ### 4.1 架构图
 
 ```text
+IoT 传感器设备
+      |
+      | MQTT (TCP 1883)  用户名 + 密码认证
+      v
 +--------------------------+
-| Frontend (Next.js)       |
-| Ant Design + ECharts     |
+| Mosquitto Broker         |
+| eclipse-mosquitto:2      |
+| docker-entrypoint.sh 动  |
+| 态生成密码文件            |
 +------------+-------------+
              |
-             | HTTPS REST API
+             | MQTT shared subscription
+             | $share/ingestion-workers/wlpca/+/data
              v
 +--------------------------+
-| Backend API (NestJS)     |
-| - Auth                   |
-| - Sensor Query           |
-| - Device Query           |
+| Ingestion Worker         |
+| - MQTT 订阅              |
+| - MessagePack 解码       |
+| - RMS 秒级展开           |
+| - 批量写入 TimescaleDB   |
+| - 自动发现 sensor/device |
+| （可水平扩展多副本）      |
++------------+-------------+
+             |
+             | Batch INSERT (ON CONFLICT DO NOTHING)
+             v
++--------------------------+        +---------------------+
+| PostgreSQL + TimescaleDB |<-------| Export Worker       |
+| - raw_current_measurements        | - BullMQ 消费       |
+| - current_1m / 1h / 1d  |        | - 分页读取          |
+| - 30 天保留 + 7 天压缩   |        | - 生成 CSV / log    |
++-----------+--------------+        | - 写入共享目录      |
+            |                       +----+----------------+
+            | REST API                   |
+            v                            | 共享挂载卷
++--------------------------+        +----+----------------+
+| Backend API (NestJS)     +------->| /app/exports        |
+| - Auth (JWT + Entra SSO) |        | (data/exports)      |
+| - Sensor / Device API    |        +---------------------+
 | - Current Data API       |
 | - Export API             |
 | - Admin API              |
+| - Audit Logs             |
 +------------+-------------+
              |
-             | DB / Redis
-   +---------+----------+
-   |                    |
-   v                    v
-+--------+        +-------------+
-|Postgres|        | Redis/BullMQ|
-|Timescale|       | Export Jobs |
-+--------+        +-------------+
-   ^
-   |
-   | Batch insert
-   |
-+--------------------------+
-| Ingestion Worker         |
-| - MQTT subscribe         |
-| - MessagePack decode     |
-| - RMS expand             |
-+------------+-------------+
-             |
-             | MQTT
+             | BullMQ (Redis)
              v
 +--------------------------+
-| Mosquitto Broker         |
+| Redis 7                  |
+| - 导出任务队列           |
 +--------------------------+
+             ^
+             |
++------------+-------------+
+| Frontend (Next.js 14)    |
+| - Ant Design + ECharts   |
+| - 国际化 (zh/en)         |
+| - Light/Dark 主题        |
+| - MSAL SSO               |
++--------------------------+
+             |
+             | （可选）
+             v
+   Microsoft Entra ID SSO
 ```
 
 ### 4.2 服务拆分
@@ -192,11 +237,11 @@ Docker Compose 中建议拆分以下容器：
 采用 monorepo，使用 pnpm workspaces：
 
 ```bash
-project-root/
+butterfly/
   apps/
-    frontend/           # Next.js 14
+    frontend/           # Next.js 14 App Router
     backend/            # NestJS + Prisma
-    ingestion-worker/   # 轻量 Node.js MQTT 消费者
+    ingestion-worker/   # NestJS MQTT 消费者（可水平扩展）
     export-worker/      # BullMQ 导出消费者
   packages/
     shared-types/       # 前后端共享 TypeScript 类型
@@ -204,7 +249,8 @@ project-root/
   infra/
     docker/
       mosquitto/
-        mosquitto.conf
+        mosquitto.conf              # Broker 配置（关闭匿名、开启认证）
+        docker-entrypoint.sh        # 启动时从环境变量动态生成密码文件
       postgres/
         init/
           001_init_extensions.sql
@@ -213,16 +259,26 @@ project-root/
           004_continuous_aggregates.sql
           005_policies.sql
   scripts/
-    test-mqtt.js        # 发送测试 MessagePack MQTT 消息的脚本
+    up.sh               # 初始化目录并启动全部服务
+    down.sh             # 停止服务
+    logs.sh             # 查看日志
+    reset.sh            # 清空本地数据并重建环境
+    set-retention.sh    # 修改原始数据保留天数
+    test-mqtt.js        # 发送测试 MessagePack MQTT 消息（3 批次，共 10800 个点）
+    mock-payload.json   # 与真实传感器格式一致的参考 Payload
+    package.json        # 测试脚本依赖（mqtt、msgpackr）
   data/
     postgres/           # 数据库持久化目录（gitignore）
     exports/            # 导出文件目录（gitignore）
   .env.example
   .npmrc                # node-linker=hoisted（Docker 多阶段构建兼容性必需）
   docker-compose.yml
+  Makefile              # 快捷命令（run `make help` 查看全部）
   package.json
   pnpm-workspace.yaml
   README.md
+  DEPLOYMENT.md
+  architecture.md
 ```
 
 包管理：`pnpm`，在 `.npmrc` 中配置 `node-linker=hoisted`（扁平 node_modules，避免 Docker 多阶段构建中符号链接失效）。
@@ -560,8 +616,8 @@ CREATE TABLE audit_logs (
 #### 6.3.1 1 分钟聚合
 
 ```sql
-CREATE MATERIALIZED VIEW current_1m
-WITH (timescaledb.continuous) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS current_1m
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT
   time_bucket('1 minute', ts) AS bucket,
   sensor_sn,
@@ -571,14 +627,15 @@ SELECT
   MAX(current_value) AS max_current,
   COUNT(*) AS sample_count
 FROM raw_current_measurements
-GROUP BY bucket, sensor_sn, device_id;
+GROUP BY bucket, sensor_sn, device_id
+WITH NO DATA;
 ```
 
 #### 6.3.2 1 小时聚合
 
 ```sql
-CREATE MATERIALIZED VIEW current_1h
-WITH (timescaledb.continuous) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS current_1h
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT
   time_bucket('1 hour', ts) AS bucket,
   sensor_sn,
@@ -588,7 +645,26 @@ SELECT
   MAX(current_value) AS max_current,
   COUNT(*) AS sample_count
 FROM raw_current_measurements
-GROUP BY bucket, sensor_sn, device_id;
+GROUP BY bucket, sensor_sn, device_id
+WITH NO DATA;
+```
+
+#### 6.3.3 1 天聚合
+
+```sql
+CREATE MATERIALIZED VIEW IF NOT EXISTS current_1d
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
+SELECT
+  time_bucket('1 day', ts) AS bucket,
+  sensor_sn,
+  device_id,
+  AVG(current_value) AS avg_current,
+  MIN(current_value) AS min_current,
+  MAX(current_value) AS max_current,
+  COUNT(*) AS sample_count
+FROM raw_current_measurements
+GROUP BY bucket, sensor_sn, device_id
+WITH NO DATA;
 ```
 
 ### 6.4 刷新、保留与压缩
@@ -597,30 +673,48 @@ GROUP BY bucket, sensor_sn, device_id;
 
 ```sql
 SELECT add_continuous_aggregate_policy('current_1m',
-  start_offset => INTERVAL '7 days',
-  end_offset => INTERVAL '1 minute',
-  schedule_interval => INTERVAL '1 minute');
+  start_offset      => INTERVAL '7 days',
+  end_offset        => INTERVAL '1 minute',
+  schedule_interval => INTERVAL '1 minute',
+  if_not_exists     => TRUE);
 
 SELECT add_continuous_aggregate_policy('current_1h',
-  start_offset => INTERVAL '90 days',
-  end_offset => INTERVAL '1 hour',
-  schedule_interval => INTERVAL '1 hour');
+  start_offset      => INTERVAL '90 days',
+  end_offset        => INTERVAL '1 hour',
+  schedule_interval => INTERVAL '1 minute',
+  if_not_exists     => TRUE);
+
+SELECT add_continuous_aggregate_policy('current_1d',
+  start_offset      => INTERVAL '3 years',
+  end_offset        => INTERVAL '1 day',
+  schedule_interval => INTERVAL '1 hour',
+  if_not_exists     => TRUE);
 ```
 
 保留和压缩策略：
 
 ```sql
-SELECT add_retention_policy('raw_current_measurements', INTERVAL '90 days');
+-- 原始数据保留 30 天（默认）
+SELECT add_retention_policy('raw_current_measurements',
+  INTERVAL '30 days',
+  if_not_exists => TRUE);
 
+-- 7 天以上的 chunk 自动压缩
 ALTER TABLE raw_current_measurements SET (
   timescaledb.compress,
   timescaledb.compress_segmentby = 'sensor_sn,device_id'
 );
 
-SELECT add_compression_policy('raw_current_measurements', INTERVAL '7 days');
+SELECT add_compression_policy('raw_current_measurements',
+  INTERVAL '7 days',
+  if_not_exists => TRUE);
 ```
 
-开发阶段如需便于排障，可先关闭压缩和 retention，生产环境开启。
+保留天数可在运行中修改，无需重建数据库：
+
+```bash
+make set-retention DAYS=60
+```
 
 ---
 
@@ -644,11 +738,13 @@ MQTT 接入处理流程：
 11. 失败时写入 ingestion_error_logs
 ```
 
-订阅配置建议：
+订阅配置：
 
-- Topic：`wlpca/+/data`
+- Topic（传感器端）：`wlpca/<sensorSn>/data`
+- Worker 内部订阅（Shared Subscription）：`$share/ingestion-workers/wlpca/+/data`
+  - Mosquitto 将每条消息只投递给订阅组内的一个 worker（轮询），实现多副本下的无重复消费
 - QoS：建议 1
-- ClientId：`current-platform-ingestion-worker`
+- ClientId：`current-platform-ingestion-worker-<hostname>`（每副本自动追加主机名后缀，防止 ID 冲突）
 
 Payload 校验要求：
 
@@ -710,9 +806,10 @@ for each mqttMessage:
 
 默认 `resolution=auto`，自动粒度选择策略：
 
-- `<= 6 小时`：查询 `raw_current_measurements`
-- `> 6 小时 && <= 7 天`：查询 `current_1m`
-- `> 7 天`：查询 `current_1h`
+- `<= 6 小时`：查询 `raw_current_measurements`（秒级原始数据）
+- `> 6 小时 && <= 7 天`：查询 `current_1m`（1 分钟聚合）
+- `> 7 天 && <= 90 天`：查询 `current_1h`（1 小时聚合）
+- `> 90 天`：查询 `current_1d`（1 天聚合）
 
 查询前必须校验当前用户是否具备该 `sensorSn` 的 `can_view=true` 权限。
 
@@ -922,10 +1019,17 @@ GET /api/v1/exports/:jobId/download
 ### 8.5 管理
 
 ```http
-GET /api/v1/admin/users
-POST /api/v1/admin/users/:userId/roles
-POST /api/v1/admin/users/:userId/sensors
-GET /api/v1/admin/audit-logs
+GET    /api/v1/admin/users
+POST   /api/v1/admin/users
+PATCH  /api/v1/admin/users/:userId          # 修改 email / name / password / status
+DELETE /api/v1/admin/users/:userId
+POST   /api/v1/admin/users/:userId/roles
+POST   /api/v1/admin/users/:userId/sensors/batch   # 批量分配传感器权限
+
+GET    /api/v1/admin/sensors                # 列表含最后上报时间和活跃状态
+PATCH  /api/v1/admin/sensors/:sensorSn      # 修改传感器显示名称
+
+GET    /api/v1/admin/audit-logs
 ```
 
 ---
@@ -934,48 +1038,60 @@ GET /api/v1/admin/audit-logs
 
 ### 9.1 页面清单
 
+已实现功能：
+- 国际化（简体中文 / English），运行时切换
+- Light / Dark / System 主题，浏览器级持久化
+- Microsoft Entra ID SSO 登录（可选）
+- 本地用户名 + 密码登录（始终可用）
+
 #### 9.1.1 登录页
 
-- SSO 登录按钮
-- 登录提示文字
+- SSO 登录按钮（需配置 Entra ID 环境变量）
+- 本地邮箱 + 密码登录表单
+- 语言切换
 
-#### 9.1.2 首页
+#### 9.1.2 首页 / 仪表盘
 
-- 总传感器数
-- 总设备数
+- 传感器总数
+- 在线传感器数（`SENSOR_ACTIVE_THRESHOLD_HOURS` 内有上报的传感器）
 - 今日数据点数
 - 最近导出任务
 
 #### 9.1.3 电流数据页
 
-- Sensor 选择框
+- Sensor 选择框（仅展示当前用户有权限的传感器）
 - Device 选择框
 - 时间范围选择器
-- 分辨率选择器
+- 分辨率选择器（auto / raw / 1m / 1h / 1d）
 - 查询按钮
 - 导出按钮
-- 摘要统计卡片
-- 折线图
-- 明细表格
+- 摘要统计卡片（min / max / avg / count）
+- 折线图（ECharts，聚合数据展示平均线 + 最小最大区间）
+- 明细数据表格
 
 #### 9.1.4 导出任务页
 
-- 任务列表
-- 状态
-- 文件格式
-- 时间范围
+- 任务列表（状态、文件格式、时间范围）
 - 下载按钮
+- 任务完成 / 失败时应用内 toast 通知
+- 导出任务 24 小时后自动清理（由 `EXPORT_JOB_RETENTION_HOURS` 控制）
 
-#### 9.1.5 用户权限页
+#### 9.1.5 用户权限管理页（Admin）
 
-- 用户列表
+- 用户列表（含搜索、角色/状态筛选、可排序列）
+- 创建 / 编辑 / 删除用户
 - 角色分配
-- 传感器授权
+- 传感器权限批量分配
 
-#### 9.1.6 审计日志页
+#### 9.1.6 传感器管理页（Admin）
+
+- 传感器列表（含最后上报时间、活跃状态）
+- 修改传感器显示名称
+
+#### 9.1.7 审计日志页
 
 - 日志列表
-- 筛选条件
+- 按操作类型 / 日期范围筛选
 
 ### 9.2 图表设计
 
@@ -1010,6 +1126,7 @@ GET /api/v1/admin/audit-logs
 - `export-worker` 挂载导出目录
 - 所有关键服务建议配置 `healthcheck`
 - **frontend 服务必须在 `environment` 中显式设置 `PORT: '3000'`**，防止被 `.env` 中的 `PORT=3001`（后端端口）覆盖
+- **Mosquitto 使用自定义 `docker-entrypoint.sh`**：启动时从环境变量 `MQTT_USERNAME` / `MQTT_PASSWORD` 动态生成 `/tmp/mosquitto.passwd`，无需手动维护密码文件
 
 **Dockerfile 关键注意事项：**
 
@@ -1042,24 +1159,35 @@ REDIS_PORT=6379
 MQTT_URL=mqtt://mosquitto:1883
 MQTT_TOPIC=wlpca/+/data
 MQTT_CLIENT_ID=current-platform-ingestion-worker
+MQTT_SHARED_GROUP=ingestion-workers
+MQTT_USERNAME=iot_device
+MQTT_PASSWORD=change-me-mqtt-password   # 生产环境必须修改
 
 # backend（注意：PORT=3001 仅作用于 backend，frontend 在 docker-compose 中显式覆盖为 3000）
 PORT=3001
 EXPORT_DIR=/app/exports
-JWT_SECRET=your-jwt-secret-change-in-production
+JWT_SECRET=your-jwt-secret-change-in-production   # 生产环境必须修改
+JWT_EXPIRES_IN=24h
+
+# 行为配置
+SENSOR_ACTIVE_THRESHOLD_HOURS=24   # 传感器超过此时间无上报则标记为 Inactive
+EXPORT_JOB_RETENTION_HOURS=24      # 导出任务及文件保留时长
+
+# ingestion worker 调优
+INGESTION_CONCURRENCY=10   # 每副本最大并发消息处理数
+DB_POOL_MAX=20             # 每副本 PostgreSQL 连接池上限
 
 # 初始管理员（后端首次启动时自动创建，若用户表为空）
 INITIAL_ADMIN_EMAIL=admin@example.com
-INITIAL_ADMIN_PASSWORD=Admin@123456
+INITIAL_ADMIN_PASSWORD=Admin@123456   # 生产环境必须修改
+INITIAL_ADMIN_NAME=Administrator
 
-# Entra ID（可选，留空则禁用 SSO 登录）
+# Entra ID（可选，留空则禁用 SSO 登录，仅保留本地登录）
 JWT_AUDIENCE=api://your-app-id
 JWT_ISSUER=https://login.microsoftonline.com/your-tenant-id/v2.0
-ENTRA_CLIENT_ID=your-client-id
-ENTRA_TENANT_ID=your-tenant-id
 
 # frontend
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3001   # 生产环境改为公网后端地址
 NEXT_PUBLIC_ENTRA_CLIENT_ID=your-client-id
 NEXT_PUBLIC_ENTRA_TENANT_ID=your-tenant-id
 NEXT_PUBLIC_ENTRA_REDIRECT_URI=http://localhost:3000
@@ -1093,22 +1221,49 @@ infra/docker/postgres/init/
 
 说明：Postgres / Timescale 的自动初始化只会在数据库首次创建且数据目录为空时执行。
 
-### 10.5 启动脚本建议
+### 10.5 启动脚本与 Makefile
 
-建议提供以下脚本：
+提供以下脚本（均通过 `Makefile` 封装，推荐使用 `make` 命令）：
 
-- `scripts/up.sh`：初始化目录并启动全部服务
-- `scripts/down.sh`：停止服务
-- `scripts/logs.sh`：查看日志
-- `scripts/reset.sh`：清空本地数据并重建环境
+| 命令 | 说明 |
+|------|------|
+| `make up` | 初始化目录并启动全部服务（首次自动复制 `.env.example`） |
+| `make down` | 停止所有服务（数据保留） |
+| `make restart` | 停止后重启 |
+| `make rebuild` | 仅重建应用容器（不重启基础服务） |
+| `make reset` | ⚠️ 清空所有数据并重建 |
+| `make logs` | 查看全部日志 |
+| `make ps` | 查看容器状态 |
+| `make db-shell` | 进入 psql |
+| `make set-retention DAYS=30` | 修改原始数据保留天数 |
+| `make scale-ingestion N=3` | 启动 N 个 ingestion-worker 副本 |
+| `make test-mqtt` | 发送 3 批测试 MQTT 消息 |
+| `make help` | 查看所有可用命令 |
 
-关键要求：
+### 10.6 Ingestion Worker 水平扩展
 
-- `up.sh` 支持在 `.env` 不存在时从 `.env.example` 复制
-- `reset.sh` 明确提示会删除本地数据库数据
-- 启动后输出前端、后端和 Swagger 地址
+ingestion-worker 是无状态的，支持多副本水平扩展：
 
-### 10.6 自动初始化边界与升级策略
+- 所有副本通过 **MQTT Shared Subscription** 订阅同一 topic，Mosquitto 轮询投递，每条消息只处理一次
+- 写入使用 `ON CONFLICT DO NOTHING`，幂等安全
+- ClientId 自动追加主机名后缀，防止副本间 ID 冲突
+
+```bash
+# 启动 3 个副本
+make scale-ingestion N=3
+
+# 或直接：
+docker compose up -d --scale ingestion-worker=3
+```
+
+**资源规划（N 个副本）：**
+
+| 指标 | 计算方式 |
+|------|---------|
+| 最大并发消息数 | N × `INGESTION_CONCURRENCY` |
+| DB 连接数 | N × `DB_POOL_MAX`（需低于 PostgreSQL `max_connections` 减去其他服务的用量） |
+
+### 10.7 自动初始化边界与升级策略
 
 自动初始化 SQL 会执行的场景：
 
@@ -1129,7 +1284,7 @@ infra/docker/postgres/init/
 
 如后续接入 Prisma migration，可在 Compose 中增加单独的 `migrate` 服务。
 
-### 10.7 健康检查与监控
+### 10.8 健康检查与监控
 
 - 每个服务建议暴露 `/health`
 - Compose 中为 `postgres`、`redis`、`backend` 等关键服务配置 `healthcheck`
@@ -1139,128 +1294,52 @@ infra/docker/postgres/init/
 
 ---
 
-## 11. 验收、交付与计划
+## 11. 验收与交付
+
+> 本节记录项目验收标准及已完成的交付物清单。
 
 ### 11.1 验收标准
 
 一键启动验收：
 
 ```bash
-docker compose up -d
+make up
 ```
 
 应满足：
 
 - PostgreSQL 启动并自动初始化 schema
 - Redis 启动
-- Mosquitto 启动
-- Backend 启动
-- Ingestion Worker 启动
+- Mosquitto 启动（含认证配置）
+- Backend 启动，`/health` 返回 200
+- Ingestion Worker 启动，连接 MQTT broker
 - Export Worker 启动
-- Frontend 启动
+- Frontend 启动，http://localhost:3000 可访问
 
 基础链路验收：
 
-1. 向 Mosquitto 发布测试 MessagePack 消息
-2. ingestion-worker 自动消费
-3. 秒级点位入库成功
-4. 前端可查询并展示图表
-5. 可发起导出任务并下载文件
+1. 向 Mosquitto 发布测试 MessagePack 消息（`make test-mqtt`）
+2. ingestion-worker 自动消费，秒级点位入库成功
+3. 前端可查询并展示图表（折线图 + 聚合视图）
+4. 可发起导出任务，前端 toast 通知，文件可下载
 
 权限链路验收：
 
-1. 用户通过 Entra ID 登录
-2. 后端能识别用户
-3. 未授权传感器无法访问
-4. 已授权传感器可正常查询和导出
+1. 本地管理员账号（`INITIAL_ADMIN_*`）可登录
+2. 未授权传感器无法访问
+3. 已授权传感器可正常查询和导出
+4. （可选）用户通过 Entra ID SSO 登录，后端识别用户
 
-### 11.2 研发交付物
+### 11.2 已交付物
 
-研发最终需交付：
-
-1. 完整源码
-2. `docker-compose.yml`
-3. `.env.example`
-4. SQL 初始化脚本
-5. README 启动文档
-6. 测试 MQTT 发布脚本
-7. 默认管理员初始化说明
-8. API 文档（Swagger）
-9. 前端页面截图
-10. 样例导出文件
-
-README 至少应包含：
-
-- 本地启动方式
-- 初始化说明
-- 测试消息发送方式
-- 前端、Swagger、健康检查地址
-
-### 11.3 研发任务拆分
-
-后端任务：
-
-1. Entra ID JWT 验证
-2. 用户自动同步
-3. 传感器与设备 API
-4. 当前数据查询 API
-5. 摘要统计 API
-6. 导出任务 API
-7. 管理接口
-8. 审计日志
-
-Ingestion Worker 任务：
-
-1. MQTT 连接
-2. Topic 解析
-3. MessagePack 解码
-4. Payload 校验
-5. RMS 展开
-6. 批量写入
-7. 错误日志
-8. 自动发现 sensor / device
-
-Export Worker 任务：
-
-1. BullMQ 消费
-2. 查询分页读取
-3. CSV 输出
-4. log 输出
-5. 文件写盘
-6. 状态更新
-
-前端任务：
-
-1. SSO 登录
-2. 全局布局
-3. 查询页
-4. 图表组件
-5. 导出页
-6. 管理页
-7. 审计页
-
-### 11.4 MVP 开发优先级
-
-P0：
-
-- Docker Compose 基础环境
-- 数据库初始化
-- Ingestion Worker 接入 MQTT
-- 数据入库
-- 查询 API
-- 前端查询页
-- 基础图表
-
-P1：
-
-- Entra ID SSO
-- 权限控制
-- 导出任务
-- 导出下载
-
-P2：
-
-- 审计日志
-- 管理页
-- 聚合优化
-- UI 美化
+- [x] 完整源码（monorepo）
+- [x] `docker-compose.yml`
+- [x] `.env.example`
+- [x] SQL 初始化脚本（`infra/docker/postgres/init/`）
+- [x] `README.md`（含快速启动、MQTT 测试、常用命令）
+- [x] `DEPLOYMENT.md`（含生产加固清单）
+- [x] `architecture.md`（本文档）
+- [x] 测试 MQTT 发布脚本（`scripts/test-mqtt.js`）
+- [x] 参考 Payload 文件（`scripts/mock-payload.json`）
+- [x] Swagger UI（`http://localhost:3001/api/docs`）
+- [x] Makefile（含所有运维快捷命令）

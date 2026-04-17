@@ -136,14 +136,16 @@ butterfly/
 │   ├── reset.sh          # Reset data and restart
 │   ├── set-retention.sh  # Change raw data retention window
 │   ├── test-mqtt.js      # Send mock MQTT messages (3 hourly batches)
-│   └── mock-payload.json # Reference payload matching real sensor format
+│   ├── mock-payload.json # Reference payload matching real sensor format
+│   └── package.json      # Test script dependencies (mqtt, msgpackr)
 ├── data/
 │   ├── postgres/         # DB data (gitignored)
 │   └── exports/          # Export files (gitignored)
 ├── docker-compose.yml
 ├── Makefile              # Convenience targets (run `make help`)
 ├── .env.example
-└── architecture.md
+├── ARCHITECTURE.md
+└── DEPLOYMENT.md
 ```
 
 ## MQTT Message Format
