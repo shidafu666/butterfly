@@ -23,7 +23,7 @@
 const mqtt = require('mqtt');
 const { pack } = require('msgpackr');
 
-const BROKER_URL = process.argv[2] || 'mqtt://localhost:1883';
+const BROKER_URL = process.argv[2] || process.env.BROKER_URL || 'mqtt://localhost:1883';
 const SENSOR_SN  = process.argv[3] || '863434080879965';
 const USERNAME   = process.argv[4] || process.env.MQTT_USERNAME || '';
 const PASSWORD   = process.argv[5] || process.env.MQTT_PASSWORD || '';
