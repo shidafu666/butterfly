@@ -24,7 +24,7 @@ source "$ENV_FILE"
 set +a
 
 # Derived variables
-export ACR_LOGIN_SERVER="${ACR_NAME}.azurecr.cn"
+export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 # ─── Action dispatcher ────────────────────────────────────────
