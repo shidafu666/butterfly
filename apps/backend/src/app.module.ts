@@ -25,6 +25,8 @@ import { HealthModule } from './health/health.module';
         connection: {
           host: configService.get<string>('REDIS_HOST', 'redis'),
           port: configService.get<number>('REDIS_PORT', 6379),
+          maxRetriesPerRequest: null,
+          retryStrategy: (times: number) => Math.min(times * 500, 5000),
         },
       }),
     }),
