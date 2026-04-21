@@ -12,6 +12,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.aci
+
+# ACI generated deploy YAML (contains secrets)
+infra/aci/deploy.yaml
 
 # Prisma
 apps/backend/prisma/generated/

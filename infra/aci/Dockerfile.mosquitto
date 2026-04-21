@@ -1,0 +1,9 @@
+FROM eclipse-mosquitto:2
+
+COPY mosquitto.conf /mosquitto/config/mosquitto.conf
+COPY docker-entrypoint.sh /mosquitto/config/docker-entrypoint.sh
+RUN chmod +x /mosquitto/config/docker-entrypoint.sh
+
+EXPOSE 1883 9001
+
+ENTRYPOINT ["/mosquitto/config/docker-entrypoint.sh"]
