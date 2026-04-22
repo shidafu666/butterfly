@@ -64,3 +64,14 @@ CREATE INDEX IF NOT EXISTS idx_current_1h_bucket ON current_1h (bucket DESC);
 CREATE INDEX IF NOT EXISTS idx_current_1h_sensor ON current_1h (sensor_sn, bucket DESC);
 CREATE INDEX IF NOT EXISTS idx_current_1d_bucket ON current_1d (bucket DESC);
 CREATE INDEX IF NOT EXISTS idx_current_1d_sensor ON current_1d (sensor_sn, bucket DESC);
+
+-- ─── Initial population ───────────────────────────────────────
+-- Views are created WITH NO DATA; do a blocking refresh now so queries
+-- work immediately without waiting for the first pg_cron run.
+-- Subsequent refreshes (scheduled by 005_azure_policies.sql) will use
+-- REFRESH MATERIALIZED VIEW CONCURRENTLY which requires the view to
+-- already be populated — this initial non-concurrent refresh satisfies
+-- that prerequisite as well.
+REFRESH MATERIALIZED VIEW current_1m;
+REFRESH MATERIALIZED VIEW current_1h;
+REFRESH MATERIALIZED VIEW current_1d;

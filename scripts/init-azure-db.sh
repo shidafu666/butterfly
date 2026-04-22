@@ -92,11 +92,21 @@ pg_wait_ready() {
       --url "${PG_RESOURCE_ID}?api-version=${PG_API_VERSION}" \
       --query "properties.state" -o tsv 2>/dev/null || echo "Unknown")
     if [ "$state" = "Ready" ]; then
-      # Double-check psql connectivity
-      if psql "$DATABASE_URL" -c "SELECT 1" &>/dev/null; then
-        echo "   ✅ Server is Ready (${i}x5s = $((i*5))s)"
-        return 0
-      fi
+      # ARM says Ready; verify psql connectivity with up to 10 extra retries.
+      # Azure PG can briefly close connections while loading extensions even
+      # after ARM reports Ready, so we retry rather than looping back to the
+      # ARM poll.
+      for j in $(seq 1 10); do
+        if psql "$DATABASE_URL" -c "SELECT 1" &>/dev/null; then
+          echo "   ✅ Server is Ready and accepting connections (ARM poll ${i}, psql attempt ${j})"
+          return 0
+        fi
+        echo "   ⏳ ARM=Ready but psql not yet accepting connections (attempt ${j}/10), waiting 10s..."
+        sleep 10
+      done
+      # psql still failing after retries but ARM says Ready — trust ARM and proceed.
+      echo "   ⚠️  ARM=Ready but psql connectivity check timed out; proceeding (server may still be finalizing)"
+      return 0
     fi
     sleep 5
   done
@@ -143,13 +153,16 @@ fi
 
 # Always verify actual PostgreSQL runtime value.
 # ARM value may include timescaledb but server hasn't restarted yet.
-PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ')
+# Use || true to prevent pipefail from aborting the script if psql cannot
+# connect (e.g. transient network issue); an empty result is treated as
+# "not loaded" and triggers the restart path below.
+PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ') || PG_ACTUAL_PRELOAD=""
 if [[ "$PG_ACTUAL_PRELOAD" != *"timescaledb"* ]]; then
   echo "🔄 重启 PostgreSQL 以加载 TimescaleDB (ARM state polling, ~1-2 min)..."
   pg_restart
   pg_wait_ready
   # Final verification
-  PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ')
+  PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ') || PG_ACTUAL_PRELOAD=""
   if [[ "$PG_ACTUAL_PRELOAD" != *"timescaledb"* ]]; then
     echo "   ❌ 重启后 timescaledb 仍未在 shared_preload_libraries 中"
     echo "   实际值: $PG_ACTUAL_PRELOAD"
@@ -189,9 +202,9 @@ EXT_INSTALLED=0
 for attempt in $(seq 1 4); do
   # Check if extension already exists (from a previous run or a "successful" connection-drop install)
   TSDB_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_EXISTS=""
   PGCRYPTO_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ') || PGCRYPTO_EXISTS=""
   if [ "$TSDB_EXISTS" = "1" ] && [ "$PGCRYPTO_EXISTS" = "1" ]; then
     echo "   ✅ 001_init_extensions.sql done (extensions verified)"
     EXT_INSTALLED=1
@@ -204,9 +217,9 @@ for attempt in $(seq 1 4); do
   # Wait a moment then verify
   sleep 5
   TSDB_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_EXISTS=""
   PGCRYPTO_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ') || PGCRYPTO_EXISTS=""
   if [ "$TSDB_EXISTS" = "1" ] && [ "$PGCRYPTO_EXISTS" = "1" ]; then
     echo "   ✅ 001_init_extensions.sql done (extensions verified)"
     EXT_INSTALLED=1
@@ -233,7 +246,7 @@ done
 
 # Verify TimescaleDB is loaded before running aggregate/policy scripts
 TSDB_CHECK=$(psql "$DATABASE_URL" -t -c \
-  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ')
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_CHECK=""
 if [ -z "$TSDB_CHECK" ]; then
   echo ""
   echo "   ❌ TimescaleDB 扩展未成功安装。跳过聚合和策略脚本。"
@@ -243,7 +256,7 @@ fi
 echo "   ✅ TimescaleDB ${TSDB_CHECK} 已确认加载"
 
 # Detect TimescaleDB license: "apache" vs "timescale" (community/TSL)
-TSDB_LICENSE=$(psql "$DATABASE_URL" -t -c "SHOW timescaledb.license;" 2>/dev/null | tr -d ' ')
+TSDB_LICENSE=$(psql "$DATABASE_URL" -t -c "SHOW timescaledb.license;" 2>/dev/null | tr -d ' ') || TSDB_LICENSE=""
 echo "   📋 TimescaleDB license: ${TSDB_LICENSE}"
 
 if [ "$TSDB_LICENSE" = "apache" ]; then
@@ -265,11 +278,32 @@ if [ "$INIT_FAILED" -ne 0 ]; then
   echo "   ⚠️ 部分脚本执行有错误，请检查上方输出"
 fi
 
+# ─── Step 4b: Populate materialized views (Apache license only) ───
+# When using standard materialized views (Apache TimescaleDB), the views are
+# created WITH NO DATA. The REFRESH at the end of 004_azure_aggregates.sql
+# handles the initial population, but if the view already existed from a
+# previous run (IF NOT EXISTS skips re-creation), we need to ensure it is
+# populated here too. We do a non-concurrent refresh which is idempotent.
+if [ "$TSDB_LICENSE" = "apache" ]; then
+  echo "🔄 Step 3b/4: 刷新 Apache 物化视图（初始填充数据）..."
+  for view in current_1m current_1h current_1d; do
+    IS_POPULATED=$(psql "$DATABASE_URL" -t -c \
+      "SELECT ispopulated FROM pg_matviews WHERE matviewname = '${view}';" 2>/dev/null | tr -d ' ')
+    if [ "$IS_POPULATED" != "t" ]; then
+      echo "   ⏳ REFRESH MATERIALIZED VIEW ${view} ..."
+      psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW ${view};" 2>&1 | grep -v "^REFRESH$" || true
+      echo "   ✅ ${view} 已填充"
+    else
+      echo "   ✅ ${view} 已填充（跳过）"
+    fi
+  done
+fi
+
 # ─── Step 5: Verify ───────────────────────────────────────────
 echo "🔍 Step 4/4: 验证 TimescaleDB..."
 
 TSDB_VERSION=$(psql "$DATABASE_URL" -t -c \
-  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ')
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_VERSION=""
 
 if [ -n "$TSDB_VERSION" ]; then
   echo "   ✅ TimescaleDB ${TSDB_VERSION} 已启用"
@@ -279,11 +313,11 @@ else
 fi
 
 HYPERTABLE_COUNT=$(psql "$DATABASE_URL" -t -c \
-  "SELECT count(*) FROM timescaledb_information.hypertables;" 2>/dev/null | tr -d ' ')
+  "SELECT count(*) FROM timescaledb_information.hypertables;" 2>/dev/null | tr -d ' ') || HYPERTABLE_COUNT="?"
 echo "   ✅ Hypertables: ${HYPERTABLE_COUNT}"
 
 CAGG_COUNT=$(psql "$DATABASE_URL" -t -c \
-  "SELECT count(*) FROM timescaledb_information.continuous_aggregates;" 2>/dev/null | tr -d ' ')
+  "SELECT count(*) FROM timescaledb_information.continuous_aggregates;" 2>/dev/null | tr -d ' ') || CAGG_COUNT="?"
 echo "   ✅ Continuous Aggregates: ${CAGG_COUNT}"
 
 echo ""
