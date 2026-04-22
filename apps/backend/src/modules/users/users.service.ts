@@ -40,6 +40,8 @@ export class UsersService {
       name: u.name,
       status: u.status,
       roles: u.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(u.passwordHash),
+      ssoAuth: Boolean(u.entraOid),
       createdAt: u.createdAt.toISOString(),
     }));
   }
@@ -89,6 +91,8 @@ export class UsersService {
       name: user.name,
       status: user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(user.passwordHash),
+      ssoAuth: Boolean(user.entraOid),
       createdAt: user.createdAt.toISOString(),
     };
   }
@@ -177,6 +181,8 @@ export class UsersService {
       name: user.name,
       status: user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(user.passwordHash),
+      ssoAuth: Boolean(user.entraOid),
       createdAt: user.createdAt.toISOString(),
     };
   }

@@ -139,6 +139,8 @@ export interface AdminUserDto {
   name: string | null;
   status: string;
   roles: string[];
+  localAuth: boolean;
+  ssoAuth: boolean;
   createdAt: string;
 }
 

@@ -52,6 +52,14 @@ const ROLE_COLOR: Record<string, string> = {
 
 const ROLES = ['admin', 'auditor', 'viewer', 'exporter'];
 
+type AuthType = 'local' | 'sso' | 'hybrid';
+
+function getAuthType(user: Pick<AdminUserDto, 'localAuth' | 'ssoAuth'>): AuthType {
+  if (user.localAuth && user.ssoAuth) return 'hybrid';
+  if (user.ssoAuth) return 'sso';
+  return 'local';
+}
+
 function CreateUserModal({
   open,
   onClose,
@@ -665,6 +673,26 @@ function UsersTable() {
         ) : (
           <Text type="secondary">{t('users.noRoles')}</Text>
         ),
+    },
+    {
+      title: t('users.authType'),
+      key: 'authType',
+      filters: [
+        { text: t('users.authTypeLocal'), value: 'local' },
+        { text: t('users.authTypeSso'), value: 'sso' },
+        { text: t('users.authTypeHybrid'), value: 'hybrid' },
+      ],
+      onFilter: (value, record) => getAuthType(record) === value,
+      render: (_: unknown, record) => {
+        const authType = getAuthType(record);
+        if (authType === 'hybrid') {
+          return <Tag color="purple">{t('users.authTypeHybrid')}</Tag>;
+        }
+        if (authType === 'sso') {
+          return <Tag color="geekblue">{t('users.authTypeSso')}</Tag>;
+        }
+        return <Tag color="green">{t('users.authTypeLocal')}</Tag>;
+      },
     },
     {
       title: t('common.status'),
