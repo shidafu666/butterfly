@@ -92,11 +92,21 @@ pg_wait_ready() {
       --url "${PG_RESOURCE_ID}?api-version=${PG_API_VERSION}" \
       --query "properties.state" -o tsv 2>/dev/null || echo "Unknown")
     if [ "$state" = "Ready" ]; then
-      # Double-check psql connectivity
-      if psql "$DATABASE_URL" -c "SELECT 1" &>/dev/null; then
-        echo "   ✅ Server is Ready (${i}x5s = $((i*5))s)"
-        return 0
-      fi
+      # ARM says Ready; verify psql connectivity with up to 10 extra retries.
+      # Azure PG can briefly close connections while loading extensions even
+      # after ARM reports Ready, so we retry rather than looping back to the
+      # ARM poll.
+      for j in $(seq 1 10); do
+        if psql "$DATABASE_URL" -c "SELECT 1" &>/dev/null; then
+          echo "   ✅ Server is Ready and accepting connections (ARM poll ${i}, psql attempt ${j})"
+          return 0
+        fi
+        echo "   ⏳ ARM=Ready but psql not yet accepting connections (attempt ${j}/10), waiting 10s..."
+        sleep 10
+      done
+      # psql still failing after retries but ARM says Ready — trust ARM and proceed.
+      echo "   ⚠️  ARM=Ready but psql connectivity check timed out; proceeding (server may still be finalizing)"
+      return 0
     fi
     sleep 5
   done
