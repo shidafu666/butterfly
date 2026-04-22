@@ -265,6 +265,27 @@ if [ "$INIT_FAILED" -ne 0 ]; then
   echo "   ⚠️ 部分脚本执行有错误，请检查上方输出"
 fi
 
+# ─── Step 4b: Populate materialized views (Apache license only) ───
+# When using standard materialized views (Apache TimescaleDB), the views are
+# created WITH NO DATA. The REFRESH at the end of 004_azure_aggregates.sql
+# handles the initial population, but if the view already existed from a
+# previous run (IF NOT EXISTS skips re-creation), we need to ensure it is
+# populated here too. We do a non-concurrent refresh which is idempotent.
+if [ "$TSDB_LICENSE" = "apache" ]; then
+  echo "🔄 Step 3b/4: 刷新 Apache 物化视图（初始填充数据）..."
+  for view in current_1m current_1h current_1d; do
+    IS_POPULATED=$(psql "$DATABASE_URL" -t -c \
+      "SELECT ispopulated FROM pg_matviews WHERE matviewname = '${view}';" 2>/dev/null | tr -d ' ')
+    if [ "$IS_POPULATED" != "t" ]; then
+      echo "   ⏳ REFRESH MATERIALIZED VIEW ${view} ..."
+      psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW ${view};" 2>&1 | grep -v "^REFRESH$" || true
+      echo "   ✅ ${view} 已填充"
+    else
+      echo "   ✅ ${view} 已填充（跳过）"
+    fi
+  done
+fi
+
 # ─── Step 5: Verify ───────────────────────────────────────────
 echo "🔍 Step 4/4: 验证 TimescaleDB..."
 
