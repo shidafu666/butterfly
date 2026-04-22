@@ -29,6 +29,7 @@ const { Option } = Select;
 
 const ACTION_VALUES = [
   'LOGIN',
+  'CHANGE_PASSWORD',
   'CREATE_USER',
   'ASSIGN_ROLE',
   'REMOVE_ROLE',
@@ -44,6 +45,7 @@ const ACTION_VALUES = [
 
 const ACTION_KEY_MAP: Record<string, string> = {
   LOGIN:                    'audit.actions.login',
+  CHANGE_PASSWORD:          'audit.actions.changePassword',
   CREATE_USER:              'audit.actions.createUser',
   ASSIGN_ROLE:              'audit.actions.assignRole',
   REMOVE_ROLE:              'audit.actions.removeRole',
@@ -59,6 +61,7 @@ const ACTION_KEY_MAP: Record<string, string> = {
 
 const ACTION_COLOR: Record<string, string> = {
   LOGIN:                    'green',
+  CHANGE_PASSWORD:          'gold',
   CREATE_USER:              'blue',
   ASSIGN_ROLE:              'orange',
   REMOVE_ROLE:              'volcano',

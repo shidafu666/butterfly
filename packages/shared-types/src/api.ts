@@ -24,6 +24,12 @@ export interface UserProfile {
   name: string | null;
   roles: string[];
   status: string;
+  localAuth: boolean;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 // ─── Sensors ───────────────────────────────────────────────

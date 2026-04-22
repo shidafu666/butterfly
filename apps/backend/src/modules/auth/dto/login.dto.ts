@@ -38,3 +38,16 @@ export class EntraLoginDto {
   @IsNotEmpty()
   accessToken: string;
 }
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'Admin@123456' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'Admin@654321' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  newPassword: string;
+}

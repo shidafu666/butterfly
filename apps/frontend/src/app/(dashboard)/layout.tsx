@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Layout,
@@ -11,6 +11,10 @@ import {
   Typography,
   Space,
   Tooltip,
+  Modal,
+  Form,
+  Input,
+  message,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -20,6 +24,7 @@ import {
   AuditOutlined,
   LogoutOutlined,
   UserOutlined,
+  LockOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ThunderboltOutlined,
@@ -35,6 +40,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ThemePreference } from '@/contexts/ThemeContext';
+import type { ChangePasswordRequest } from '@butterfly/shared-types';
+import { api } from '@/lib/api';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -46,8 +53,19 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useLocale();
   const { themeMode, themePreference, setThemePreference } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [messageApi, messageContextHolder] = message.useMessage();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordForm] = Form.useForm<ChangePasswordRequest & { confirmPassword: string }>();
 
   const isDark = themeMode === 'dark';
+
+  useEffect(() => {
+    if (!passwordModalOpen) {
+      passwordForm.resetFields();
+      setPasswordSubmitting(false);
+    }
+  }, [passwordForm, passwordModalOpen]);
 
   const menuItems = [
     {
@@ -118,6 +136,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       label: user?.email || '',
       disabled: true,
     },
+    ...(user?.localAuth
+      ? [
+          {
+            key: 'change-password',
+            icon: <LockOutlined />,
+            label: t('nav.changePassword'),
+          },
+        ]
+      : []),
     { type: 'divider' as const },
     {
       key: 'logout',
@@ -150,8 +177,34 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     themePreference === 'dark'  ? <MoonOutlined /> :
     <DesktopOutlined />;
 
+  const handleChangePassword = async (values: ChangePasswordRequest & { confirmPassword: string }) => {
+    setPasswordSubmitting(true);
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+      setPasswordModalOpen(false);
+      messageApi.success(t('changePassword.success'));
+      window.setTimeout(() => logout(), 800);
+    } catch (error) {
+      const nextMessage =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message !== 'undefined'
+          ? (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message
+          : undefined;
+      const description = Array.isArray(nextMessage) ? nextMessage[0] : nextMessage;
+      messageApi.error(description || t('changePassword.failed'));
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
   return (
     <Layout style={{ minHeight: '100vh', background: 'var(--brand-bg)' }}>
+      {messageContextHolder}
       <Sider
         collapsible
         collapsed={collapsed}
@@ -292,6 +345,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   menu={{
                     items: userMenuItems,
                     onClick: ({ key }) => {
+                      if (key === 'change-password') setPasswordModalOpen(true);
                       if (key === 'logout') logout();
                     },
                   }}
@@ -324,6 +378,79 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </Content>
       </Layout>
+
+      <Modal
+        title={t('changePassword.title')}
+        open={passwordModalOpen}
+        onCancel={() => setPasswordModalOpen(false)}
+        onOk={() => passwordForm.submit()}
+        confirmLoading={passwordSubmitting}
+        okText={t('changePassword.submit')}
+        cancelText={t('common.cancel')}
+        destroyOnHidden
+      >
+        <Form
+          form={passwordForm}
+          layout="vertical"
+          onFinish={handleChangePassword}
+          autoComplete="off"
+        >
+          <Form.Item
+            name="currentPassword"
+            label={t('changePassword.currentPassword')}
+            rules={[{ required: true, message: t('changePassword.currentPasswordRequired') }]}
+          >
+            <Input.Password
+              placeholder={t('changePassword.currentPasswordPlaceholder')}
+              autoComplete="current-password"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="newPassword"
+            label={t('changePassword.newPassword')}
+            rules={[
+              { required: true, message: t('changePassword.newPasswordRequired') },
+              { min: 8, message: t('changePassword.passwordMinLength') },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('currentPassword') !== value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error(t('changePassword.passwordMustDiffer')));
+                },
+              }),
+            ]}
+          >
+            <Input.Password
+              placeholder={t('changePassword.newPasswordPlaceholder')}
+              autoComplete="new-password"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="confirmPassword"
+            label={t('changePassword.confirmPassword')}
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: t('changePassword.confirmPasswordRequired') },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error(t('changePassword.passwordMismatch')));
+                },
+              }),
+            ]}
+          >
+            <Input.Password
+              placeholder={t('changePassword.confirmPasswordPlaceholder')}
+              autoComplete="new-password"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Layout>
   );
 }

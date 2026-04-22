@@ -14,7 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from './decorators/current-user.decorator';
-import { LoginDto, SetupDto, EntraLoginDto } from './dto/login.dto';
+import { LoginDto, SetupDto, EntraLoginDto, ChangePasswordDto } from './dto/login.dto';
 import { AuditService } from '../audit/audit.service';
 
 @ApiTags('auth')
@@ -48,6 +48,22 @@ export class AuthController {
       throw new UnauthorizedException('User not found');
     }
     return profile;
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Change password for current local user' })
+  @ApiBody({ type: ChangePasswordDto })
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.authService.changePassword(user.sub, dto.currentPassword, dto.newPassword);
+    await this.auditService.log(user.sub, 'CHANGE_PASSWORD', 'user', user.sub, {
+      email: user.email,
+    });
   }
 
   @Post('setup')

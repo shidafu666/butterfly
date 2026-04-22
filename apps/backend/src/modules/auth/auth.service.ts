@@ -3,6 +3,8 @@ import {
   Logger,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -17,6 +19,7 @@ export interface UserWithRoles {
   name: string | null;
   status: string;
   roles: string[];
+  localAuth: boolean;
 }
 
 @Injectable()
@@ -28,6 +31,24 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+
+  private toUserProfile(user: {
+    id: string;
+    email: string;
+    name: string | null;
+    status: string;
+    userRoles: Array<{ role: { code: string } }>;
+    passwordHash?: string | null;
+  }): UserProfile {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles: user.userRoles.map((ur) => ur.role.code),
+      status: user.status,
+      localAuth: Boolean(user.passwordHash),
+    };
+  }
 
   async validateUser(email: string, password: string): Promise<UserWithRoles | null> {
     const user = await this.prisma.user.findUnique({
@@ -58,6 +79,7 @@ export class AuthService {
       name: user.name,
       status: user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(user.passwordHash),
     };
   }
 
@@ -78,6 +100,7 @@ export class AuthService {
         name: user.name,
         roles: user.roles,
         status: user.status,
+        localAuth: user.localAuth,
       },
     };
   }
@@ -96,13 +119,38 @@ export class AuthService {
       return null;
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      roles: user.userRoles.map((ur) => ur.role.code),
-      status: user.status,
-    };
+    return this.toUserProfile(user);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.passwordHash) {
+      throw new ForbiddenException('Password change is only available for local users');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSamePassword) {
+      throw new BadRequestException('New password must be different from the current password');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
   }
 
   async ensureInitialAdmin(): Promise<void> {
@@ -243,6 +291,7 @@ export class AuthService {
         name: updated.name,
         status: updated.status,
         roles: updated.userRoles.map((ur) => ur.role.code),
+        localAuth: Boolean(updated.passwordHash),
       };
     }
 
@@ -264,6 +313,7 @@ export class AuthService {
         name: updated.name,
         status: updated.status,
         roles: updated.userRoles.map((ur) => ur.role.code),
+        localAuth: Boolean(updated.passwordHash),
       };
     }
 
@@ -294,6 +344,7 @@ export class AuthService {
       name: newUser.name,
       status: newUser.status,
       roles: newUser.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(newUser.passwordHash),
     };
   }
 
@@ -346,6 +397,7 @@ export class AuthService {
       name: user.name,
       status: user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
+      localAuth: Boolean(user.passwordHash),
     };
   }
 }
