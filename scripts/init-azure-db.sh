@@ -143,13 +143,16 @@ fi
 
 # Always verify actual PostgreSQL runtime value.
 # ARM value may include timescaledb but server hasn't restarted yet.
-PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ')
+# Use || true to prevent pipefail from aborting the script if psql cannot
+# connect (e.g. transient network issue); an empty result is treated as
+# "not loaded" and triggers the restart path below.
+PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ') || PG_ACTUAL_PRELOAD=""
 if [[ "$PG_ACTUAL_PRELOAD" != *"timescaledb"* ]]; then
   echo "🔄 重启 PostgreSQL 以加载 TimescaleDB (ARM state polling, ~1-2 min)..."
   pg_restart
   pg_wait_ready
   # Final verification
-  PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ')
+  PG_ACTUAL_PRELOAD=$(psql "$DATABASE_URL" -t -c "SHOW shared_preload_libraries;" 2>/dev/null | tr -d ' ') || PG_ACTUAL_PRELOAD=""
   if [[ "$PG_ACTUAL_PRELOAD" != *"timescaledb"* ]]; then
     echo "   ❌ 重启后 timescaledb 仍未在 shared_preload_libraries 中"
     echo "   实际值: $PG_ACTUAL_PRELOAD"
@@ -189,9 +192,9 @@ EXT_INSTALLED=0
 for attempt in $(seq 1 4); do
   # Check if extension already exists (from a previous run or a "successful" connection-drop install)
   TSDB_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_EXISTS=""
   PGCRYPTO_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ') || PGCRYPTO_EXISTS=""
   if [ "$TSDB_EXISTS" = "1" ] && [ "$PGCRYPTO_EXISTS" = "1" ]; then
     echo "   ✅ 001_init_extensions.sql done (extensions verified)"
     EXT_INSTALLED=1
@@ -204,9 +207,9 @@ for attempt in $(seq 1 4); do
   # Wait a moment then verify
   sleep 5
   TSDB_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_EXISTS=""
   PGCRYPTO_EXISTS=$(psql "$DATABASE_URL" -t -c \
-    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ')
+    "SELECT 1 FROM pg_extension WHERE extname='pgcrypto';" 2>/dev/null | tr -d ' ') || PGCRYPTO_EXISTS=""
   if [ "$TSDB_EXISTS" = "1" ] && [ "$PGCRYPTO_EXISTS" = "1" ]; then
     echo "   ✅ 001_init_extensions.sql done (extensions verified)"
     EXT_INSTALLED=1
@@ -233,7 +236,7 @@ done
 
 # Verify TimescaleDB is loaded before running aggregate/policy scripts
 TSDB_CHECK=$(psql "$DATABASE_URL" -t -c \
-  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ')
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_CHECK=""
 if [ -z "$TSDB_CHECK" ]; then
   echo ""
   echo "   ❌ TimescaleDB 扩展未成功安装。跳过聚合和策略脚本。"
@@ -243,7 +246,7 @@ fi
 echo "   ✅ TimescaleDB ${TSDB_CHECK} 已确认加载"
 
 # Detect TimescaleDB license: "apache" vs "timescale" (community/TSL)
-TSDB_LICENSE=$(psql "$DATABASE_URL" -t -c "SHOW timescaledb.license;" 2>/dev/null | tr -d ' ')
+TSDB_LICENSE=$(psql "$DATABASE_URL" -t -c "SHOW timescaledb.license;" 2>/dev/null | tr -d ' ') || TSDB_LICENSE=""
 echo "   📋 TimescaleDB license: ${TSDB_LICENSE}"
 
 if [ "$TSDB_LICENSE" = "apache" ]; then
@@ -290,7 +293,7 @@ fi
 echo "🔍 Step 4/4: 验证 TimescaleDB..."
 
 TSDB_VERSION=$(psql "$DATABASE_URL" -t -c \
-  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ')
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" 2>/dev/null | tr -d ' ') || TSDB_VERSION=""
 
 if [ -n "$TSDB_VERSION" ]; then
   echo "   ✅ TimescaleDB ${TSDB_VERSION} 已启用"
@@ -300,11 +303,11 @@ else
 fi
 
 HYPERTABLE_COUNT=$(psql "$DATABASE_URL" -t -c \
-  "SELECT count(*) FROM timescaledb_information.hypertables;" 2>/dev/null | tr -d ' ')
+  "SELECT count(*) FROM timescaledb_information.hypertables;" 2>/dev/null | tr -d ' ') || HYPERTABLE_COUNT="?"
 echo "   ✅ Hypertables: ${HYPERTABLE_COUNT}"
 
 CAGG_COUNT=$(psql "$DATABASE_URL" -t -c \
-  "SELECT count(*) FROM timescaledb_information.continuous_aggregates;" 2>/dev/null | tr -d ' ')
+  "SELECT count(*) FROM timescaledb_information.continuous_aggregates;" 2>/dev/null | tr -d ' ') || CAGG_COUNT="?"
 echo "   ✅ Continuous Aggregates: ${CAGG_COUNT}"
 
 echo ""
