@@ -23,6 +23,7 @@ import {
   SearchOutlined,
   ExportOutlined,
   ReloadOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
@@ -53,6 +54,17 @@ interface QueryState {
   startTime: string;
   endTime: string;
   resolution: Resolution;
+}
+
+function escapeCsv(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function sanitizeSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 function extractApiErrorMessage(error: unknown): string | undefined {
@@ -199,6 +211,62 @@ export default function CurrentDataPage() {
 
   const points = currentData?.points ?? [];
   const isAgg = points.length > 0 && 'avgCurrent' in points[0];
+
+  const handleDirectExport = () => {
+    if (!queryState || points.length === 0) {
+      notifApi.error({
+        message: t('currentData.exportFailed'),
+        description: t('currentData.exportNoData'),
+      });
+      return;
+    }
+
+    const sensorSn = queryState.sensorSn;
+    const deviceId = queryState.deviceId ?? 'all';
+    const now = dayjs().format('YYYYMMDD_HHmmss');
+    const fileName = `export_direct_${sanitizeSegment(sensorSn)}_${sanitizeSegment(deviceId)}_${resolvedResolution}_${now}.${exportFormat}`;
+
+    let content = '';
+
+    if (exportFormat === 'csv') {
+      if (isAgg) {
+        content += 'sensor_sn,device_id,bucket,avg_current,min_current,max_current,sample_count\n';
+        for (const point of points as AggregatedDataPoint[]) {
+          content += `${escapeCsv(sensorSn)},${escapeCsv(deviceId)},${point.timestamp},${point.avgCurrent},${point.minCurrent},${point.maxCurrent},${point.sampleCount}\n`;
+        }
+      } else {
+        content += 'sensor_sn,device_id,timestamp,current_value\n';
+        for (const point of points as RawDataPoint[]) {
+          content += `${escapeCsv(sensorSn)},${escapeCsv(deviceId)},${point.timestamp},${point.currentValue}\n`;
+        }
+      }
+    } else {
+      if (isAgg) {
+        for (const point of points as AggregatedDataPoint[]) {
+          content += `[${point.timestamp}] sensor=${sensorSn} device=${deviceId} avg=${point.avgCurrent}A min=${point.minCurrent}A max=${point.maxCurrent}A samples=${point.sampleCount}\n`;
+        }
+      } else {
+        for (const point of points as RawDataPoint[]) {
+          content += `[${point.timestamp}] sensor=${sensorSn} device=${deviceId} current=${point.currentValue}A\n`;
+        }
+      }
+    }
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    notifApi.success({
+      message: t('currentData.directExportSuccess'),
+      description: t('currentData.directExportSuccessDesc'),
+    });
+  };
 
   const handleExport = () => {
     if (!queryState) return;
@@ -538,6 +606,16 @@ export default function CurrentDataPage() {
               </Form.Item>
               <Form.Item label={t('common.resolution')}>
                 <Tag>{resolutionLabel[resolvedResolution] ?? resolvedResolution}</Tag>
+              </Form.Item>
+              <Form.Item>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleDirectExport}
+                  disabled={points.length === 0}
+                  block
+                >
+                  {t('currentData.directExport')}
+                </Button>
               </Form.Item>
             </>
           )}

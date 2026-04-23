@@ -50,38 +50,68 @@ async function streamRawLog(
   job: ExportJobRecord,
   stream: fs.WriteStream,
 ): Promise<number> {
-  let offset = 0;
+  let lastTs: Date | null = null;
+  let lastId: string | null = null;
   let total = 0;
 
   while (true) {
-    const params: unknown[] = [job.sensor_sn, job.start_time, job.end_time, PAGE_SIZE, offset];
     let sql: string;
+    let params: unknown[];
 
     if (job.device_id) {
+      if (lastTs && lastId) {
+        sql = `
+          SELECT id, sensor_sn, device_id, ts, current_value
+          FROM raw_current_measurements
+          WHERE sensor_sn = $1
+            AND device_id = $2
+            AND ts >= $3
+            AND ts < $4
+            AND (ts > $5 OR (ts = $5 AND id > $6::bigint))
+          ORDER BY ts ASC, id ASC
+          LIMIT $7
+        `;
+        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastTs, lastId, PAGE_SIZE];
+      } else {
+        sql = `
+          SELECT id, sensor_sn, device_id, ts, current_value
+          FROM raw_current_measurements
+          WHERE sensor_sn = $1
+            AND device_id = $2
+            AND ts >= $3
+            AND ts < $4
+          ORDER BY ts ASC, id ASC
+          LIMIT $5
+        `;
+        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, PAGE_SIZE];
+      }
+    } else if (lastTs && lastId) {
       sql = `
-        SELECT sensor_sn, device_id, ts, current_value
+        SELECT id, sensor_sn, device_id, ts, current_value
         FROM raw_current_measurements
         WHERE sensor_sn = $1
-          AND device_id = $6
           AND ts >= $2
           AND ts < $3
-        ORDER BY ts ASC
-        LIMIT $4 OFFSET $5
+          AND (ts > $4 OR (ts = $4 AND id > $5::bigint))
+        ORDER BY ts ASC, id ASC
+        LIMIT $6
       `;
-      params.push(job.device_id);
+      params = [job.sensor_sn, job.start_time, job.end_time, lastTs, lastId, PAGE_SIZE];
     } else {
       sql = `
-        SELECT sensor_sn, device_id, ts, current_value
+        SELECT id, sensor_sn, device_id, ts, current_value
         FROM raw_current_measurements
         WHERE sensor_sn = $1
           AND ts >= $2
           AND ts < $3
-        ORDER BY ts ASC
-        LIMIT $4 OFFSET $5
+        ORDER BY ts ASC, id ASC
+        LIMIT $4
       `;
+      params = [job.sensor_sn, job.start_time, job.end_time, PAGE_SIZE];
     }
 
     const result = await pool.query<{
+      id: string;
       sensor_sn: string;
       device_id: string;
       ts: Date;
@@ -95,7 +125,12 @@ async function streamRawLog(
     }
 
     total += result.rows.length;
-    offset += result.rows.length;
+
+    if (result.rows.length > 0) {
+      const lastRow = result.rows[result.rows.length - 1];
+      lastTs = lastRow.ts;
+      lastId = String(lastRow.id);
+    }
 
     if (result.rows.length < PAGE_SIZE) break;
   }
@@ -110,25 +145,53 @@ async function streamAggregatedLog(
   stream: fs.WriteStream,
 ): Promise<number> {
   const viewName = resolution === '1m' ? 'current_1m' : 'current_1h';
-  let offset = 0;
+  let lastBucket: Date | null = null;
+  let lastDeviceId: string | null = null;
   let total = 0;
 
   while (true) {
-    const params: unknown[] = [job.sensor_sn, job.start_time, job.end_time, PAGE_SIZE, offset];
     let sql: string;
+    let params: unknown[];
 
     if (job.device_id) {
+      if (lastBucket) {
+        sql = `
+          SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count
+          FROM ${viewName}
+          WHERE sensor_sn = $1
+            AND device_id = $2
+            AND bucket >= $3
+            AND bucket < $4
+            AND bucket > $5
+          ORDER BY bucket ASC
+          LIMIT $6
+        `;
+        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastBucket, PAGE_SIZE];
+      } else {
+        sql = `
+          SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count
+          FROM ${viewName}
+          WHERE sensor_sn = $1
+            AND device_id = $2
+            AND bucket >= $3
+            AND bucket < $4
+          ORDER BY bucket ASC
+          LIMIT $5
+        `;
+        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, PAGE_SIZE];
+      }
+    } else if (lastBucket && lastDeviceId) {
       sql = `
         SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count
         FROM ${viewName}
         WHERE sensor_sn = $1
-          AND device_id = $6
           AND bucket >= $2
           AND bucket < $3
-        ORDER BY bucket ASC
-        LIMIT $4 OFFSET $5
+          AND (bucket > $4 OR (bucket = $4 AND device_id > $5))
+        ORDER BY bucket ASC, device_id ASC
+        LIMIT $6
       `;
-      params.push(job.device_id);
+      params = [job.sensor_sn, job.start_time, job.end_time, lastBucket, lastDeviceId, PAGE_SIZE];
     } else {
       sql = `
         SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count
@@ -136,9 +199,10 @@ async function streamAggregatedLog(
         WHERE sensor_sn = $1
           AND bucket >= $2
           AND bucket < $3
-        ORDER BY bucket ASC
-        LIMIT $4 OFFSET $5
+        ORDER BY bucket ASC, device_id ASC
+        LIMIT $4
       `;
+      params = [job.sensor_sn, job.start_time, job.end_time, PAGE_SIZE];
     }
 
     const result = await pool.query<{
@@ -158,7 +222,12 @@ async function streamAggregatedLog(
     }
 
     total += result.rows.length;
-    offset += result.rows.length;
+
+    if (result.rows.length > 0) {
+      const lastRow = result.rows[result.rows.length - 1];
+      lastBucket = lastRow.bucket;
+      lastDeviceId = lastRow.device_id;
+    }
 
     if (result.rows.length < PAGE_SIZE) break;
   }
