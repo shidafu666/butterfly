@@ -117,14 +117,16 @@ export class AdminService {
     dto: BatchAssignSensorPermissionDto,
     actorId: string,
   ): Promise<void> {
-    for (const sensorSn of dto.sensorSns) {
-      await this.usersService.grantSensorPermission(
-        userId,
-        sensorSn,
-        dto.canView,
-        dto.canExport,
-      );
-    }
+    await Promise.all(
+      dto.sensorSns.map((sensorSn) =>
+        this.usersService.grantSensorPermission(
+          userId,
+          sensorSn,
+          dto.canView,
+          dto.canExport,
+        ),
+      ),
+    );
 
     await this.auditService.log(
       actorId,
@@ -182,7 +184,7 @@ export class AdminService {
 
   async listSensorOverview(): Promise<SensorOverviewDto[]> {
     const thresholdHours = parseInt(
-      process.env.SENSOR_ACTIVE_THRESHOLD_HOURS || '24',
+      process.env.SENSOR_ACTIVE_THRESHOLD_HOURS ?? '24',
       10,
     );
     const thresholdMs = thresholdHours * 60 * 60 * 1000;

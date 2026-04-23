@@ -60,10 +60,6 @@ export async function startMqttClient(pool: Pool): Promise<void> {
     console.log('[ingestion-worker] Disconnected from MQTT broker.');
   });
 
-  client.on('error', (err) => {
-    console.error('[ingestion-worker] MQTT error:', err);
-  });
-
   client.on('offline', () => {
     console.warn('[ingestion-worker] MQTT client is offline.');
   });
@@ -80,6 +76,9 @@ export async function startMqttClient(pool: Pool): Promise<void> {
 
   // Return a promise that never resolves so the process stays alive
   return new Promise((_resolve, reject) => {
-    client.on('error', reject);
+    client.on('error', (err) => {
+      console.error('[ingestion-worker] MQTT error:', err);
+      reject(err);
+    });
   });
 }

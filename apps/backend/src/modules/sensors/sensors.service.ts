@@ -2,25 +2,25 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SensorDto } from '@butterfly/shared-types';
 
+interface SensorRow {
+  id: string;
+  sensorSn: string;
+  displayName: string | null;
+  status: string;
+  createdAt: Date;
+  lastReportTime: Date | null;
+}
+
 @Injectable()
 export class SensorsService {
   constructor(private prisma: PrismaService) {}
 
   private get thresholdMs(): number {
-    const hours = parseInt(process.env.SENSOR_ACTIVE_THRESHOLD_HOURS || '24', 10);
+    const hours = parseInt(process.env.SENSOR_ACTIVE_THRESHOLD_HOURS ?? '24', 10);
     return hours * 60 * 60 * 1000;
   }
 
   async findAllForUser(userId: string, userRoles: string[]): Promise<SensorDto[]> {
-    interface SensorRow {
-      id: string;
-      sensorSn: string;
-      displayName: string | null;
-      status: string;
-      createdAt: Date;
-      lastReportTime: Date | null;
-    }
-
     let rows: SensorRow[];
 
     if (userRoles.includes('admin')) {
@@ -99,17 +99,7 @@ export class SensorsService {
     return this.toDto({ ...sensor, lastReportTime: null }, Date.now());
   }
 
-  private toDto(
-    sensor: {
-      id: string;
-      sensorSn: string;
-      displayName: string | null;
-      status: string;
-      createdAt: Date;
-      lastReportTime: Date | null;
-    },
-    now: number,
-  ): SensorDto {
+  private toDto(sensor: SensorRow, now: number): SensorDto {
     const lastReportTime = sensor.lastReportTime
       ? new Date(sensor.lastReportTime)
       : null;
