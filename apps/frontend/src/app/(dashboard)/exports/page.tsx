@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   Table,
   Tag,
@@ -12,10 +12,11 @@ import {
   Card,
   Alert,
   Input,
+  Popconfirm,
 } from 'antd';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
-import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -32,6 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
   processing: 'blue',
   completed: 'green',
   failed: 'red',
+  cancelled: 'default',
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -45,9 +47,11 @@ export default function ExportsPage() {
   const [notifApi, contextHolder] = notification.useNotification();
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const searchInput = useRef<InputRef>(null);
 
+  // ExportJobNotifier (mounted in layout) already handles polling via the
+  // shared ['exports'] query key. This page only needs to subscribe to that
+  // same cache and trigger a manual refetch when the user clicks the button.
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['exports'],
     queryFn: async () => {
@@ -57,26 +61,19 @@ export default function ExportsPage() {
     refetchInterval: false,
   });
 
-  // Auto-refresh if any job is pending/processing
-  const hasActiveJobs = jobs.some(
-    (j) => j.status === 'pending' || j.status === 'processing'
-  );
-
-  useEffect(() => {
-    if (hasActiveJobs) {
-      intervalRef.current = setInterval(() => {
-        refetch();
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [hasActiveJobs, refetch]);
+  const cancelMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const res = await api.delete<ExportJobDto>(`/exports/${jobId}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      notifApi.success({ message: t('exports.cancelSuccess') });
+      queryClient.invalidateQueries({ queryKey: ['exports'] });
+    },
+    onError: () => {
+      notifApi.error({ message: t('exports.cancelFailed') });
+    },
+  });
 
   const downloadMutation = useMutation({
     mutationFn: async (jobId: string) => {
@@ -275,6 +272,24 @@ export default function ExportsPage() {
               {t('exports.download')}
             </Button>
           </Tooltip>
+          {(record.status === 'pending' || record.status === 'processing') && (
+            <Popconfirm
+              title={t('exports.cancelConfirm')}
+              onConfirm={() => cancelMutation.mutate(record.id)}
+              okText={t('common.confirm')}
+              cancelText={t('common.cancel')}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                loading={cancelMutation.isPending && cancelMutation.variables === record.id}
+              >
+                {t('exports.cancel')}
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -297,7 +312,7 @@ export default function ExportsPage() {
           </Title>
           <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
             {t('exports.subtitle')}
-            {hasActiveJobs && (
+            {jobs.some((j) => j.status === 'pending' || j.status === 'processing') && (
               <Tag color="blue" style={{ marginLeft: 8 }}>
                 {t('exports.autoRefresh')}
               </Tag>

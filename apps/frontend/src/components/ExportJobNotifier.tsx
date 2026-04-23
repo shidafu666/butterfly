@@ -53,12 +53,12 @@ export function ExportJobNotifier() {
       const res = await api.get<ExportJobDto[]>('/exports');
       return res.data;
     },
-    // Automatically polls every 5 s while any job is active.
+    // Automatically polls every 3 s while any job is active.
     // Re-evaluated after every successful fetch.
     refetchInterval: (query) => {
       const data = (query.state.data as ExportJobDto[] | undefined) ?? [];
       return data.some((j) => j.status === 'pending' || j.status === 'processing')
-        ? 1000
+        ? 3000
         : false;
     },
   });

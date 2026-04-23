@@ -39,6 +39,7 @@ export const zh = {
     processing: '处理中',
     completed: '已完成',
     failed: '失败',
+    cancelled: '已取消',
     active: '活跃',
     inactive: '停用',
   },
@@ -137,6 +138,7 @@ export const zh = {
     exportFailed: '创建导出任务失败',
     exportFailedDesc: '请检查导出参数并重试。',
     exportRangeExceeded: '导出时间范围不能超过 14 天。',
+    exportNoData: '所选时间范围内没有数据，请先执行查询。',
   },
   exports: {
     title: '导出任务',
@@ -158,6 +160,11 @@ export const zh = {
     jobCompleted: '导出任务已完成',
     jobFailed: '导出任务失败',
     errorPrefix: '错误信息：',
+    cancel: '取消',
+    cancelDisabled: '只有等待中或处理中的任务可以取消',
+    cancelConfirm: '确定要取消该导出任务吗？',
+    cancelSuccess: '导出任务已取消',
+    cancelFailed: '取消导出任务失败',
   },
   users: {
     title: '用户管理',

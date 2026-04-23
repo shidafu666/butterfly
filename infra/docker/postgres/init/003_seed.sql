@@ -7,7 +7,8 @@ INSERT INTO roles (code, name) VALUES
   ('admin',    'Administrator'),
   ('operator', 'Operator'),
   ('viewer',   'Viewer'),
-  ('auditor',  'Auditor')
+  ('auditor',  'Auditor'),
+  ('exporter', 'Exporter')
 ON CONFLICT (code) DO NOTHING;
 
 -- Note: The initial admin user is created by the backend on first startup

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -71,5 +72,20 @@ export class ExportsController {
     await this.auditService.log(user.sub, 'DOWNLOAD_EXPORT', 'export_job', jobId, {});
 
     res.download(filePath);
+  }
+
+  @Delete(':jobId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a pending or processing export job' })
+  @ApiParam({ name: 'jobId', description: 'Export job UUID' })
+  async cancelJob(
+    @Param('jobId') jobId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const job = await this.exportsService.cancelJob(jobId, user.sub, user.roles);
+
+    await this.auditService.log(user.sub, 'CANCEL_EXPORT', 'export_job', jobId, {});
+
+    return job;
   }
 }

@@ -170,6 +170,34 @@ export class ExportsService {
     return filePath;
   }
 
+  async cancelJob(jobId: string, userId: string, userRoles: string[]): Promise<ExportJobDto> {
+    const job = await this.prisma.exportJob.findUnique({ where: { id: jobId } });
+
+    if (!job) {
+      throw new NotFoundException(`Export job '${jobId}' not found`);
+    }
+
+    if (!userRoles.includes('admin') && job.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (job.status !== 'pending' && job.status !== 'processing') {
+      throw new BadRequestException(
+        `Cannot cancel a job with status '${job.status}'`,
+      );
+    }
+
+    const updated = await this.prisma.exportJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'cancelled',
+        completedAt: new Date(),
+      },
+    });
+
+    return this.toDto(updated);
+  }
+
   private async getUserRoles(userId: string): Promise<string[]> {
     const userWithRoles = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -41,6 +41,7 @@ export const en: Translations = {
     processing: 'Processing',
     completed: 'Completed',
     failed: 'Failed',
+    cancelled: 'Cancelled',
     active: 'Active',
     inactive: 'Inactive',
   },
@@ -139,6 +140,7 @@ export const en: Translations = {
     exportFailed: 'Failed to create export job',
     exportFailedDesc: 'Please check your export parameters and try again.',
     exportRangeExceeded: 'Export time range must not exceed 14 days.',
+    exportNoData: 'No data in the selected range. Please run a query first.',  
   },
   exports: {
     title: 'Export Jobs',
@@ -160,6 +162,11 @@ export const en: Translations = {
     jobCompleted: 'Export job completed',
     jobFailed: 'Export job failed',
     errorPrefix: 'Error: ',
+    cancel: 'Cancel',
+    cancelDisabled: 'Only pending or processing jobs can be cancelled',
+    cancelConfirm: 'Are you sure you want to cancel this export job?',
+    cancelSuccess: 'Export job cancelled',
+    cancelFailed: 'Failed to cancel export job',
   },
   users: {
     title: 'User Management',

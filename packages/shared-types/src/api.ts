@@ -110,7 +110,7 @@ export interface ExportJobDto {
   endTime: string;
   resolution: string;
   format: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   fileName: string | null;
   fileSize: number | null;
   rowCount: number | null;

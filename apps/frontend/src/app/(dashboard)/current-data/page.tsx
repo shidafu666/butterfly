@@ -55,8 +55,6 @@ interface QueryState {
   resolution: Resolution;
 }
 
-const MAX_EXPORT_RANGE_MS = 14 * 24 * 60 * 60 * 1000;
-
 function extractApiErrorMessage(error: unknown): string | undefined {
   const axiosError = error as AxiosError<{ message?: string | string[] }>;
   const message = axiosError.response?.data?.message;
@@ -199,31 +197,36 @@ export default function CurrentDataPage() {
     '1d': t('currentData.res1d'),
   };
 
+  const points = currentData?.points ?? [];
+  const isAgg = points.length > 0 && 'avgCurrent' in points[0];
+
   const handleExport = () => {
     if (!queryState) return;
 
-    const start = dayjs(queryState.startTime);
-    const end = dayjs(queryState.endTime);
-    if (end.diff(start) > MAX_EXPORT_RANGE_MS) {
+    if (points.length === 0) {
       notifApi.error({
         message: t('currentData.exportFailed'),
-        description: t('currentData.exportRangeExceeded'),
+        description: t('currentData.exportNoData'),
       });
       return;
     }
 
+    // Use the actual data range from the query result (first to last point),
+    // not the full user-selected range. This avoids the export worker scanning
+    // large empty time windows and keeps jobs fast.
+    const actualStart = points[0].timestamp;
+    // Add 1 ms so the last point passes the `ts < endTime` filter in the exporter.
+    const actualEnd = new Date(new Date(points[points.length - 1].timestamp).getTime() + 1).toISOString();
+
     exportMutation.mutate({
       sensorSn: queryState.sensorSn,
       deviceId: queryState.deviceId,
-      startTime: queryState.startTime,
-      endTime: queryState.endTime,
+      startTime: actualStart,
+      endTime: actualEnd,
       resolution: resolvedResolution,
       format: exportFormat,
     });
   };
-
-  const points = currentData?.points ?? [];
-  const isAgg = points.length > 0 && 'avgCurrent' in points[0];
 
   const tableColumns = isAgg
     ? [
@@ -528,8 +531,9 @@ export default function CurrentDataPage() {
               </Form.Item>
               <Form.Item label={t('common.timeRange')}>
                 <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
-                  {dayjs(queryState.startTime).format('YYYY-MM-DD HH:mm')} —{' '}
-                  {dayjs(queryState.endTime).format('YYYY-MM-DD HH:mm')}
+                  {points.length > 0
+                    ? `${dayjs(points[0].timestamp).format('YYYY-MM-DD HH:mm:ss')} — ${dayjs(points[points.length - 1].timestamp).format('YYYY-MM-DD HH:mm:ss')}`
+                    : t('currentData.noData')}
                 </Text>
               </Form.Item>
               <Form.Item label={t('common.resolution')}>
