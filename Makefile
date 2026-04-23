@@ -120,10 +120,21 @@ db-shell: ## Open a psql shell inside the postgres container
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
 ## Utilities
+
 .PHONY: test-mqtt set-retention scale-ingestion
 
-test-mqtt: ## Send a test MQTT message (reads MQTT credentials from .env)
-	@set -a && . ./.env && set +a && node scripts/test-mqtt.js
+test-mqtt: ## Send test MQTT data  (HOURS=24 SENSOR_SN=863434080879965 BROKER_URL=mqtt://localhost:1883)
+	@set -a && . ./.env && set +a && \
+	HOURS=$(or $(HOURS),3) \
+	BROKER_URL=$(or $(BROKER_URL),$$BROKER_URL) \
+	MQTT_USERNAME=$(or $(MQTT_USERNAME),$$MQTT_USERNAME) \
+	MQTT_PASSWORD=$(or $(MQTT_PASSWORD),$$MQTT_PASSWORD) \
+	node scripts/test-mqtt.js \
+	  $(or $(BROKER_URL),$$BROKER_URL) \
+	  $(or $(SENSOR_SN),863434080879965) \
+	  $(or $(MQTT_USERNAME),$$MQTT_USERNAME) \
+	  $(or $(MQTT_PASSWORD),$$MQTT_PASSWORD) \
+	  $(or $(HOURS),3)
 
 set-retention: ## Set raw data retention  (DAYS=30)
 	@[ -n "$(DAYS)" ] || { echo "Usage: make set-retention DAYS=<number>"; exit 1; }

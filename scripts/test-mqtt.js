@@ -10,14 +10,16 @@
  *   batch 3: [now-1h, now)
  *
  * Usage:
- *   node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password]
+ *   node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password] [hours]
  *
  * Credentials are read from args first, then env vars MQTT_USERNAME / MQTT_PASSWORD.
+ * Batch count (hours) is read from arg 6 first, then env vars HOURS / BATCH_COUNT.
  *
  * Examples:
  *   node scripts/test-mqtt.js
  *   node scripts/test-mqtt.js mqtt://localhost:1883 863434080879965
  *   node scripts/test-mqtt.js mqtt://localhost:1883 863434080879965 iot_device secret123
+ *   node scripts/test-mqtt.js mqtt://localhost:1883 863434080879965 iot_device secret123 24
  */
 
 const mqtt = require('mqtt');
@@ -27,10 +29,23 @@ const BROKER_URL = process.argv[2] || process.env.BROKER_URL || 'mqtt://localhos
 const SENSOR_SN  = process.argv[3] || '863434080879965';
 const USERNAME   = process.argv[4] || process.env.MQTT_USERNAME || '';
 const PASSWORD   = process.argv[5] || process.env.MQTT_PASSWORD || '';
+const HOURS_ARG  = process.argv[6] || process.env.HOURS || process.env.BATCH_COUNT || '3';
 const TOPIC      = `wlpca/${SENSOR_SN}/data`;
 
 const RMS_COUNT   = 3600; // 1 hour of 1-second samples
-const BATCH_COUNT = 3;    // number of 1-hour batches to send
+const BATCH_COUNT = parseBatchCount(HOURS_ARG);
+
+function parseBatchCount(value) {
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.error(`Invalid batch count/hours: ${value}`);
+    console.error('Usage: node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password] [hours]');
+    process.exit(1);
+  }
+
+  return parsed;
+}
 
 /**
  * Generate realistic current readings (A) based on the observed sensor pattern.
@@ -57,7 +72,7 @@ function generateRms(count) {
   return values;
 }
 
-// Build all 3 batches up front
+// Build all batches up front
 const now = Math.floor(Date.now() / 1000);
 
 const batches = Array.from({ length: BATCH_COUNT }, (_, i) => {

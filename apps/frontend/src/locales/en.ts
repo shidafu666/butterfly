@@ -139,7 +139,7 @@ export const en: Translations = {
     exportCreatedDesc: 'The job is processing in the background. You can download it from the "Exports" page when done.',
     exportFailed: 'Failed to create export job',
     exportFailedDesc: 'Please check your export parameters and try again.',
-    exportRangeExceeded: 'Export time range must not exceed 14 days.',
+    exportRangeExceeded: 'Export time range must not exceed 7 days.',
     exportNoData: 'No data in the selected range. Please run a query first.',  
   },
   exports: {

@@ -137,7 +137,7 @@ export const zh = {
     exportCreatedDesc: '任务将在后台处理，完成后可在"导出任务"页面下载。',
     exportFailed: '创建导出任务失败',
     exportFailedDesc: '请检查导出参数并重试。',
-    exportRangeExceeded: '导出时间范围不能超过 14 天。',
+    exportRangeExceeded: '导出时间范围不能超过 7 天。',
     exportNoData: '所选时间范围内没有数据，请先执行查询。',
   },
   exports: {
