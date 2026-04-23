@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import zlib from 'zlib';
-import { Writable } from 'stream';
+import { PassThrough, Writable } from 'stream';
+import archiver from 'archiver';
 import { Pool } from 'pg';
 import { ExportJobRecord, ExportResult } from '../types';
 
@@ -12,12 +12,16 @@ export async function exportLog(
   job: ExportJobRecord,
   outputDir: string,
 ): Promise<ExportResult> {
-  const fileName = buildFileName(job, 'log.gz');
+  const fileName = buildFileName(job, 'zip');
   const filePath = path.join(outputDir, fileName);
+  const innerFileName = buildFileName(job, 'log');
 
   const fileStream = fs.createWriteStream(filePath);
-  const gzipStream = zlib.createGzip();
-  gzipStream.pipe(fileStream);
+  const archive = archiver('zip', { zlib: { level: 6 } });
+  archive.pipe(fileStream);
+
+  const passThrough = new PassThrough();
+  archive.append(passThrough, { name: innerFileName });
 
   let rowCount = 0;
 
@@ -25,18 +29,19 @@ export async function exportLog(
     await new Promise<void>((resolve, reject) => {
       fileStream.on('finish', resolve);
       fileStream.on('error', reject);
-      gzipStream.on('error', reject);
+      archive.on('error', reject);
 
       (async () => {
         try {
           if (job.resolution === 'raw') {
-            rowCount = await streamRawLog(pool, job, gzipStream);
+            rowCount = await streamRawLog(pool, job, passThrough);
           } else {
-            rowCount = await streamAggregatedLog(pool, job, job.resolution, gzipStream);
+            rowCount = await streamAggregatedLog(pool, job, job.resolution, passThrough);
           }
-          gzipStream.end();
+          passThrough.end();
+          await archive.finalize();
         } catch (err) {
-          gzipStream.destroy(err instanceof Error ? err : new Error(String(err)));
+          archive.abort();
           reject(err);
         }
       })();

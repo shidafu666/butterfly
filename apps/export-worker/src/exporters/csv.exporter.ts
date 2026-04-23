@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import zlib from 'zlib';
-import { Writable } from 'stream';
+import { PassThrough, Writable } from 'stream';
+import archiver from 'archiver';
 import { Pool } from 'pg';
 import { ExportJobRecord, ExportResult } from '../types';
 
@@ -13,12 +13,16 @@ export async function exportCsv(
   outputDir: string,
 ): Promise<ExportResult> {
   const resolution = job.resolution;
-  const fileName = buildFileName(job, 'csv.gz');
+  const fileName = buildFileName(job, 'zip');
   const filePath = path.join(outputDir, fileName);
+  const innerFileName = buildFileName(job, 'csv');
 
   const fileStream = fs.createWriteStream(filePath);
-  const gzipStream = zlib.createGzip();
-  gzipStream.pipe(fileStream);
+  const archive = archiver('zip', { zlib: { level: 6 } });
+  archive.pipe(fileStream);
+
+  const passThrough = new PassThrough();
+  archive.append(passThrough, { name: innerFileName });
 
   let rowCount = 0;
 
@@ -26,22 +30,23 @@ export async function exportCsv(
     await new Promise<void>((resolve, reject) => {
       fileStream.on('finish', resolve);
       fileStream.on('error', reject);
-      gzipStream.on('error', reject);
+      archive.on('error', reject);
 
       (async () => {
         try {
           if (resolution === 'raw') {
-            gzipStream.write('sensor_sn,device_id,timestamp,current_value\n');
-            rowCount = await streamRawCsv(pool, job, gzipStream);
+            passThrough.write('sensor_sn,device_id,timestamp,current_value\n');
+            rowCount = await streamRawCsv(pool, job, passThrough);
           } else {
-            gzipStream.write(
+            passThrough.write(
               'sensor_sn,device_id,bucket,avg_current,min_current,max_current,sample_count\n',
             );
-            rowCount = await streamAggregatedCsv(pool, job, resolution, gzipStream);
+            rowCount = await streamAggregatedCsv(pool, job, resolution, passThrough);
           }
-          gzipStream.end();
+          passThrough.end();
+          await archive.finalize();
         } catch (err) {
-          gzipStream.destroy(err instanceof Error ? err : new Error(String(err)));
+          archive.abort();
           reject(err);
         }
       })();
