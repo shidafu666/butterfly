@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import * as compression from 'compression';
+import compression = require('compression');
 import { AppModule } from './app.module';
 import { AuthService } from './modules/auth/auth.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
