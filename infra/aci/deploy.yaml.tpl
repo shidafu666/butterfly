@@ -36,7 +36,7 @@ properties:
     # ─── Redis ──────────────────────────────────────────────────
     - name: redis
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/redis:7-alpine
+        image: ${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}
         resources:
           requests:
             cpu: 0.5

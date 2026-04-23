@@ -16,6 +16,8 @@ import { EXPORT_QUEUE } from './exports.queue';
 
 @Injectable()
 export class ExportsService {
+  private static readonly MAX_EXPORT_RANGE_MS = 14 * 24 * 60 * 60 * 1000;
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -46,13 +48,12 @@ export class ExportsService {
   private validateExportLimits(startTime: Date, endTime: Date, resolution: string): void {
     const diffMs = endTime.getTime() - startTime.getTime();
 
-    const threeDays = 3 * 24 * 60 * 60 * 1000;
     const ninetyDays = 90 * 24 * 60 * 60 * 1000;
     const oneYear = 365 * 24 * 60 * 60 * 1000;
 
-    if (resolution === 'raw' && diffMs > threeDays) {
+    if (diffMs > ExportsService.MAX_EXPORT_RANGE_MS) {
       throw new BadRequestException(
-        'Raw data exports are limited to 3 days maximum',
+        'Export time range must not exceed 14 days',
       );
     }
 

@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
+import { AxiosError } from 'axios';
 import { api } from '@/lib/api';
 import { CurrentDataChart } from '@/components/CurrentDataChart';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -52,6 +53,19 @@ interface QueryState {
   startTime: string;
   endTime: string;
   resolution: Resolution;
+}
+
+const MAX_EXPORT_RANGE_MS = 14 * 24 * 60 * 60 * 1000;
+
+function extractApiErrorMessage(error: unknown): string | undefined {
+  const axiosError = error as AxiosError<{ message?: string | string[] }>;
+  const message = axiosError.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message[0];
+  }
+
+  return typeof message === 'string' ? message : undefined;
 }
 
 export default function CurrentDataPage() {
@@ -166,8 +180,11 @@ export default function CurrentDataPage() {
       // Kick the global notifier into polling mode immediately.
       queryClient.invalidateQueries({ queryKey: ['exports'] });
     },
-    onError: () => {
-      notifApi.error({ message: t('currentData.exportFailed') });
+    onError: (error) => {
+      notifApi.error({
+        message: t('currentData.exportFailed'),
+        description: extractApiErrorMessage(error) ?? t('currentData.exportFailedDesc'),
+      });
     },
   });
 
@@ -184,6 +201,17 @@ export default function CurrentDataPage() {
 
   const handleExport = () => {
     if (!queryState) return;
+
+    const start = dayjs(queryState.startTime);
+    const end = dayjs(queryState.endTime);
+    if (end.diff(start) > MAX_EXPORT_RANGE_MS) {
+      notifApi.error({
+        message: t('currentData.exportFailed'),
+        description: t('currentData.exportRangeExceeded'),
+      });
+      return;
+    }
+
     exportMutation.mutate({
       sensorSn: queryState.sensorSn,
       deviceId: queryState.deviceId,

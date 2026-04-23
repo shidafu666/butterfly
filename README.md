@@ -33,6 +33,15 @@ Redis → Export Worker → CSV/Log files → shared volume → Frontend downloa
 - (For test scripts) Node.js 20+ and pnpm
 - `make` (pre-installed on macOS/Linux)
 
+### Platform Notes (Apple Silicon / x86)
+
+This project pins service/build platform through `DOCKER_PLATFORM` in `.env`:
+
+- Apple Silicon (M1/M2/M3): `DOCKER_PLATFORM=linux/arm64/v8`
+- Intel/AMD x86_64: `DOCKER_PLATFORM=linux/amd64`
+
+If you previously exported `DOCKER_DEFAULT_PLATFORM=linux/amd64`, unset it (or change it) to avoid platform mismatch warnings when running locally on Apple Silicon.
+
 ### 1. Clone and Start
 
 ```bash

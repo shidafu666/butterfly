@@ -26,6 +26,7 @@ set +a
 # Derived variables
 export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
+export REDIS_IMAGE_TAG="${REDIS_IMAGE_TAG:-7-alpine-amd64}"
 
 # ─── Action dispatcher ────────────────────────────────────────
 ACTION="${1:-help}"
@@ -83,7 +84,7 @@ case "$ACTION" in
 
     echo "── [6/6] redis (pull & tag) ──"
     docker pull --platform linux/amd64 redis:7-alpine
-    docker tag redis:7-alpine "${ACR_LOGIN_SERVER}/butterfly/redis:7-alpine"
+    docker tag redis:7-alpine "${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}"
 
     echo ""
     echo "✅ All images built successfully."
@@ -98,7 +99,7 @@ case "$ACTION" in
     docker push "${ACR_LOGIN_SERVER}/butterfly/ingestion-worker:${IMAGE_TAG}"
     docker push "${ACR_LOGIN_SERVER}/butterfly/export-worker:${IMAGE_TAG}"
     docker push "${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}"
-    docker push "${ACR_LOGIN_SERVER}/butterfly/redis:7-alpine"
+    docker push "${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}"
 
     echo "✅ All images pushed."
     ;;
