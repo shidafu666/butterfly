@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
+import { Writable } from 'stream';
 import { Pool } from 'pg';
 import { ExportJobRecord, ExportResult } from '../types';
 
@@ -11,32 +13,35 @@ export async function exportCsv(
   outputDir: string,
 ): Promise<ExportResult> {
   const resolution = job.resolution;
-  const fileName = buildFileName(job, 'csv');
+  const fileName = buildFileName(job, 'csv.gz');
   const filePath = path.join(outputDir, fileName);
 
-  const writeStream = fs.createWriteStream(filePath, { encoding: 'utf8' });
+  const fileStream = fs.createWriteStream(filePath);
+  const gzipStream = zlib.createGzip();
+  gzipStream.pipe(fileStream);
 
   let rowCount = 0;
 
   try {
     await new Promise<void>((resolve, reject) => {
-      writeStream.on('error', reject);
-      writeStream.on('finish', resolve);
+      fileStream.on('finish', resolve);
+      fileStream.on('error', reject);
+      gzipStream.on('error', reject);
 
       (async () => {
         try {
           if (resolution === 'raw') {
-            writeStream.write('sensor_sn,device_id,timestamp,current_value\n');
-            rowCount = await streamRawCsv(pool, job, writeStream);
+            gzipStream.write('sensor_sn,device_id,timestamp,current_value\n');
+            rowCount = await streamRawCsv(pool, job, gzipStream);
           } else {
-            writeStream.write(
+            gzipStream.write(
               'sensor_sn,device_id,bucket,avg_current,min_current,max_current,sample_count\n',
             );
-            rowCount = await streamAggregatedCsv(pool, job, resolution, writeStream);
+            rowCount = await streamAggregatedCsv(pool, job, resolution, gzipStream);
           }
-          writeStream.end();
+          gzipStream.end();
         } catch (err) {
-          writeStream.destroy(err instanceof Error ? err : new Error(String(err)));
+          gzipStream.destroy(err instanceof Error ? err : new Error(String(err)));
           reject(err);
         }
       })();
@@ -54,7 +59,7 @@ export async function exportCsv(
 async function streamRawCsv(
   pool: Pool,
   job: ExportJobRecord,
-  stream: fs.WriteStream,
+  stream: Writable,
 ): Promise<number> {
   let lastTs: Date | null = null;
   let lastId: string | null = null;
@@ -148,7 +153,7 @@ async function streamAggregatedCsv(
   pool: Pool,
   job: ExportJobRecord,
   resolution: '1m' | '1h',
-  stream: fs.WriteStream,
+  stream: Writable,
 ): Promise<number> {
   const viewName = resolution === '1m' ? 'current_1m' : 'current_1h';
   let lastBucket: Date | null = null;

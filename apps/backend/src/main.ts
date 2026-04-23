@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { AuthService } from './modules/auth/auth.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -11,6 +12,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
+
+  // Gzip compression for all API responses (reduces large JSON payloads ~90%)
+  app.use(compression());
 
   // Global prefix except /health
   app.setGlobalPrefix('api/v1', {

@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
+import { Writable } from 'stream';
 import { Pool } from 'pg';
 import { ExportJobRecord, ExportResult } from '../types';
 
@@ -10,28 +12,31 @@ export async function exportLog(
   job: ExportJobRecord,
   outputDir: string,
 ): Promise<ExportResult> {
-  const fileName = buildFileName(job, 'log');
+  const fileName = buildFileName(job, 'log.gz');
   const filePath = path.join(outputDir, fileName);
 
-  const writeStream = fs.createWriteStream(filePath, { encoding: 'utf8' });
+  const fileStream = fs.createWriteStream(filePath);
+  const gzipStream = zlib.createGzip();
+  gzipStream.pipe(fileStream);
 
   let rowCount = 0;
 
   try {
     await new Promise<void>((resolve, reject) => {
-      writeStream.on('error', reject);
-      writeStream.on('finish', resolve);
+      fileStream.on('finish', resolve);
+      fileStream.on('error', reject);
+      gzipStream.on('error', reject);
 
       (async () => {
         try {
           if (job.resolution === 'raw') {
-            rowCount = await streamRawLog(pool, job, writeStream);
+            rowCount = await streamRawLog(pool, job, gzipStream);
           } else {
-            rowCount = await streamAggregatedLog(pool, job, job.resolution, writeStream);
+            rowCount = await streamAggregatedLog(pool, job, job.resolution, gzipStream);
           }
-          writeStream.end();
+          gzipStream.end();
         } catch (err) {
-          writeStream.destroy(err instanceof Error ? err : new Error(String(err)));
+          gzipStream.destroy(err instanceof Error ? err : new Error(String(err)));
           reject(err);
         }
       })();
@@ -48,7 +53,7 @@ export async function exportLog(
 async function streamRawLog(
   pool: Pool,
   job: ExportJobRecord,
-  stream: fs.WriteStream,
+  stream: Writable,
 ): Promise<number> {
   let lastTs: Date | null = null;
   let lastId: string | null = null;
@@ -142,7 +147,7 @@ async function streamAggregatedLog(
   pool: Pool,
   job: ExportJobRecord,
   resolution: '1m' | '1h',
-  stream: fs.WriteStream,
+  stream: Writable,
 ): Promise<number> {
   const viewName = resolution === '1m' ? 'current_1m' : 'current_1h';
   let lastBucket: Date | null = null;
