@@ -1,12 +1,7 @@
 import { Pool } from 'pg';
 import { decodePayload } from '../decoder/decoder';
 import { validatePayload } from '../validator/validator';
-import {
-  bulkInsert,
-  upsertSensor,
-  upsertDevice,
-  CurrentMeasurementRow,
-} from '../writer/writer';
+import { bulkInsert, upsertSensor, upsertDevice, CurrentMeasurementRow } from '../writer/writer';
 
 /**
  * Parses the sensor SN from a topic of the form `wlpca/<sensorSn>/data`.
@@ -22,15 +17,11 @@ function parseSensorSnFromTopic(topic: string): string | null {
   return sn && sn.trim() !== '' ? sn : null;
 }
 
-export async function handleMessage(
-  topic: string,
-  buffer: Buffer,
-  pool: Pool,
-): Promise<void> {
+export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): Promise<void> {
   const receivedAt = new Date();
   let msgId: string | undefined;
   let sensorSn: string | undefined;
-  let payloadSize: number = buffer.length;
+  const payloadSize: number = buffer.length;
 
   try {
     // 1. Parse sensor_sn from topic
@@ -76,9 +67,7 @@ export async function handleMessage(
     // 5. Upsert sensor and devices (auto-discovery)
     // Sensor first (devices FK → sensor), then all devices in parallel
     await upsertSensor(pool, payload.sn);
-    await Promise.all(
-      payload.devices.map((d) => upsertDevice(pool, payload.sn, d.deviceId)),
-    );
+    await Promise.all(payload.devices.map((d) => upsertDevice(pool, payload.sn, d.deviceId)));
 
     // 6. Bulk insert measurements
     await bulkInsert(pool, rows);
@@ -88,15 +77,7 @@ export async function handleMessage(
       `INSERT INTO ingestion_messages
          (msg_id, sensor_sn, topic, payload_size, device_count, point_count, status, received_at, processed_at)
        VALUES ($1, $2, $3, $4, $5, $6, 'success', $7, NOW())`,
-      [
-        payload.msgId,
-        payload.sn,
-        topic,
-        payloadSize,
-        deviceCount,
-        pointCount,
-        receivedAt,
-      ],
+      [payload.msgId, payload.sn, topic, payloadSize, deviceCount, pointCount, receivedAt],
     );
 
     console.log(
@@ -105,11 +86,12 @@ export async function handleMessage(
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    const errorType = err instanceof TopicParseError
-      ? 'TOPIC_PARSE_ERROR'
-      : err instanceof DecodeError
-        ? 'DECODE_ERROR'
-        : 'PROCESSING_ERROR';
+    const errorType =
+      err instanceof TopicParseError
+        ? 'TOPIC_PARSE_ERROR'
+        : err instanceof DecodeError
+          ? 'DECODE_ERROR'
+          : 'PROCESSING_ERROR';
 
     console.error(
       `[ingestion-worker] Error handling message on topic "${topic}": [${errorType}] ${errorMessage}`,
@@ -121,14 +103,7 @@ export async function handleMessage(
         `INSERT INTO ingestion_messages
            (msg_id, sensor_sn, topic, payload_size, device_count, point_count, status, error_message, received_at, processed_at)
          VALUES ($1, $2, $3, $4, 0, 0, 'failed', $5, $6, NOW())`,
-        [
-          msgId ?? null,
-          sensorSn ?? null,
-          topic,
-          payloadSize,
-          errorMessage,
-          receivedAt,
-        ],
+        [msgId ?? null, sensorSn ?? null, topic, payloadSize, errorMessage, receivedAt],
       );
     } catch (logErr) {
       console.error('[ingestion-worker] Failed to log to ingestion_messages:', logErr);
@@ -140,12 +115,7 @@ export async function handleMessage(
         `INSERT INTO ingestion_error_logs
            (topic, error_type, error_message, raw_payload_base64, created_at)
          VALUES ($1, $2, $3, $4, NOW())`,
-        [
-          topic,
-          errorType,
-          errorMessage,
-          buffer.toString('base64'),
-        ],
+        [topic, errorType, errorMessage, buffer.toString('base64')],
       );
     } catch (logErr) {
       console.error('[ingestion-worker] Failed to log to ingestion_error_logs:', logErr);
