@@ -890,6 +890,7 @@ RBAC 角色：
 - `auditor`：查看审计与导出日志
 
 用户名和密码登陆：
+
 - 第一次 set up 应用时，应支持用户设置初始用户名和密码，默认为 admin 角色
 - 除了 Entra ID SSO 登陆，也同时保留用户名密码登陆的功能
 - 支持管理员在应用内创建用户
@@ -1039,6 +1040,7 @@ GET    /api/v1/admin/audit-logs
 ### 9.1 页面清单
 
 已实现功能：
+
 - 国际化（简体中文 / English），运行时切换
 - Light / Dark / System 主题，浏览器级持久化
 - Microsoft Entra ID SSO 登录（可选）
@@ -1225,20 +1227,20 @@ infra/docker/postgres/init/
 
 提供以下脚本（均通过 `Makefile` 封装，推荐使用 `make` 命令）：
 
-| 命令 | 说明 |
-|------|------|
-| `make up` | 初始化目录并启动全部服务（首次自动复制 `.env.example`） |
-| `make down` | 停止所有服务（数据保留） |
-| `make restart` | 停止后重启 |
-| `make rebuild` | 仅重建应用容器（不重启基础服务） |
-| `make reset` | ⚠️ 清空所有数据并重建 |
-| `make logs` | 查看全部日志 |
-| `make ps` | 查看容器状态 |
-| `make db-shell` | 进入 psql |
-| `make set-retention DAYS=30` | 修改原始数据保留天数 |
-| `make scale-ingestion N=3` | 启动 N 个 ingestion-worker 副本 |
-| `make test-mqtt` | 发送 3 批测试 MQTT 消息 |
-| `make help` | 查看所有可用命令 |
+| 命令                         | 说明                                                    |
+| ---------------------------- | ------------------------------------------------------- |
+| `make up`                    | 初始化目录并启动全部服务（首次自动复制 `.env.example`） |
+| `make down`                  | 停止所有服务（数据保留）                                |
+| `make restart`               | 停止后重启                                              |
+| `make rebuild`               | 仅重建应用容器（不重启基础服务）                        |
+| `make reset`                 | ⚠️ 清空所有数据并重建                                   |
+| `make logs`                  | 查看全部日志                                            |
+| `make ps`                    | 查看容器状态                                            |
+| `make db-shell`              | 进入 psql                                               |
+| `make set-retention DAYS=30` | 修改原始数据保留天数                                    |
+| `make scale-ingestion N=3`   | 启动 N 个 ingestion-worker 副本                         |
+| `make test-mqtt`             | 发送 3 批测试 MQTT 消息                                 |
+| `make help`                  | 查看所有可用命令                                        |
 
 ### 10.6 Ingestion Worker 水平扩展
 
@@ -1258,10 +1260,10 @@ docker compose up -d --scale ingestion-worker=3
 
 **资源规划（N 个副本）：**
 
-| 指标 | 计算方式 |
-|------|---------|
-| 最大并发消息数 | N × `INGESTION_CONCURRENCY` |
-| DB 连接数 | N × `DB_POOL_MAX`（需低于 PostgreSQL `max_connections` 减去其他服务的用量） |
+| 指标           | 计算方式                                                                    |
+| -------------- | --------------------------------------------------------------------------- |
+| 最大并发消息数 | N × `INGESTION_CONCURRENCY`                                                 |
+| DB 连接数      | N × `DB_POOL_MAX`（需低于 PostgreSQL `max_connections` 减去其他服务的用量） |
 
 ### 10.7 自动初始化边界与升级策略
 

@@ -7,10 +7,7 @@ import { AuditModule } from '../audit/audit.module';
 import { EXPORT_QUEUE } from './exports.queue';
 
 @Module({
-  imports: [
-    BullModule.registerQueue({ name: EXPORT_QUEUE }),
-    AuditModule,
-  ],
+  imports: [BullModule.registerQueue({ name: EXPORT_QUEUE }), AuditModule],
   providers: [ExportsService, ExportsCleanupService],
   controllers: [ExportsController],
   exports: [ExportsService],

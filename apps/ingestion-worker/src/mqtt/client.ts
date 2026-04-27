@@ -41,7 +41,7 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   client.on('connect', () => {
     console.log(
       `[ingestion-worker] Connected to ${mqttUrl} ` +
-      `(clientId=${clientId}, concurrency=${concurrency})`,
+        `(clientId=${clientId}, concurrency=${concurrency})`,
     );
     client.subscribe(topic, { qos: 1 }, (err) => {
       if (err) {

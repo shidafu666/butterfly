@@ -18,10 +18,7 @@ export class CurrentDataController {
 
   @Get()
   @ApiOperation({ summary: 'Query current data with auto resolution selection' })
-  async queryData(
-    @Query() query: CurrentDataQueryDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async queryData(@Query() query: CurrentDataQueryDto, @CurrentUser() user: JwtPayload) {
     const result = await this.currentDataService.queryData(query, user.sub, user.roles);
 
     await this.auditService.log(user.sub, 'QUERY_CURRENT_DATA', 'sensor', query.sensorSn, {
@@ -36,10 +33,7 @@ export class CurrentDataController {
 
   @Get('summary')
   @ApiOperation({ summary: 'Get summary statistics (min/max/avg/count)' })
-  async getSummary(
-    @Query() query: CurrentDataQueryDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getSummary(@Query() query: CurrentDataQueryDto, @CurrentUser() user: JwtPayload) {
     return this.currentDataService.getSummary(query, user.sub, user.roles);
   }
 }

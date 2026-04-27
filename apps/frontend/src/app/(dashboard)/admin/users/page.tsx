@@ -238,8 +238,12 @@ function SensorPermissionDrawer({
       <Drawer
         title={
           <Space direction="vertical" size={0}>
-            <Text strong style={{ color: 'var(--brand-text)' }}>{t('users.sensorPerms')}</Text>
-            <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12, fontWeight: 'normal' }}>
+            <Text strong style={{ color: 'var(--brand-text)' }}>
+              {t('users.sensorPerms')}
+            </Text>
+            <Text
+              style={{ color: 'var(--brand-text-secondary)', fontSize: 12, fontWeight: 'normal' }}
+            >
               {user?.email}
             </Text>
           </Space>
@@ -312,7 +316,14 @@ function SensorPermissionDrawer({
         <Text strong style={{ color: 'var(--brand-text)', fontSize: 13 }}>
           {t('users.batchAssign')}
         </Text>
-        <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12, display: 'block', marginBottom: 12 }}>
+        <Text
+          style={{
+            color: 'var(--brand-text-secondary)',
+            fontSize: 12,
+            display: 'block',
+            marginBottom: 12,
+          }}
+        >
           {t('users.batchNote')}
         </Text>
 
@@ -334,13 +345,17 @@ function SensorPermissionDrawer({
               placeholder={t('users.sensorPlaceholder')}
               options={sensorOptions}
               filterOption={(input, option) =>
-                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
               optionRender={(option) => (
                 <Space size={6}>
                   <span>{option.label}</span>
                   {assignedSns.has(option.value as string) && (
-                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>{t('users.assigned')}</Tag>
+                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
+                      {t('users.assigned')}
+                    </Tag>
                   )}
                 </Space>
               )}
@@ -348,10 +363,24 @@ function SensorPermissionDrawer({
           </Form.Item>
 
           <Space size={16} style={{ width: '100%' }}>
-            <Form.Item name="canView" label={t('users.viewPerm')} valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Switch checkedChildren={t('common.allow')} unCheckedChildren={t('common.deny')} defaultChecked />
+            <Form.Item
+              name="canView"
+              label={t('users.viewPerm')}
+              valuePropName="checked"
+              style={{ marginBottom: 0 }}
+            >
+              <Switch
+                checkedChildren={t('common.allow')}
+                unCheckedChildren={t('common.deny')}
+                defaultChecked
+              />
             </Form.Item>
-            <Form.Item name="canExport" label={t('users.exportPerm')} valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Form.Item
+              name="canExport"
+              label={t('users.exportPerm')}
+              valuePropName="checked"
+              style={{ marginBottom: 0 }}
+            >
               <Switch checkedChildren={t('common.allow')} unCheckedChildren={t('common.deny')} />
             </Form.Item>
           </Space>
@@ -540,17 +569,11 @@ function UsersTable() {
   const [sensorUser, setSensorUser] = useState<AdminUserDto | null>(null);
   const searchInput = useRef<InputRef>(null);
 
-  const handleSearch = (
-    selectedKeys: string[],
-    confirm: FilterDropdownProps['confirm'],
-  ) => {
+  const handleSearch = (selectedKeys: string[], confirm: FilterDropdownProps['confirm']) => {
     confirm();
   };
 
-  const handleReset = (
-    clearFilters: () => void,
-    confirm: FilterDropdownProps['confirm'],
-  ) => {
+  const handleReset = (clearFilters: () => void, confirm: FilterDropdownProps['confirm']) => {
     clearFilters();
     confirm();
   };
@@ -581,10 +604,7 @@ function UsersTable() {
           >
             {t('common.search')}
           </Button>
-          <Button
-            onClick={() => clearFilters && handleReset(clearFilters, confirm)}
-            size="small"
-          >
+          <Button onClick={() => clearFilters && handleReset(clearFilters, confirm)} size="small">
             {t('common.reset')}
           </Button>
         </Space>
@@ -602,7 +622,11 @@ function UsersTable() {
     },
   });
 
-  const { data: users = [], isLoading, error } = useQuery({
+  const {
+    data: users = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
       const res = await api.get<AdminUserDto[]>('/admin/users');
@@ -630,7 +654,9 @@ function UsersTable() {
       title: t('users.confirmDelete'),
       content: (
         <span>
-          {t('users.confirmDeletePre')}<strong>{record.email}</strong>{t('users.confirmDeletePost')}
+          {t('users.confirmDeletePre')}
+          <strong>{record.email}</strong>
+          {t('users.confirmDeletePost')}
         </span>
       ),
       okText: t('common.delete'),
@@ -751,7 +777,9 @@ function UsersTable() {
                 {
                   key: 'delete',
                   icon: <DeleteOutlined />,
-                  label: isSelf ? t('users.cannotDeleteSelf') : t('common.delete') + ' ' + t('common.user'),
+                  label: isSelf
+                    ? t('users.cannotDeleteSelf')
+                    : t('common.delete') + ' ' + t('common.user'),
                   danger: !isSelf,
                   disabled: isSelf,
                   onClick: () => confirmDelete(record),
@@ -801,11 +829,7 @@ function UsersTable() {
             {t('users.subtitle')}
           </Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setCreateOpen(true)}
-        >
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
           {t('users.createUser')}
         </Button>
       </div>
@@ -832,16 +856,8 @@ function UsersTable() {
         onClose={() => setCreateOpen(false)}
         onSuccess={invalidate}
       />
-      <EditUserModal
-        user={editUser}
-        onClose={() => setEditUser(null)}
-        onSuccess={invalidate}
-      />
-      <AssignRoleModal
-        user={roleUser}
-        onClose={() => setRoleUser(null)}
-        onSuccess={invalidate}
-      />
+      <EditUserModal user={editUser} onClose={() => setEditUser(null)} onSuccess={invalidate} />
+      <AssignRoleModal user={roleUser} onClose={() => setRoleUser(null)} onSuccess={invalidate} />
       <SensorPermissionDrawer user={sensorUser} onClose={() => setSensorUser(null)} />
     </>
   );

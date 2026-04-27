@@ -43,7 +43,7 @@ export class AuditService {
     if (filters?.startTime || filters?.endTime) {
       where.createdAt = {
         ...(filters.startTime ? { gte: new Date(filters.startTime) } : {}),
-        ...(filters.endTime   ? { lte: new Date(filters.endTime)   } : {}),
+        ...(filters.endTime ? { lte: new Date(filters.endTime) } : {}),
       };
     }
 

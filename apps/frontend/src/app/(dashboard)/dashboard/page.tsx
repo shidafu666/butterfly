@@ -62,7 +62,9 @@ function StatCard({
             {icon}
           </div>
           <Statistic
-            title={<Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{title}</Text>}
+            title={
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{title}</Text>
+            }
             value={value}
             valueStyle={{ color: 'var(--brand-text)', fontSize: 24, fontWeight: 600 }}
           />
@@ -100,7 +102,7 @@ export default function DashboardPage() {
         sensors.map(async (s) => {
           const res = await api.get(`/sensors/${s.sensorSn}/devices`);
           return (res.data as unknown[]).length;
-        })
+        }),
       );
       return counts.reduce((a, b) => a + b, 0);
     },
@@ -131,7 +133,9 @@ export default function DashboardPage() {
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => (
-        <Tag color={STATUS_COLOR[v] || 'default'}>{t(`status.${v}` as Parameters<typeof t>[0]) || v}</Tag>
+        <Tag color={STATUS_COLOR[v] || 'default'}>
+          {t(`status.${v}` as Parameters<typeof t>[0]) || v}
+        </Tag>
       ),
     },
     {

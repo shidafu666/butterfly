@@ -26,13 +26,13 @@ const mqtt = require('mqtt');
 const { pack } = require('msgpackr');
 
 const BROKER_URL = process.argv[2] || process.env.BROKER_URL || 'mqtt://localhost:1883';
-const SENSOR_SN  = process.argv[3] || '863434080879965';
-const USERNAME   = process.argv[4] || process.env.MQTT_USERNAME || '';
-const PASSWORD   = process.argv[5] || process.env.MQTT_PASSWORD || '';
-const HOURS_ARG  = process.argv[6] || process.env.HOURS || process.env.BATCH_COUNT || '3';
-const TOPIC      = `wlpca/${SENSOR_SN}/data`;
+const SENSOR_SN = process.argv[3] || '863434080879965';
+const USERNAME = process.argv[4] || process.env.MQTT_USERNAME || '';
+const PASSWORD = process.argv[5] || process.env.MQTT_PASSWORD || '';
+const HOURS_ARG = process.argv[6] || process.env.HOURS || process.env.BATCH_COUNT || '3';
+const TOPIC = `wlpca/${SENSOR_SN}/data`;
 
-const RMS_COUNT   = 3600; // 1 hour of 1-second samples
+const RMS_COUNT = 3600; // 1 hour of 1-second samples
 const BATCH_COUNT = parseBatchCount(HOURS_ARG);
 
 function parseBatchCount(value) {
@@ -40,7 +40,9 @@ function parseBatchCount(value) {
 
   if (!Number.isInteger(parsed) || parsed <= 0) {
     console.error(`Invalid batch count/hours: ${value}`);
-    console.error('Usage: node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password] [hours]');
+    console.error(
+      'Usage: node scripts/test-mqtt.js [broker_url] [sensor_sn] [username] [password] [hours]',
+    );
     process.exit(1);
   }
 
@@ -85,17 +87,17 @@ const batches = Array.from({ length: BATCH_COUNT }, (_, i) => {
   return {
     windowLabel: `[${new Date(batchStart * 1000).toISOString()} → ${new Date((batchStart + RMS_COUNT) * 1000).toISOString()}]`,
     payload: {
-      msgId:     Date.now() + i, // unique integer per message
-      rssi:      -69,
+      msgId: Date.now() + i, // unique integer per message
+      rssi: -69,
       timestamp: batchStart + RMS_COUNT, // end of the window, as in real payloads
-      sn:        SENSOR_SN,
-      version:   '001.002.014',
-      battery:   80,
+      sn: SENSOR_SN,
+      version: '001.002.014',
+      battery: 80,
       devices: [
         {
-          deviceId:       'slave1',
+          deviceId: 'slave1',
           deviceFirmware: 28,
-          deviceState:    1,
+          deviceState: 1,
           deviceData: {
             timestamp: batchStart,
             rms,
@@ -134,7 +136,9 @@ client.on('connect', () => {
 
   function publishNext() {
     if (index >= batches.length) {
-      console.log(`✅ Done — ${BATCH_COUNT} batches published for sensor ${SENSOR_SN} / device slave1`);
+      console.log(
+        `✅ Done — ${BATCH_COUNT} batches published for sensor ${SENSOR_SN} / device slave1`,
+      );
       console.log('   → data should now appear in the frontend');
       client.end();
       return;
@@ -149,7 +153,9 @@ client.on('connect', () => {
         process.exit(1);
       }
       console.log(`  [${index + 1}/${BATCH_COUNT}] ${windowLabel}`);
-      console.log(`         current: min=${stats.minRms}A  avg=${stats.avgRms}A  max=${stats.maxRms}A  (${packed.length} bytes)`);
+      console.log(
+        `         current: min=${stats.minRms}A  avg=${stats.avgRms}A  max=${stats.maxRms}A  (${packed.length} bytes)`,
+      );
       index++;
       publishNext();
     });

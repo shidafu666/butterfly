@@ -52,10 +52,7 @@ export class ExportsController {
   @Get(':jobId')
   @ApiOperation({ summary: 'Get export job status' })
   @ApiParam({ name: 'jobId', description: 'Export job UUID' })
-  async findOne(
-    @Param('jobId') jobId: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async findOne(@Param('jobId') jobId: string, @CurrentUser() user: JwtPayload) {
     return this.exportsService.findOne(jobId, user.sub, user.roles);
   }
 
@@ -78,10 +75,7 @@ export class ExportsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel a pending or processing export job' })
   @ApiParam({ name: 'jobId', description: 'Export job UUID' })
-  async cancelJob(
-    @Param('jobId') jobId: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async cancelJob(@Param('jobId') jobId: string, @CurrentUser() user: JwtPayload) {
     const job = await this.exportsService.cancelJob(jobId, user.sub, user.roles);
 
     await this.auditService.log(user.sub, 'CANCEL_EXPORT', 'export_job', jobId, {});

@@ -52,21 +52,15 @@ export class ExportsService {
     const oneYear = 365 * 24 * 60 * 60 * 1000;
 
     if (diffMs > ExportsService.MAX_EXPORT_RANGE_MS) {
-      throw new BadRequestException(
-        'Export time range must not exceed 7 days',
-      );
+      throw new BadRequestException('Export time range must not exceed 7 days');
     }
 
     if (resolution === '1m' && diffMs > ninetyDays) {
-      throw new BadRequestException(
-        '1-minute resolution exports are limited to 90 days maximum',
-      );
+      throw new BadRequestException('1-minute resolution exports are limited to 90 days maximum');
     }
 
     if (resolution === '1h' && diffMs > oneYear) {
-      throw new BadRequestException(
-        '1-hour resolution exports are limited to 1 year maximum',
-      );
+      throw new BadRequestException('1-hour resolution exports are limited to 1 year maximum');
     }
   }
 
@@ -139,11 +133,7 @@ export class ExportsService {
     return this.toDto(job);
   }
 
-  async getDownloadPath(
-    jobId: string,
-    userId: string,
-    userRoles: string[],
-  ): Promise<string> {
+  async getDownloadPath(jobId: string, userId: string, userRoles: string[]): Promise<string> {
     const job = await this.prisma.exportJob.findUnique({ where: { id: jobId } });
 
     if (!job) {
@@ -182,9 +172,7 @@ export class ExportsService {
     }
 
     if (job.status !== 'pending' && job.status !== 'processing') {
-      throw new BadRequestException(
-        `Cannot cancel a job with status '${job.status}'`,
-      );
+      throw new BadRequestException(`Cannot cancel a job with status '${job.status}'`);
     }
 
     const updated = await this.prisma.exportJob.update({

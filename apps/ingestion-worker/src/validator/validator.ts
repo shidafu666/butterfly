@@ -20,10 +20,7 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
   }
 
   const msgId = raw['msgId'];
-  if (
-    (typeof msgId !== 'string' && typeof msgId !== 'number') ||
-    String(msgId).trim() === ''
-  ) {
+  if ((typeof msgId !== 'string' && typeof msgId !== 'number') || String(msgId).trim() === '') {
     throw new Error('Invalid or missing msgId: must be a non-empty string or number');
   }
 
@@ -33,9 +30,7 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
   }
 
   if (sn !== topicSn) {
-    throw new Error(
-      `Payload sn "${sn}" does not match topic sn "${topicSn}"`,
-    );
+    throw new Error(`Payload sn "${sn}" does not match topic sn "${topicSn}"`);
   }
 
   const devices = raw['devices'];
@@ -83,9 +78,7 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
     }
     for (let i = 0; i < rms.length; i++) {
       if (typeof rms[i] !== 'number' || !Number.isFinite(rms[i])) {
-        throw new Error(
-          `devices[${index}].deviceData.rms[${i}] must be a finite number`,
-        );
+        throw new Error(`devices[${index}].deviceData.rms[${i}] must be a finite number`);
       }
     }
 

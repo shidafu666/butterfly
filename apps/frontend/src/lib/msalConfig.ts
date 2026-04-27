@@ -25,7 +25,5 @@ export const loginRequest: PopupRequest = {
 };
 
 export const isSsoEnabled = (): boolean => {
-  return !!(
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID
-  );
+  return !!(typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID);
 };

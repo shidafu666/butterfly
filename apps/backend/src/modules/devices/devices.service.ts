@@ -6,11 +6,7 @@ import { DeviceDto } from '@butterfly/shared-types';
 export class DevicesService {
   constructor(private prisma: PrismaService) {}
 
-  async findBySensor(
-    sensorSn: string,
-    userId: string,
-    userRoles: string[],
-  ): Promise<DeviceDto[]> {
+  async findBySensor(sensorSn: string, userId: string, userRoles: string[]): Promise<DeviceDto[]> {
     const sensor = await this.prisma.sensor.findUnique({ where: { sensorSn } });
     if (!sensor) {
       throw new NotFoundException(`Sensor '${sensorSn}' not found`);

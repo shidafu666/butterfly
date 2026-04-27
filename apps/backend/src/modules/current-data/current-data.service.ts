@@ -16,11 +16,11 @@ import { CurrentDataQueryDto } from './dto/current-data-query.dto';
 function resolveResolution(startTime: Date, endTime: Date, requested: string): string {
   if (requested !== 'auto') return requested;
   const diffMs = endTime.getTime() - startTime.getTime();
-  const sixHours  =  6 * 60 * 60 * 1000;
-  const sevenDays =  7 * 24 * 60 * 60 * 1000;
+  const sixHours = 6 * 60 * 60 * 1000;
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  if (diffMs <= sixHours)   return 'raw';
-  if (diffMs <= sevenDays)  return '1m';
+  if (diffMs <= sixHours) return 'raw';
+  if (diffMs <= sevenDays) return '1m';
   if (diffMs <= thirtyDays) return '1h';
   return '1d';
 }
@@ -178,7 +178,8 @@ export class CurrentDataService {
     }
 
     const points: AggregatedDataPoint[] = rows.map((r) => ({
-      timestamp: r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
+      timestamp:
+        r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
       avgCurrent: Number(r.avg_current),
       minCurrent: Number(r.min_current),
       maxCurrent: Number(r.max_current),
@@ -223,7 +224,8 @@ export class CurrentDataService {
     }
 
     const points: AggregatedDataPoint[] = rows.map((r) => ({
-      timestamp: r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
+      timestamp:
+        r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
       avgCurrent: Number(r.avg_current),
       minCurrent: Number(r.min_current),
       maxCurrent: Number(r.max_current),
@@ -268,7 +270,8 @@ export class CurrentDataService {
     }
 
     const points: AggregatedDataPoint[] = rows.map((r) => ({
-      timestamp: r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
+      timestamp:
+        r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
       avgCurrent: Number(r.avg_current),
       minCurrent: Number(r.min_current),
       maxCurrent: Number(r.max_current),

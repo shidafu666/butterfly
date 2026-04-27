@@ -7,11 +7,7 @@ export const metadata: Metadata = {
   description: '工业电流数据采集与实时可视化平台',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh">
       <body>

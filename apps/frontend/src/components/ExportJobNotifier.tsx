@@ -57,9 +57,7 @@ export function ExportJobNotifier() {
     // Re-evaluated after every successful fetch.
     refetchInterval: (query) => {
       const data = (query.state.data as ExportJobDto[] | undefined) ?? [];
-      return data.some((j) => j.status === 'pending' || j.status === 'processing')
-        ? 3000
-        : false;
+      return data.some((j) => j.status === 'pending' || j.status === 'processing') ? 3000 : false;
     },
   });
 
@@ -74,7 +72,9 @@ export function ExportJobNotifier() {
 
   const sensorDisplayMap = useMemo(() => {
     const m: Record<string, string> = {};
-    sensors.forEach((s) => { m[s.sensorSn] = s.displayName ?? ''; });
+    sensors.forEach((s) => {
+      m[s.sensorSn] = s.displayName ?? '';
+    });
     return m;
   }, [sensors]);
 

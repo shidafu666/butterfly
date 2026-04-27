@@ -59,11 +59,7 @@ export async function upsertSensor(pool: Pool, sensorSn: string): Promise<void> 
   );
 }
 
-export async function upsertDevice(
-  pool: Pool,
-  sensorSn: string,
-  deviceId: string,
-): Promise<void> {
+export async function upsertDevice(pool: Pool, sensorSn: string, deviceId: string): Promise<void> {
   // Single query: look up sensor and insert device in one round-trip
   await pool.query(
     `INSERT INTO devices (sensor_id, device_id)

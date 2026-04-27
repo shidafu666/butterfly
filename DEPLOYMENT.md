@@ -60,25 +60,25 @@ make ps
 
 All 7 services should reach `healthy` or `running` status:
 
-| Container | Role |
-|-----------|------|
-| `butterfly-postgres` | TimescaleDB (PostgreSQL 16) |
-| `butterfly-redis` | Job queue (BullMQ) |
-| `butterfly-mosquitto` | MQTT broker |
-| `butterfly-backend` | NestJS REST API |
+| Container                      | Role                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `butterfly-postgres`           | TimescaleDB (PostgreSQL 16)                                                      |
+| `butterfly-redis`              | Job queue (BullMQ)                                                               |
+| `butterfly-mosquitto`          | MQTT broker                                                                      |
+| `butterfly-backend`            | NestJS REST API                                                                  |
 | `butterfly-ingestion-worker-1` | MQTT → DB writer (scalable; see [Section 5.2](#52-scaling-the-ingestion-worker)) |
-| `butterfly-export-worker` | Async CSV/log exporter |
-| `butterfly-frontend` | Next.js web UI |
+| `butterfly-export-worker`      | Async CSV/log exporter                                                           |
+| `butterfly-frontend`           | Next.js web UI                                                                   |
 
 ### 1.6 Access the application
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:3001 |
+| Service      | URL                            |
+| ------------ | ------------------------------ |
+| Frontend     | http://localhost:3000          |
+| Backend API  | http://localhost:3001          |
 | Swagger Docs | http://localhost:3001/api/docs |
-| Health Check | http://localhost:3001/health |
-| MQTT Broker | mqtt://localhost:1883 |
+| Health Check | http://localhost:3001/health   |
+| MQTT Broker  | mqtt://localhost:1883          |
 
 ### 1.7 Initial admin login
 
@@ -134,73 +134,73 @@ All variables live in `.env` (copied from `.env.example`).
 
 ### Database
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_USER` | `app` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | `app123` | PostgreSQL password — **change in production** |
-| `POSTGRES_DB` | `current_platform` | Database name |
-| `DATABASE_URL` | *(constructed)* | Full connection string; must match `POSTGRES_*` values |
+| Variable            | Default            | Description                                            |
+| ------------------- | ------------------ | ------------------------------------------------------ |
+| `POSTGRES_USER`     | `app`              | PostgreSQL username                                    |
+| `POSTGRES_PASSWORD` | `app123`           | PostgreSQL password — **change in production**         |
+| `POSTGRES_DB`       | `current_platform` | Database name                                          |
+| `DATABASE_URL`      | _(constructed)_    | Full connection string; must match `POSTGRES_*` values |
 
 ### Redis
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable     | Default | Description                          |
+| ------------ | ------- | ------------------------------------ |
 | `REDIS_HOST` | `redis` | Redis hostname (Docker service name) |
-| `REDIS_PORT` | `6379` | Redis port |
+| `REDIS_PORT` | `6379`  | Redis port                           |
 
 ### MQTT
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MQTT_URL` | `mqtt://mosquitto:1883` | Internal broker URL for workers |
-| `MQTT_TOPIC` | `wlpca/+/data` | Base topic pattern (sensors publish here) |
-| `MQTT_CLIENT_ID` | `current-platform-ingestion-worker` | Base MQTT client identifier; a unique hostname suffix is appended per replica |
-| `MQTT_SHARED_GROUP` | `ingestion-workers` | Shared subscription group name; all replicas join this group so each message is delivered to exactly one worker |
-| `MQTT_USERNAME` | `iot_device` | Broker auth username — **used by sensors and workers** |
-| `MQTT_PASSWORD` | `change-me-mqtt-password` | Broker auth password — **change in production** |
+| Variable            | Default                             | Description                                                                                                     |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `MQTT_URL`          | `mqtt://mosquitto:1883`             | Internal broker URL for workers                                                                                 |
+| `MQTT_TOPIC`        | `wlpca/+/data`                      | Base topic pattern (sensors publish here)                                                                       |
+| `MQTT_CLIENT_ID`    | `current-platform-ingestion-worker` | Base MQTT client identifier; a unique hostname suffix is appended per replica                                   |
+| `MQTT_SHARED_GROUP` | `ingestion-workers`                 | Shared subscription group name; all replicas join this group so each message is delivered to exactly one worker |
+| `MQTT_USERNAME`     | `iot_device`                        | Broker auth username — **used by sensors and workers**                                                          |
+| `MQTT_PASSWORD`     | `change-me-mqtt-password`           | Broker auth password — **change in production**                                                                 |
 
 ### Backend
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3001` | Backend listen port (do not change; frontend is explicitly set to 3000 in docker-compose) |
-| `JWT_SECRET` | *(placeholder)* | HS256 signing secret — **must be changed in production** |
-| `JWT_EXPIRES_IN` | `24h` | Token lifetime |
-| `EXPORT_DIR` | `/app/exports` | Container path for export files (do not change) |
-| `SENSOR_ACTIVE_THRESHOLD_HOURS` | `24` | Hours since a sensor's last report before it is marked **Inactive** in the device list |
-| `EXPORT_JOB_RETENTION_HOURS` | `24` | Hours before completed export jobs and their files are automatically deleted |
+| Variable                        | Default         | Description                                                                               |
+| ------------------------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `PORT`                          | `3001`          | Backend listen port (do not change; frontend is explicitly set to 3000 in docker-compose) |
+| `JWT_SECRET`                    | _(placeholder)_ | HS256 signing secret — **must be changed in production**                                  |
+| `JWT_EXPIRES_IN`                | `24h`           | Token lifetime                                                                            |
+| `EXPORT_DIR`                    | `/app/exports`  | Container path for export files (do not change)                                           |
+| `SENSOR_ACTIVE_THRESHOLD_HOURS` | `24`            | Hours since a sensor's last report before it is marked **Inactive** in the device list    |
+| `EXPORT_JOB_RETENTION_HOURS`    | `24`            | Hours before completed export jobs and their files are automatically deleted              |
 
 ### Ingestion Worker
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `INGESTION_CONCURRENCY` | `10` | Max messages processed in parallel per replica — keep ≤ `DB_POOL_MAX` |
-| `DB_POOL_MAX` | `20` | PostgreSQL connection pool size per replica — when scaling to N replicas, ensure `max_connections` > N × `DB_POOL_MAX` + headroom for backend/export-worker |
+| Variable                | Default | Description                                                                                                                                                 |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INGESTION_CONCURRENCY` | `10`    | Max messages processed in parallel per replica — keep ≤ `DB_POOL_MAX`                                                                                       |
+| `DB_POOL_MAX`           | `20`    | PostgreSQL connection pool size per replica — when scaling to N replicas, ensure `max_connections` > N × `DB_POOL_MAX` + headroom for backend/export-worker |
 
 ### Initial Admin
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `INITIAL_ADMIN_EMAIL` | `admin@example.com` | Admin email — used only on first startup if no users exist |
-| `INITIAL_ADMIN_PASSWORD` | `Admin@123456` | Admin password — **change in production** |
-| `INITIAL_ADMIN_NAME` | `Administrator` | Admin display name |
+| Variable                 | Default             | Description                                                |
+| ------------------------ | ------------------- | ---------------------------------------------------------- |
+| `INITIAL_ADMIN_EMAIL`    | `admin@example.com` | Admin email — used only on first startup if no users exist |
+| `INITIAL_ADMIN_PASSWORD` | `Admin@123456`      | Admin password — **change in production**                  |
+| `INITIAL_ADMIN_NAME`     | `Administrator`     | Admin display name                                         |
 
 ### Microsoft Entra ID SSO (optional)
 
 Leave all four variables empty to disable SSO and use local auth only.
 
-| Variable | Description |
-|----------|-------------|
-| `JWT_AUDIENCE` | App ID URI, e.g. `api://your-app-id` |
-| `JWT_ISSUER` | `https://login.microsoftonline.com/<tenant-id>/v2.0` |
-| `NEXT_PUBLIC_ENTRA_CLIENT_ID` | Azure app client ID |
-| `NEXT_PUBLIC_ENTRA_TENANT_ID` | Azure tenant ID |
-| `NEXT_PUBLIC_ENTRA_REDIRECT_URI` | Frontend URL, e.g. `https://your-domain.com` |
+| Variable                         | Description                                          |
+| -------------------------------- | ---------------------------------------------------- |
+| `JWT_AUDIENCE`                   | App ID URI, e.g. `api://your-app-id`                 |
+| `JWT_ISSUER`                     | `https://login.microsoftonline.com/<tenant-id>/v2.0` |
+| `NEXT_PUBLIC_ENTRA_CLIENT_ID`    | Azure app client ID                                  |
+| `NEXT_PUBLIC_ENTRA_TENANT_ID`    | Azure tenant ID                                      |
+| `NEXT_PUBLIC_ENTRA_REDIRECT_URI` | Frontend URL, e.g. `https://your-domain.com`         |
 
 ### Frontend
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable                   | Default                 | Description                                                                             |
+| -------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:3001` | Backend URL as seen from the **browser** — change to your public hostname in production |
 
 ---
@@ -241,7 +241,7 @@ Encode the following structure with MessagePack before publishing:
       "deviceId": "slave1",
       "deviceData": {
         "timestamp": 1710000000,
-        "rms": [0.11, 0.12, 0.10]
+        "rms": [0.11, 0.12, 0.1]
       }
     }
   ]
@@ -292,10 +292,10 @@ docker compose up -d --scale ingestion-worker=3
 
 **Tune per-instance limits** in `.env` (or as environment overrides):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `INGESTION_CONCURRENCY` | `10` | Max messages processed in parallel per replica |
-| `DB_POOL_MAX` | `20` | PostgreSQL connections per replica |
+| Variable                | Default | Description                                    |
+| ----------------------- | ------- | ---------------------------------------------- |
+| `INGESTION_CONCURRENCY` | `10`    | Max messages processed in parallel per replica |
+| `DB_POOL_MAX`           | `20`    | PostgreSQL connections per replica             |
 
 With 3 replicas at default settings: up to **30 messages processed concurrently**, using up to **60 DB connections** total. Make sure PostgreSQL's `max_connections` (default 100 in TimescaleDB) has enough headroom for the backend and export-worker as well.
 
@@ -450,6 +450,7 @@ docker compose logs postgres
 ```
 
 Common causes:
+
 - `data/postgres` directory missing → run `mkdir -p data/postgres data/exports`
 - Port already in use → check with `lsof -i :3001` (or `:3000`, `:5432`)
 - `.env` missing → copy from `.env.example`

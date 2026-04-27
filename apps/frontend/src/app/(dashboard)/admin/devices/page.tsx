@@ -1,18 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import {
-  Table,
-  Typography,
-  Card,
-  Button,
-  Space,
-  Tag,
-  Tooltip,
-  Input,
-  Alert,
-  message,
-} from 'antd';
+import { Table, Typography, Card, Button, Space, Tag, Tooltip, Input, Alert, message } from 'antd';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
@@ -46,7 +35,12 @@ function DeviceList() {
   const [editingValue, setEditingValue] = useState('');
 
   // ── Data fetching ──────────────────────────────────────────────────────────
-  const { data: sensors, isLoading, error, refetch } = useQuery({
+  const {
+    data: sensors,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-sensors'],
     queryFn: async () => {
       const res = await api.get<SensorOverviewDto[]>('/admin/sensors');
@@ -104,10 +98,7 @@ function DeviceList() {
     setSearchedColumn(dataIndex);
   };
 
-  const handleReset = (
-    clearFilters: () => void,
-    confirm: FilterDropdownProps['confirm'],
-  ) => {
+  const handleReset = (clearFilters: () => void, confirm: FilterDropdownProps['confirm']) => {
     clearFilters();
     setSearchText('');
     confirm();
@@ -126,29 +117,20 @@ function DeviceList() {
           ref={searchInput}
           placeholder={`${t('devices.searchPrefix')}${placeholder}`}
           value={selectedKeys[0] as string}
-          onChange={(e) =>
-            setSelectedKeys(e.target.value ? [e.target.value] : [])
-          }
-          onPressEnter={() =>
-            handleSearch(selectedKeys as string[], confirm, dataIndex)
-          }
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
           style={{ marginBottom: 8, display: 'block' }}
         />
         <Space>
           <Button
             type="primary"
-            onClick={() =>
-              handleSearch(selectedKeys as string[], confirm, dataIndex)
-            }
+            onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
             icon={<SearchOutlined />}
             size="small"
           >
             {t('common.search')}
           </Button>
-          <Button
-            onClick={() => clearFilters && handleReset(clearFilters, confirm)}
-            size="small"
-          >
+          <Button onClick={() => clearFilters && handleReset(clearFilters, confirm)} size="small">
             {t('common.reset')}
           </Button>
         </Space>
@@ -159,9 +141,7 @@ function DeviceList() {
     ),
     onFilter: (value, record) => {
       const val = record[dataIndex];
-      return val
-        ? String(val).toLowerCase().includes(String(value).toLowerCase())
-        : false;
+      return val ? String(val).toLowerCase().includes(String(value).toLowerCase()) : false;
     },
     onFilterDropdownOpenChange: (visible) => {
       if (visible) setTimeout(() => searchInput.current?.select(), 100);
@@ -183,9 +163,7 @@ function DeviceList() {
       [
         r.sensorSn,
         r.displayName ?? '',
-        r.lastReportTime
-          ? dayjs(r.lastReportTime).format('YYYY-MM-DD HH:mm:ss')
-          : '',
+        r.lastReportTime ? dayjs(r.lastReportTime).format('YYYY-MM-DD HH:mm:ss') : '',
         r.isActive ? 'Active' : 'Inactive',
         r.status,
         dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss'),
@@ -300,10 +278,7 @@ function DeviceList() {
         if (!a.lastReportTime && !b.lastReportTime) return 0;
         if (!a.lastReportTime) return 1;
         if (!b.lastReportTime) return -1;
-        return (
-          new Date(a.lastReportTime).getTime() -
-          new Date(b.lastReportTime).getTime()
-        );
+        return new Date(a.lastReportTime).getTime() - new Date(b.lastReportTime).getTime();
       },
       defaultSortOrder: 'descend',
       render: (v: string | null) =>
@@ -361,8 +336,7 @@ function DeviceList() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 120,
-      sorter: (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
           <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
@@ -420,11 +394,7 @@ function DeviceList() {
           >
             {t('common.refresh')}
           </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={exportCsv}
-            disabled={!sensors?.length}
-          >
+          <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!sensors?.length}>
             {t('devices.exportCsv')}
           </Button>
         </Space>
@@ -445,7 +415,8 @@ function DeviceList() {
             defaultPageSize: 100,
             pageSizeOptions: [50, 100, 200],
             showSizeChanger: true,
-            showTotal: (t2, range) => `${range[0]}-${range[1]} / ${t('common.total', { count: t2 })}`,
+            showTotal: (t2, range) =>
+              `${range[0]}-${range[1]} / ${t('common.total', { count: t2 })}`,
           }}
           locale={{ emptyText: t('devices.empty') }}
         />

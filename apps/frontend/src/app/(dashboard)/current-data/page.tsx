@@ -203,7 +203,7 @@ export default function CurrentDataPage() {
 
   const resolutionLabel: Record<string, string> = {
     auto: t('currentData.resAuto'),
-    raw:  t('currentData.resRaw'),
+    raw: t('currentData.resRaw'),
     '1m': t('currentData.res1m'),
     '1h': t('currentData.res1h'),
     '1d': t('currentData.res1d'),
@@ -284,7 +284,9 @@ export default function CurrentDataPage() {
     // large empty time windows and keeps jobs fast.
     const actualStart = points[0].timestamp;
     // Add 1 ms so the last point passes the `ts < endTime` filter in the exporter.
-    const actualEnd = new Date(new Date(points[points.length - 1].timestamp).getTime() + 1).toISOString();
+    const actualEnd = new Date(
+      new Date(points[points.length - 1].timestamp).getTime() + 1,
+    ).toISOString();
 
     exportMutation.mutate({
       sensorSn: queryState.sensorSn,
@@ -360,13 +362,19 @@ export default function CurrentDataPage() {
 
       {/* Filter bar */}
       <Card
-        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
+        style={{
+          background: 'var(--brand-surface)',
+          border: '1px solid var(--brand-border)',
+          marginBottom: 16,
+        }}
         bodyStyle={{ padding: '16px 20px' }}
       >
         <Row gutter={[12, 16]} align="top">
           <Col xs={24} sm={12} md={6}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.sensorLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+                {t('currentData.sensorLabel')}
+              </Text>
               <Select
                 placeholder={t('currentData.selectSensor')}
                 style={{ width: '100%' }}
@@ -379,14 +387,22 @@ export default function CurrentDataPage() {
                 allowClear
                 showSearch
                 filterOption={(input, option) =>
-                  String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+                  String(option?.value ?? '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
                 }
               >
                 {sensors.map((s) => (
                   <Option key={s.sensorSn} value={s.sensorSn}>
                     <span style={{ fontFamily: 'monospace' }}>{s.sensorSn}</span>
                     {s.displayName && (
-                      <span style={{ color: 'var(--brand-text-secondary)', marginLeft: 8, fontSize: 12 }}>
+                      <span
+                        style={{
+                          color: 'var(--brand-text-secondary)',
+                          marginLeft: 8,
+                          fontSize: 12,
+                        }}
+                      >
                         {s.displayName}
                       </span>
                     )}
@@ -398,7 +414,9 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={12} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.deviceLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+                {t('currentData.deviceLabel')}
+              </Text>
               <Select
                 placeholder={t('currentData.selectDevice')}
                 style={{ width: '100%' }}
@@ -419,7 +437,9 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={14} md={9}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.timeRangeLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+                {t('currentData.timeRangeLabel')}
+              </Text>
               <RangePicker
                 showTime
                 style={{ width: '100%' }}
@@ -437,7 +457,9 @@ export default function CurrentDataPage() {
 
           <Col xs={24} sm={10} md={3}>
             <Space direction="vertical" size={2} style={{ width: '100%' }}>
-              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{t('currentData.resolutionLabel')}</Text>
+              <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+                {t('currentData.resolutionLabel')}
+              </Text>
               <Select
                 style={{ width: '100%' }}
                 value={resolution}
@@ -490,18 +512,34 @@ export default function CurrentDataPage() {
       {summary && (
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
           {[
-            { title: t('currentData.min'), value: summary.min != null ? `${summary.min.toFixed(4)} A` : '—' },
-            { title: t('currentData.max'), value: summary.max != null ? `${summary.max.toFixed(4)} A` : '—' },
-            { title: t('currentData.avg'), value: summary.avg != null ? `${summary.avg.toFixed(4)} A` : '—' },
+            {
+              title: t('currentData.min'),
+              value: summary.min != null ? `${summary.min.toFixed(4)} A` : '—',
+            },
+            {
+              title: t('currentData.max'),
+              value: summary.max != null ? `${summary.max.toFixed(4)} A` : '—',
+            },
+            {
+              title: t('currentData.avg'),
+              value: summary.avg != null ? `${summary.avg.toFixed(4)} A` : '—',
+            },
             { title: t('currentData.count'), value: summary.count.toLocaleString() },
           ].map((item) => (
             <Col xs={12} sm={6} key={item.title}>
               <Card
-                style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
+                style={{
+                  background: 'var(--brand-surface)',
+                  border: '1px solid var(--brand-border)',
+                }}
                 bodyStyle={{ padding: '14px 18px' }}
               >
                 <Statistic
-                  title={<Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{item.title}</Text>}
+                  title={
+                    <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+                      {item.title}
+                    </Text>
+                  }
                   value={item.value}
                   valueStyle={{ color: 'var(--brand-text)', fontSize: 18, fontWeight: 600 }}
                 />
@@ -515,7 +553,11 @@ export default function CurrentDataPage() {
       {currentData && (
         <>
           <Card
-            style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
+            style={{
+              background: 'var(--brand-surface)',
+              border: '1px solid var(--brand-border)',
+              marginBottom: 16,
+            }}
             bodyStyle={{ padding: '12px 16px 16px' }}
             title={
               <Space>
@@ -550,7 +592,9 @@ export default function CurrentDataPage() {
 
           {/* Data Table */}
           <Card
-            title={<Text style={{ color: 'var(--brand-text)' }}>{t('currentData.dataDetail')}</Text>}
+            title={
+              <Text style={{ color: 'var(--brand-text)' }}>{t('currentData.dataDetail')}</Text>
+            }
             style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)' }}
             bodyStyle={{ padding: 0 }}
           >
@@ -564,7 +608,10 @@ export default function CurrentDataPage() {
                 pageSize,
                 total: points.length,
                 onChange: (p) => setCurrentPage(p),
-                onShowSizeChange: (_, size) => { setPageSize(size); setCurrentPage(1); },
+                onShowSizeChange: (_, size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                },
                 showSizeChanger: true,
                 pageSizeOptions: [20, 50, 100],
                 showTotal: (total) => t('common.total', { count: total }),

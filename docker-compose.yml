@@ -45,7 +45,7 @@ services:
     env_file:
       - .env
     # Entrypoint generates /tmp/mosquitto.passwd from env vars then starts the broker
-    entrypoint: ["/mosquitto/config/docker-entrypoint.sh"]
+    entrypoint: ['/mosquitto/config/docker-entrypoint.sh']
     volumes:
       - ./infra/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./infra/docker/mosquitto/docker-entrypoint.sh:/mosquitto/config/docker-entrypoint.sh:ro

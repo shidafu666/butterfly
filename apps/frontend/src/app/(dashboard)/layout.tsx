@@ -173,11 +173,17 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   ];
 
   const themeIcon =
-    themePreference === 'light' ? <SunOutlined /> :
-    themePreference === 'dark'  ? <MoonOutlined /> :
-    <DesktopOutlined />;
+    themePreference === 'light' ? (
+      <SunOutlined />
+    ) : themePreference === 'dark' ? (
+      <MoonOutlined />
+    ) : (
+      <DesktopOutlined />
+    );
 
-  const handleChangePassword = async (values: ChangePasswordRequest & { confirmPassword: string }) => {
+  const handleChangePassword = async (
+    values: ChangePasswordRequest & { confirmPassword: string },
+  ) => {
     setPasswordSubmitting(true);
     try {
       await api.post('/auth/change-password', {
@@ -192,8 +198,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         typeof error === 'object' &&
         error !== null &&
         'response' in error &&
-        typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message !== 'undefined'
-          ? (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message
+        typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data
+          ?.message !== 'undefined'
+          ? (error as { response?: { data?: { message?: string | string[] } } }).response?.data
+              ?.message
           : undefined;
       const description = Array.isArray(nextMessage) ? nextMessage[0] : nextMessage;
       messageApi.error(description || t('changePassword.failed'));
@@ -455,11 +463,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <DashboardShell>{children}</DashboardShell>

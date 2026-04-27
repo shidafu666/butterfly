@@ -2,16 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Form,
-  Input,
-  Button,
-  Alert,
-  Typography,
-  Divider,
-  Space,
-  Card,
-} from 'antd';
+import { Form, Input, Button, Alert, Typography, Divider, Space, Card } from 'antd';
 import { MailOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api } from '@/lib/api';
 import { setToken, isAuthenticated } from '@/lib/auth';
@@ -21,7 +12,7 @@ import type { LoginResponse } from '@butterfly/shared-types';
 
 const { Title, Text } = Typography;
 
-const SSO_ENABLED = !!(process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID);
+const SSO_ENABLED = !!process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,9 +39,7 @@ export default function LoginPage() {
       router.replace('/dashboard');
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(
-        axiosErr.response?.data?.message || t('login.loginFailed')
-      );
+      setError(axiosErr.response?.data?.message || t('login.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -72,11 +61,7 @@ export default function LoginPage() {
       router.replace('/dashboard');
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(
-        axiosErr.response?.data?.message ||
-          axiosErr.message ||
-          t('login.ssoFailed')
-      );
+      setError(axiosErr.response?.data?.message || axiosErr.message || t('login.ssoFailed'));
     } finally {
       setSsoLoading(false);
     }
@@ -174,13 +159,7 @@ export default function LoginPage() {
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              block
-              style={{ height: 44 }}
-            >
+            <Button type="primary" htmlType="submit" loading={loading} block style={{ height: 44 }}>
               {t('login.submit')}
             </Button>
           </Form.Item>
@@ -188,7 +167,13 @@ export default function LoginPage() {
 
         {SSO_ENABLED && (
           <>
-            <Divider style={{ borderColor: 'var(--brand-border)', color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+            <Divider
+              style={{
+                borderColor: 'var(--brand-border)',
+                color: 'var(--brand-text-secondary)',
+                fontSize: 12,
+              }}
+            >
               {t('login.or')}
             </Divider>
             <Space direction="vertical" style={{ width: '100%' }}>

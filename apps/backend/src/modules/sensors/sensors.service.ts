@@ -67,11 +67,7 @@ export class SensorsService {
     return this.toDto({ ...sensor, lastReportTime: null }, Date.now());
   }
 
-  async findBySnForUser(
-    sensorSn: string,
-    userId: string,
-    userRoles: string[],
-  ): Promise<SensorDto> {
+  async findBySnForUser(sensorSn: string, userId: string, userRoles: string[]): Promise<SensorDto> {
     const sensor = await this.prisma.sensor.findUnique({ where: { sensorSn } });
     if (!sensor) {
       throw new NotFoundException(`Sensor '${sensorSn}' not found`);
@@ -100,9 +96,7 @@ export class SensorsService {
   }
 
   private toDto(sensor: SensorRow, now: number): SensorDto {
-    const lastReportTime = sensor.lastReportTime
-      ? new Date(sensor.lastReportTime)
-      : null;
+    const lastReportTime = sensor.lastReportTime ? new Date(sensor.lastReportTime) : null;
     return {
       id: sensor.id,
       sensorSn: sensor.sensorSn,

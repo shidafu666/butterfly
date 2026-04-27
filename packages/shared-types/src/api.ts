@@ -59,8 +59,8 @@ export type Resolution = 'auto' | 'raw' | '1m' | '1h' | '1d';
 export interface CurrentDataQuery {
   sensorSn: string;
   deviceId?: string;
-  startTime: string;  // ISO 8601
-  endTime: string;    // ISO 8601
+  startTime: string; // ISO 8601
+  endTime: string; // ISO 8601
   resolution?: Resolution;
 }
 
@@ -98,7 +98,7 @@ export interface CreateExportRequest {
   deviceId?: string;
   startTime: string;
   endTime: string;
-  resolution: 'raw' | '1m' | '1h' | '1d';  // 'auto' is not valid for exports
+  resolution: 'raw' | '1m' | '1h' | '1d'; // 'auto' is not valid for exports
   format: 'csv' | 'log';
 }
 

@@ -14,10 +14,7 @@ export class DevicesController {
   @Get()
   @ApiOperation({ summary: 'List devices for a sensor' })
   @ApiParam({ name: 'sensorSn', description: 'Sensor serial number' })
-  async findBySensor(
-    @Param('sensorSn') sensorSn: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async findBySensor(@Param('sensorSn') sensorSn: string, @CurrentUser() user: JwtPayload) {
     return this.devicesService.findBySensor(sensorSn, user.sub, user.roles);
   }
 }

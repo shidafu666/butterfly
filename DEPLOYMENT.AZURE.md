@@ -22,22 +22,22 @@ For local Docker Compose deployment, see `DEPLOYMENT.md`.
 
 The Azure China deployment runs all app containers inside a single ACI container group:
 
-| Container | Purpose | Publicly exposed |
-|---|---|---|
-| `frontend` | Next.js UI | Yes, port `3000` |
-| `backend` | NestJS API | Yes, port `3001` |
-| `mosquitto` | MQTT broker | Yes, port `1883` |
-| `ingestion-worker` | MQTT -> PostgreSQL ingestion | No |
-| `export-worker` | Async export jobs | No |
-| `redis` | BullMQ backing store | No |
+| Container          | Purpose                      | Publicly exposed |
+| ------------------ | ---------------------------- | ---------------- |
+| `frontend`         | Next.js UI                   | Yes, port `3000` |
+| `backend`          | NestJS API                   | Yes, port `3001` |
+| `mosquitto`        | MQTT broker                  | Yes, port `1883` |
+| `ingestion-worker` | MQTT -> PostgreSQL ingestion | No               |
+| `export-worker`    | Async export jobs            | No               |
+| `redis`            | BullMQ backing store         | No               |
 
 Other Azure resources:
 
-| Resource | Purpose |
-|---|---|
-| Azure PostgreSQL Flexible Server | Application database |
-| Azure Storage File Share | Shared export directory for backend/export-worker |
-| ACR | Stores container images |
+| Resource                         | Purpose                                           |
+| -------------------------------- | ------------------------------------------------- |
+| Azure PostgreSQL Flexible Server | Application database                              |
+| Azure Storage File Share         | Shared export directory for backend/export-worker |
+| ACR                              | Stores container images                           |
 
 Notes:
 
@@ -170,24 +170,24 @@ Then fill in real values.
 
 Key variables:
 
-| Variable | Description |
-|---|---|
-| `AZURE_SUBSCRIPTION_ID` | Azure China subscription ID |
-| `AZURE_RESOURCE_GROUP` | Resource group name |
-| `AZURE_LOCATION` | Region, e.g. `chinaeast2` |
-| `ACR_NAME` | ACR resource name |
-| `ACR_LOGIN_SERVER` | Usually `<acr-name>.azurecr.cn` |
-| `AZURE_STORAGE_ACCOUNT` | Storage account used for file share |
-| `AZURE_STORAGE_KEY` | Storage account key |
-| `AZURE_FILE_SHARE_NAME` | File share name for exports |
-| `PG_SERVER_NAME` | PostgreSQL Flexible Server name |
-| `DATABASE_URL` | Full PostgreSQL connection string |
-| `ACI_CONTAINER_GROUP_NAME` | ACI container group name |
-| `ACI_DNS_LABEL` | Public DNS label used by ACI |
-| `NEXT_PUBLIC_API_BASE_URL` | Browser-facing backend URL |
-| `MQTT_USERNAME` / `MQTT_PASSWORD` | MQTT credentials |
-| `JWT_SECRET` | Backend JWT signing secret |
-| `INITIAL_ADMIN_*` | Initial admin bootstrap account |
+| Variable                          | Description                         |
+| --------------------------------- | ----------------------------------- |
+| `AZURE_SUBSCRIPTION_ID`           | Azure China subscription ID         |
+| `AZURE_RESOURCE_GROUP`            | Resource group name                 |
+| `AZURE_LOCATION`                  | Region, e.g. `chinaeast2`           |
+| `ACR_NAME`                        | ACR resource name                   |
+| `ACR_LOGIN_SERVER`                | Usually `<acr-name>.azurecr.cn`     |
+| `AZURE_STORAGE_ACCOUNT`           | Storage account used for file share |
+| `AZURE_STORAGE_KEY`               | Storage account key                 |
+| `AZURE_FILE_SHARE_NAME`           | File share name for exports         |
+| `PG_SERVER_NAME`                  | PostgreSQL Flexible Server name     |
+| `DATABASE_URL`                    | Full PostgreSQL connection string   |
+| `ACI_CONTAINER_GROUP_NAME`        | ACI container group name            |
+| `ACI_DNS_LABEL`                   | Public DNS label used by ACI        |
+| `NEXT_PUBLIC_API_BASE_URL`        | Browser-facing backend URL          |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | MQTT credentials                    |
+| `JWT_SECRET`                      | Backend JWT signing secret          |
+| `INITIAL_ADMIN_*`                 | Initial admin bootstrap account     |
 
 Important details:
 

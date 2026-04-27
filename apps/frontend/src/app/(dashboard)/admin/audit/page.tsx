@@ -44,35 +44,35 @@ const ACTION_VALUES = [
 ] as const;
 
 const ACTION_KEY_MAP: Record<string, string> = {
-  LOGIN:                    'audit.actions.login',
-  CHANGE_PASSWORD:          'audit.actions.changePassword',
-  CREATE_USER:              'audit.actions.createUser',
-  ASSIGN_ROLE:              'audit.actions.assignRole',
-  REMOVE_ROLE:              'audit.actions.removeRole',
+  LOGIN: 'audit.actions.login',
+  CHANGE_PASSWORD: 'audit.actions.changePassword',
+  CREATE_USER: 'audit.actions.createUser',
+  ASSIGN_ROLE: 'audit.actions.assignRole',
+  REMOVE_ROLE: 'audit.actions.removeRole',
   ASSIGN_SENSOR_PERMISSION: 'audit.actions.assignSensorPerm',
   REVOKE_SENSOR_PERMISSION: 'audit.actions.revokeSensorPerm',
-  CREATE_EXPORT:            'audit.actions.createExport',
-  DOWNLOAD_EXPORT:          'audit.actions.downloadExport',
-  QUERY_CURRENT_DATA:       'audit.actions.queryCurrentData',
-  UPDATE_SENSOR:            'audit.actions.updateSensor',
-  UPDATE_USER:              'audit.actions.updateUser',
-  DELETE_USER:              'audit.actions.deleteUser',
+  CREATE_EXPORT: 'audit.actions.createExport',
+  DOWNLOAD_EXPORT: 'audit.actions.downloadExport',
+  QUERY_CURRENT_DATA: 'audit.actions.queryCurrentData',
+  UPDATE_SENSOR: 'audit.actions.updateSensor',
+  UPDATE_USER: 'audit.actions.updateUser',
+  DELETE_USER: 'audit.actions.deleteUser',
 };
 
 const ACTION_COLOR: Record<string, string> = {
-  LOGIN:                    'green',
-  CHANGE_PASSWORD:          'gold',
-  CREATE_USER:              'blue',
-  ASSIGN_ROLE:              'orange',
-  REMOVE_ROLE:              'volcano',
+  LOGIN: 'green',
+  CHANGE_PASSWORD: 'gold',
+  CREATE_USER: 'blue',
+  ASSIGN_ROLE: 'orange',
+  REMOVE_ROLE: 'volcano',
   ASSIGN_SENSOR_PERMISSION: 'gold',
   REVOKE_SENSOR_PERMISSION: 'magenta',
-  CREATE_EXPORT:            'cyan',
-  DOWNLOAD_EXPORT:          'geekblue',
-  QUERY_CURRENT_DATA:       'purple',
-  UPDATE_SENSOR:            'lime',
-  UPDATE_USER:              'geekblue',
-  DELETE_USER:              'red',
+  CREATE_EXPORT: 'cyan',
+  DOWNLOAD_EXPORT: 'geekblue',
+  QUERY_CURRENT_DATA: 'purple',
+  UPDATE_SENSOR: 'lime',
+  UPDATE_USER: 'geekblue',
+  DELETE_USER: 'red',
 };
 
 interface AuditFilter {
@@ -105,10 +105,12 @@ function AuditTable() {
       if (appliedFilter.action) params.action = appliedFilter.action;
       if (appliedFilter.startTime) params.startTime = appliedFilter.startTime;
       if (appliedFilter.endTime) params.endTime = appliedFilter.endTime;
-      const res = await api.get<{ items: AuditLogDto[]; total: number; page: number; limit: number }>(
-        '/admin/audit-logs',
-        { params }
-      );
+      const res = await api.get<{
+        items: AuditLogDto[];
+        total: number;
+        page: number;
+        limit: number;
+      }>('/admin/audit-logs', { params });
       return { items: res.data.items ?? [], total: res.data.total ?? 0 };
     },
   });
@@ -155,7 +157,11 @@ function AuditTable() {
       dataIndex: 'userEmail',
       key: 'userEmail',
       render: (v: string | null) =>
-        v ? <Text style={{ fontSize: 13 }}>{v}</Text> : <Text type="secondary">{t('audit.system')}</Text>,
+        v ? (
+          <Text style={{ fontSize: 13 }}>{v}</Text>
+        ) : (
+          <Text type="secondary">{t('audit.system')}</Text>
+        ),
     },
     {
       title: t('common.action'),
@@ -171,8 +177,7 @@ function AuditTable() {
       title: t('audit.resourceType'),
       dataIndex: 'resourceType',
       key: 'resourceType',
-      render: (v: string | null) =>
-        v ? <Tag>{v}</Tag> : <Text type="secondary">—</Text>,
+      render: (v: string | null) => (v ? <Tag>{v}</Tag> : <Text type="secondary">—</Text>),
     },
     {
       title: t('audit.resourceId'),
@@ -234,7 +239,11 @@ function AuditTable() {
 
       {/* Filter bar */}
       <Card
-        style={{ background: 'var(--brand-surface)', border: '1px solid var(--brand-border)', marginBottom: 16 }}
+        style={{
+          background: 'var(--brand-surface)',
+          border: '1px solid var(--brand-border)',
+          marginBottom: 16,
+        }}
         bodyStyle={{ padding: '16px 20px' }}
       >
         <Row gutter={[12, 12]} align="middle">
@@ -270,11 +279,7 @@ function AuditTable() {
 
           <Col xs={24} sm={4} md={4}>
             <Space>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={handleSearch}
-              >
+              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
                 {t('common.query')}
               </Button>
               <Button icon={<ReloadOutlined />} onClick={handleReset}>

@@ -150,7 +150,8 @@ export const zh = {
     cleanupTitle: '导出任务自动清理提示',
     cleanupDescPre: '系统每小时自动清理 ',
     cleanupDescHighlight: '24 小时',
-    cleanupDescPost: ' 前创建的导出任务及对应文件。如需重新获取数据，请在「电流数据」页面重新创建导出任务。',
+    cleanupDescPost:
+      ' 前创建的导出任务及对应文件。如需重新获取数据，请在「电流数据」页面重新创建导出任务。',
     rowCount: '行数',
     fileSize: '文件大小',
     download: '下载',

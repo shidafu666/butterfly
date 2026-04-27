@@ -86,8 +86,5 @@ async function fetchExportJob(pool: Pool, jobId: string): Promise<ExportJobRecor
 }
 
 async function updateJobStatus(pool: Pool, jobId: string, status: string): Promise<void> {
-  await pool.query(
-    `UPDATE export_jobs SET status = $2 WHERE id = $1`,
-    [jobId, status],
-  );
+  await pool.query(`UPDATE export_jobs SET status = $2 WHERE id = $1`, [jobId, status]);
 }

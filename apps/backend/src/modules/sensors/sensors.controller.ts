@@ -20,10 +20,7 @@ export class SensorsController {
   @Get(':sensorSn')
   @ApiOperation({ summary: 'Get sensor details' })
   @ApiParam({ name: 'sensorSn', description: 'Sensor serial number' })
-  async findOne(
-    @Param('sensorSn') sensorSn: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async findOne(@Param('sensorSn') sensorSn: string, @CurrentUser() user: JwtPayload) {
     return this.sensorsService.findBySnForUser(sensorSn, user.sub, user.roles);
   }
 }

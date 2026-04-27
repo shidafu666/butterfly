@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -39,7 +33,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const requestId = uuidv4();
 
-    console.error(`[${requestId}] ${request.method} ${request.url} - ${status}: ${message}`, exception);
+    console.error(
+      `[${requestId}] ${request.method} ${request.url} - ${status}: ${message}`,
+      exception,
+    );
 
     response.status(status).json({
       code,

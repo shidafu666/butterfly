@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -27,10 +22,7 @@ export class ExportsCleanupService implements OnModuleInit, OnModuleDestroy {
 
     // Run once at startup, then every hour
     this.run(retentionHours);
-    this.intervalHandle = setInterval(
-      () => this.run(retentionHours),
-      60 * 60 * 1000,
-    );
+    this.intervalHandle = setInterval(() => this.run(retentionHours), 60 * 60 * 1000);
   }
 
   onModuleDestroy() {
@@ -45,10 +37,7 @@ export class ExportsCleanupService implements OnModuleInit, OnModuleDestroy {
 
   private async cleanup(retentionHours: number): Promise<void> {
     const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
-    const exportDir = this.configService.get<string>(
-      'EXPORT_DIR',
-      '/app/exports',
-    );
+    const exportDir = this.configService.get<string>('EXPORT_DIR', '/app/exports');
 
     const oldJobs = await this.prisma.exportJob.findMany({
       where: { createdAt: { lt: cutoff } },
@@ -75,8 +64,6 @@ export class ExportsCleanupService implements OnModuleInit, OnModuleDestroy {
       where: { createdAt: { lt: cutoff } },
     });
 
-    this.logger.log(
-      `Cleaned up ${count} export job(s) older than ${retentionHours}h`,
-    );
+    this.logger.log(`Cleaned up ${count} export job(s) older than ${retentionHours}h`);
   }
 }

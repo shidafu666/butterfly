@@ -1,8 +1,8 @@
 // MQTT Payload Types
 
 export interface DeviceData {
-  timestamp: number;  // Unix seconds (start of RMS array)
-  rms: number[];      // Current RMS values, one per second
+  timestamp: number; // Unix seconds (start of RMS array)
+  rms: number[]; // Current RMS values, one per second
 }
 
 export interface MqttDevice {
@@ -12,7 +12,7 @@ export interface MqttDevice {
 
 export interface MqttPayload {
   msgId: string;
-  sn: string;         // sensor_sn
+  sn: string; // sensor_sn
   devices: MqttDevice[];
 }
 

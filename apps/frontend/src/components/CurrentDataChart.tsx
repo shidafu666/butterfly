@@ -39,19 +39,19 @@ const GRID = { left: 60, right: 24, top: 40, bottom: 64 };
 // Theme-specific color palettes for ECharts (must be actual color strings, not CSS vars)
 function makeChartColors(isDark: boolean) {
   return {
-    axisLabel:   { color: isDark ? '#8b949e' : '#57606a', fontSize: 11 },
-    splitLine:   { lineStyle: { color: isDark ? '#30363d' : '#d0d7de', type: 'dashed' as const } },
-    axisLine:    { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
-    axisTick:    { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
-    legendText:  isDark ? '#8b949e' : '#57606a',
-    tooltipBg:   isDark ? '#1c2128' : '#ffffff',
+    axisLabel: { color: isDark ? '#8b949e' : '#57606a', fontSize: 11 },
+    splitLine: { lineStyle: { color: isDark ? '#30363d' : '#d0d7de', type: 'dashed' as const } },
+    axisLine: { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
+    axisTick: { lineStyle: { color: isDark ? '#30363d' : '#d0d7de' } },
+    legendText: isDark ? '#8b949e' : '#57606a',
+    tooltipBg: isDark ? '#1c2128' : '#ffffff',
     tooltipBorder: isDark ? '#30363d' : '#d0d7de',
     tooltipText: isDark ? '#c9d1d9' : '#24292f',
-    chartBg:     isDark ? '#161b22' : '#ffffff',
-    zoomBg:      isDark ? '#1c2128' : '#f0f2f4',
-    zoomBorder:  isDark ? '#30363d' : '#d0d7de',
-    zoomText:    isDark ? '#8b949e' : '#57606a',
-    noDataText:  isDark ? '#8b949e' : '#57606a',
+    chartBg: isDark ? '#161b22' : '#ffffff',
+    zoomBg: isDark ? '#1c2128' : '#f0f2f4',
+    zoomBorder: isDark ? '#30363d' : '#d0d7de',
+    zoomText: isDark ? '#8b949e' : '#57606a',
+    noDataText: isDark ? '#8b949e' : '#57606a',
   };
 }
 
@@ -147,7 +147,10 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
             areaStyle: {
               color: {
                 type: 'linear',
-                x: 0, y: 0, x2: 0, y2: 1,
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
                 colorStops: [
                   { offset: 0, color: 'rgba(22,119,255,0.25)' },
                   { offset: 1, color: 'rgba(22,119,255,0.02)' },
@@ -223,7 +226,10 @@ export function CurrentDataChart({ resolution, points, sensorSn, deviceId }: Pro
           areaStyle: {
             color: {
               type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
               colorStops: [
                 { offset: 0, color: 'rgba(22,119,255,0.2)' },
                 { offset: 1, color: 'rgba(22,119,255,0.02)' },

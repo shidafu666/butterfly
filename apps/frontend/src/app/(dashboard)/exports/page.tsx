@@ -16,7 +16,13 @@ import {
 } from 'antd';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
-import { DownloadOutlined, ReloadOutlined, ClockCircleOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons';
+import {
+  DownloadOutlined,
+  ReloadOutlined,
+  ClockCircleOutlined,
+  SearchOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -52,7 +58,11 @@ export default function ExportsPage() {
   // ExportJobNotifier (mounted in layout) already handles polling via the
   // shared ['exports'] query key. This page only needs to subscribe to that
   // same cache and trigger a manual refetch when the user clicks the button.
-  const { data: jobs = [], isLoading, refetch } = useQuery({
+  const {
+    data: jobs = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['exports'],
     queryFn: async () => {
       const res = await api.get<ExportJobDto[]>('/exports');
@@ -86,9 +96,8 @@ export default function ExportsPage() {
       const job = jobs.find((j) => j.id === jobId);
       const fileName =
         job?.fileName ||
-        (headers['content-disposition']
-          ?.split('filename=')[1]
-          ?.replace(/"/g, '') ?? `export-${jobId}.csv`);
+        (headers['content-disposition']?.split('filename=')[1]?.replace(/"/g, '') ??
+          `export-${jobId}.csv`);
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -114,7 +123,9 @@ export default function ExportsPage() {
 
   const sensorDisplayMap = useMemo(() => {
     const m: Record<string, string> = {};
-    sensors.forEach((s) => { m[s.sensorSn] = s.displayName ?? ''; });
+    sensors.forEach((s) => {
+      m[s.sensorSn] = s.displayName ?? '';
+    });
     return m;
   }, [sensors]);
 
@@ -129,7 +140,10 @@ export default function ExportsPage() {
   function makeSearchProps(
     filterFn: (value: string, record: ExportJobDto) => boolean,
     placeholder: string,
-  ): Pick<TableColumnType<ExportJobDto>, 'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'> {
+  ): Pick<
+    TableColumnType<ExportJobDto>,
+    'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'
+  > {
     return {
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
@@ -183,9 +197,7 @@ export default function ExportsPage() {
       key: 'sensorName',
       render: (v: string) => {
         const name = sensorDisplayMap[v];
-        return name
-          ? <Text>{name}</Text>
-          : <Text type="secondary">—</Text>;
+        return name ? <Text>{name}</Text> : <Text type="secondary">—</Text>;
       },
       ...makeSearchProps((value, record) => {
         const name = sensorDisplayMap[record.sensorSn] ?? '';
@@ -225,7 +237,9 @@ export default function ExportsPage() {
       })),
       onFilter: (value, record) => record.status === value,
       render: (v: string) => (
-        <Tag color={STATUS_COLOR[v] || 'default'}>{t(`status.${v}` as Parameters<typeof t>[0]) || v}</Tag>
+        <Tag color={STATUS_COLOR[v] || 'default'}>
+          {t(`status.${v}` as Parameters<typeof t>[0]) || v}
+        </Tag>
       ),
     },
     {
@@ -249,7 +263,9 @@ export default function ExportsPage() {
       defaultSortOrder: 'descend',
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
-          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>{dayjs(v).fromNow()}</Text>
+          <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
+            {dayjs(v).fromNow()}
+          </Text>
         </Tooltip>
       ),
     },
@@ -259,7 +275,11 @@ export default function ExportsPage() {
       render: (_: unknown, record: ExportJobDto) => (
         <Space>
           <Tooltip
-            title={record.status !== 'completed' ? t('exports.downloadDisabled') : t('exports.downloadFile')}
+            title={
+              record.status !== 'completed'
+                ? t('exports.downloadDisabled')
+                : t('exports.downloadFile')
+            }
           >
             <Button
               type="link"
@@ -364,7 +384,10 @@ export default function ExportsPage() {
             expandedRowRender: (record: ExportJobDto) =>
               record.errorMessage ? (
                 <div style={{ padding: '8px 16px' }}>
-                  <Text type="danger">{t('exports.errorPrefix')}{record.errorMessage}</Text>
+                  <Text type="danger">
+                    {t('exports.errorPrefix')}
+                    {record.errorMessage}
+                  </Text>
                 </div>
               ) : null,
             rowExpandable: (record: ExportJobDto) => !!record.errorMessage,

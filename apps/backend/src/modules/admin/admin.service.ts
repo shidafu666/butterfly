@@ -39,11 +39,7 @@ export class AdminService {
     return user;
   }
 
-  async updateUser(
-    userId: string,
-    dto: UpdateUserDto,
-    actorId: string,
-  ): Promise<AdminUserDto> {
+  async updateUser(userId: string, dto: UpdateUserDto, actorId: string): Promise<AdminUserDto> {
     const user = await this.usersService.updateUser(userId, dto);
     await this.auditService.log(actorId, 'UPDATE_USER', 'user', userId, {
       fields: Object.keys(dto).filter((k) => k !== 'password'),
@@ -59,11 +55,7 @@ export class AdminService {
     });
   }
 
-  async assignRole(
-    userId: string,
-    roleCode: string,
-    actorId: string,
-  ): Promise<AdminUserDto> {
+  async assignRole(userId: string, roleCode: string, actorId: string): Promise<AdminUserDto> {
     const user = await this.usersService.assignRole(userId, roleCode);
 
     await this.auditService.log(actorId, 'ASSIGN_ROLE', 'user', userId, {
@@ -73,11 +65,7 @@ export class AdminService {
     return user;
   }
 
-  async removeRole(
-    userId: string,
-    roleCode: string,
-    actorId: string,
-  ): Promise<AdminUserDto> {
+  async removeRole(userId: string, roleCode: string, actorId: string): Promise<AdminUserDto> {
     const user = await this.usersService.removeRole(userId, roleCode);
 
     await this.auditService.log(actorId, 'REMOVE_ROLE', 'user', userId, {
@@ -92,12 +80,7 @@ export class AdminService {
     dto: AssignSensorPermissionDto,
     actorId: string,
   ): Promise<void> {
-    await this.usersService.grantSensorPermission(
-      userId,
-      dto.sensorSn,
-      dto.canView,
-      dto.canExport,
-    );
+    await this.usersService.grantSensorPermission(userId, dto.sensorSn, dto.canView, dto.canExport);
 
     await this.auditService.log(
       actorId,
@@ -119,12 +102,7 @@ export class AdminService {
   ): Promise<void> {
     await Promise.all(
       dto.sensorSns.map((sensorSn) =>
-        this.usersService.grantSensorPermission(
-          userId,
-          sensorSn,
-          dto.canView,
-          dto.canExport,
-        ),
+        this.usersService.grantSensorPermission(userId, sensorSn, dto.canView, dto.canExport),
       ),
     );
 
@@ -141,11 +119,7 @@ export class AdminService {
     );
   }
 
-  async revokeSensorPermission(
-    userId: string,
-    sensorSn: string,
-    actorId: string,
-  ): Promise<void> {
+  async revokeSensorPermission(userId: string, sensorSn: string, actorId: string): Promise<void> {
     await this.usersService.revokeSensorPermission(userId, sensorSn);
 
     await this.auditService.log(
@@ -167,10 +141,7 @@ export class AdminService {
       throw new NotFoundException(`Sensor '${sensorSn}' not found`);
     }
 
-    const displayName =
-      dto.displayName !== undefined
-        ? dto.displayName.trim() || null
-        : undefined;
+    const displayName = dto.displayName !== undefined ? dto.displayName.trim() || null : undefined;
 
     await this.prisma.sensor.update({
       where: { sensorSn },
@@ -183,10 +154,7 @@ export class AdminService {
   }
 
   async listSensorOverview(): Promise<SensorOverviewDto[]> {
-    const thresholdHours = parseInt(
-      process.env.SENSOR_ACTIVE_THRESHOLD_HOURS ?? '24',
-      10,
-    );
+    const thresholdHours = parseInt(process.env.SENSOR_ACTIVE_THRESHOLD_HOURS ?? '24', 10);
     const thresholdMs = thresholdHours * 60 * 60 * 1000;
 
     const rows = await this.prisma.$queryRaw<
@@ -215,9 +183,7 @@ export class AdminService {
     const now = Date.now();
 
     return rows.map((row) => {
-      const lastReportTime = row.lastReportTime
-        ? new Date(row.lastReportTime)
-        : null;
+      const lastReportTime = row.lastReportTime ? new Date(row.lastReportTime) : null;
       return {
         id: row.id,
         sensorSn: row.sensorSn,
@@ -225,9 +191,7 @@ export class AdminService {
         status: row.status,
         createdAt: new Date(row.createdAt).toISOString(),
         lastReportTime: lastReportTime ? lastReportTime.toISOString() : null,
-        isActive: lastReportTime
-          ? now - lastReportTime.getTime() < thresholdMs
-          : false,
+        isActive: lastReportTime ? now - lastReportTime.getTime() < thresholdMs : false,
       };
     });
   }

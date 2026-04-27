@@ -47,7 +47,11 @@ export async function exportLog(
       })();
     });
   } catch (err) {
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      /* ignore */
+    }
     throw err;
   }
 
@@ -55,11 +59,7 @@ export async function exportLog(
   return { filePath, fileName, fileSize: stat.size, rowCount };
 }
 
-async function streamRawLog(
-  pool: Pool,
-  job: ExportJobRecord,
-  stream: Writable,
-): Promise<number> {
+async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable): Promise<number> {
   let lastTs: Date | null = null;
   let lastId: string | null = null;
   let total = 0;
@@ -81,7 +81,15 @@ async function streamRawLog(
           ORDER BY ts ASC, id ASC
           LIMIT $7
         `;
-        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastTs, lastId, PAGE_SIZE];
+        params = [
+          job.sensor_sn,
+          job.device_id,
+          job.start_time,
+          job.end_time,
+          lastTs,
+          lastId,
+          PAGE_SIZE,
+        ];
       } else {
         sql = `
           SELECT id, sensor_sn, device_id, ts, current_value
@@ -129,8 +137,7 @@ async function streamRawLog(
     }>(sql, params);
 
     for (const row of result.rows) {
-      const line =
-        `[${row.ts.toISOString()}] sensor=${row.sensor_sn} device=${row.device_id} current=${row.current_value}A\n`;
+      const line = `[${row.ts.toISOString()}] sensor=${row.sensor_sn} device=${row.device_id} current=${row.current_value}A\n`;
       stream.write(line);
     }
 
@@ -176,7 +183,14 @@ async function streamAggregatedLog(
           ORDER BY bucket ASC
           LIMIT $6
         `;
-        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastBucket, PAGE_SIZE];
+        params = [
+          job.sensor_sn,
+          job.device_id,
+          job.start_time,
+          job.end_time,
+          lastBucket,
+          PAGE_SIZE,
+        ];
       } else {
         sql = `
           SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count
@@ -226,8 +240,7 @@ async function streamAggregatedLog(
     }>(sql, params);
 
     for (const row of result.rows) {
-      const line =
-        `[${row.bucket.toISOString()}] sensor=${row.sensor_sn} device=${row.device_id} avg=${row.avg_current}A min=${row.min_current}A max=${row.max_current}A samples=${row.sample_count}\n`;
+      const line = `[${row.bucket.toISOString()}] sensor=${row.sensor_sn} device=${row.device_id} avg=${row.avg_current}A min=${row.min_current}A max=${row.max_current}A samples=${row.sample_count}\n`;
       stream.write(line);
     }
 

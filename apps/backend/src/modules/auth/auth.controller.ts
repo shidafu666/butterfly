@@ -56,10 +56,7 @@ export class AuthController {
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Change password for current local user' })
   @ApiBody({ type: ChangePasswordDto })
-  async changePassword(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: ChangePasswordDto,
-  ) {
+  async changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
     await this.authService.changePassword(user.sub, dto.currentPassword, dto.newPassword);
     await this.auditService.log(user.sub, 'CHANGE_PASSWORD', 'user', user.sub, {
       email: user.email,
@@ -70,11 +67,7 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create initial admin (only if no users exist)' })
   async setup(@Body() dto: SetupDto) {
-    const user = await this.authService.createInitialAdmin(
-      dto.email,
-      dto.password,
-      dto.name,
-    );
+    const user = await this.authService.createInitialAdmin(dto.email, dto.password, dto.name);
     return this.authService.login(user);
   }
 

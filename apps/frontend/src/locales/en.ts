@@ -136,21 +136,24 @@ export const en: Translations = {
     createExport: 'Create Export Job',
     exportFormat: 'Export Format',
     exportCreated: 'Export Job Created',
-    exportCreatedDesc: 'The job is processing in the background. You can download it from the "Exports" page when done.',
+    exportCreatedDesc:
+      'The job is processing in the background. You can download it from the "Exports" page when done.',
     directExport: 'Direct Download (Use Current Query Result)',
     directExportSuccess: 'Download Started',
-    directExportSuccessDesc: 'File generated from current query result and downloaded without re-querying the database.',
+    directExportSuccessDesc:
+      'File generated from current query result and downloaded without re-querying the database.',
     exportFailed: 'Failed to create export job',
     exportFailedDesc: 'Please check your export parameters and try again.',
     exportRangeExceeded: 'Export time range must not exceed 7 days.',
-    exportNoData: 'No data in the selected range. Please run a query first.',  
+    exportNoData: 'No data in the selected range. Please run a query first.',
   },
   exports: {
     title: 'Export Jobs',
     subtitle: 'View and download data export jobs',
     autoRefresh: 'Auto refresh every 5s',
     cleanupTitle: 'Auto-Cleanup Notice',
-    cleanupDescPre: 'Export jobs and files are automatically cleaned up every hour for jobs older than ',
+    cleanupDescPre:
+      'Export jobs and files are automatically cleaned up every hour for jobs older than ',
     cleanupDescHighlight: '24 hours',
     cleanupDescPost: '. To re-export data, create a new export from the "Current Data" page.',
     rowCount: 'Rows',

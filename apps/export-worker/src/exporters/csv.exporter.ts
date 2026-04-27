@@ -53,7 +53,11 @@ export async function exportCsv(
     });
   } catch (err) {
     // Clean up partial file on error
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      /* ignore */
+    }
     throw err;
   }
 
@@ -61,11 +65,7 @@ export async function exportCsv(
   return { filePath, fileName, fileSize: stat.size, rowCount };
 }
 
-async function streamRawCsv(
-  pool: Pool,
-  job: ExportJobRecord,
-  stream: Writable,
-): Promise<number> {
+async function streamRawCsv(pool: Pool, job: ExportJobRecord, stream: Writable): Promise<number> {
   let lastTs: Date | null = null;
   let lastId: string | null = null;
   let total = 0;
@@ -87,7 +87,15 @@ async function streamRawCsv(
           ORDER BY ts ASC, id ASC
           LIMIT $7
         `;
-        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastTs, lastId, PAGE_SIZE];
+        params = [
+          job.sensor_sn,
+          job.device_id,
+          job.start_time,
+          job.end_time,
+          lastTs,
+          lastId,
+          PAGE_SIZE,
+        ];
       } else {
         sql = `
           SELECT id, sensor_sn, device_id, ts, current_value
@@ -182,7 +190,14 @@ async function streamAggregatedCsv(
           ORDER BY bucket ASC
           LIMIT $6
         `;
-        params = [job.sensor_sn, job.device_id, job.start_time, job.end_time, lastBucket, PAGE_SIZE];
+        params = [
+          job.sensor_sn,
+          job.device_id,
+          job.start_time,
+          job.end_time,
+          lastBucket,
+          PAGE_SIZE,
+        ];
       } else {
         sql = `
           SELECT sensor_sn, device_id, bucket, avg_current, min_current, max_current, sample_count

@@ -22,9 +22,7 @@ export function createExportWorker(connection: IORedis, pool: Pool): Worker {
   });
 
   worker.on('failed', (job, err) => {
-    console.error(
-      `[export-worker] BullMQ job failed: ${job?.id ?? 'unknown'} - ${err.message}`,
-    );
+    console.error(`[export-worker] BullMQ job failed: ${job?.id ?? 'unknown'} - ${err.message}`);
   });
 
   worker.on('error', (err) => {

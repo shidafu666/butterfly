@@ -11,12 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -49,10 +44,7 @@ export class AdminController {
   @Post('users')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user' })
-  async createUser(
-    @Body() dto: CreateAdminUserDto,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  async createUser(@Body() dto: CreateAdminUserDto, @CurrentUser() actor: JwtPayload) {
     return this.adminService.createUser(dto, actor.sub);
   }
 
@@ -71,10 +63,7 @@ export class AdminController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a user' })
   @ApiParam({ name: 'userId', description: 'User UUID' })
-  async deleteUser(
-    @Param('userId') userId: string,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  async deleteUser(@Param('userId') userId: string, @CurrentUser() actor: JwtPayload) {
     await this.adminService.deleteUser(userId, actor.sub);
   }
 
@@ -169,10 +158,10 @@ export class AdminController {
   @Get('audit-logs')
   @ApiOperation({ summary: 'List audit logs with pagination' })
   async listAuditLogs(@Query() query: AuditLogQueryDto) {
-    return this.adminService.listAuditLogs(
-      query.page ?? 1,
-      query.limit ?? 50,
-      { action: query.action, startTime: query.startTime, endTime: query.endTime },
-    );
+    return this.adminService.listAuditLogs(query.page ?? 1, query.limit ?? 50, {
+      action: query.action,
+      startTime: query.startTime,
+      endTime: query.endTime,
+    });
   }
 }

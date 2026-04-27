@@ -122,7 +122,11 @@ export class AuthService {
     return this.toUserProfile(user);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -233,7 +237,7 @@ export class AuthService {
       const jwksUri = new URL(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
       // Fetch OIDC config to get jwks_uri
       const oidcResponse = await fetch(jwksUri.toString());
-      const oidcConfig = await oidcResponse.json() as { jwks_uri: string };
+      const oidcConfig = (await oidcResponse.json()) as { jwks_uri: string };
 
       const jwks = createRemoteJWKSet(new URL(oidcConfig.jwks_uri));
 
@@ -348,11 +352,7 @@ export class AuthService {
     };
   }
 
-  async createInitialAdmin(
-    email: string,
-    password: string,
-    name: string,
-  ): Promise<UserWithRoles> {
+  async createInitialAdmin(email: string, password: string, name: string): Promise<UserWithRoles> {
     const userCount = await this.prisma.user.count();
     if (userCount > 0) {
       throw new ConflictException('Setup already completed: users already exist');

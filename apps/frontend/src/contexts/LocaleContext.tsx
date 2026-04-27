@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-} from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { zh } from '@/locales/zh';
 import { en } from '@/locales/en';
 import type { Translations } from '@/locales/zh';
@@ -77,10 +71,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>): string => {
       const keys = key.split('.');
-      let str = getNestedValue(
-        translations[locale] as unknown as NestedRecord,
-        keys,
-      );
+      let str = getNestedValue(translations[locale] as unknown as NestedRecord, keys);
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
           str = str.replace(`{{${k}}}`, String(v));
@@ -92,9 +83,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <LocaleContext.Provider value={{ locale, setLocale, t }}>
-      {children}
-    </LocaleContext.Provider>
+    <LocaleContext.Provider value={{ locale, setLocale, t }}>{children}</LocaleContext.Provider>
   );
 }
 

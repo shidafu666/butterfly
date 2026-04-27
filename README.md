@@ -29,6 +29,7 @@ Redis → Export Worker → CSV/Log files → shared volume → Frontend downloa
 ## Quick Start
 
 ### Prerequisites
+
 - Docker & Docker Compose v2+
 - (For test scripts) Node.js 20+ and pnpm
 - `make` (pre-installed on macOS/Linux)
@@ -50,6 +51,7 @@ make up
 ```
 
 Or without make:
+
 ```bash
 cp .env.example .env
 # Edit .env if needed (especially passwords for production)
@@ -59,19 +61,20 @@ docker compose up -d --build
 
 ### 2. Access the Application
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:3001 |
+| Service      | URL                            |
+| ------------ | ------------------------------ |
+| Frontend     | http://localhost:3000          |
+| Backend API  | http://localhost:3001          |
 | Swagger Docs | http://localhost:3001/api/docs |
-| Health Check | http://localhost:3001/health |
-| MQTT Broker | mqtt://localhost:1883 |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+| Health Check | http://localhost:3001/health   |
+| MQTT Broker  | mqtt://localhost:1883          |
+| PostgreSQL   | localhost:5432                 |
+| Redis        | localhost:6379                 |
 
 ### 3. Initial Login
 
 On first startup, an admin user is automatically created from `.env`:
+
 - **Email**: `admin@example.com` (or `INITIAL_ADMIN_EMAIL`)
 - **Password**: `Admin@123456` (or `INITIAL_ADMIN_PASSWORD`)
 
@@ -93,6 +96,7 @@ node scripts/test-mqtt.js mqtt://localhost:1883 863434080879965 iot_device chang
 > The MQTT broker requires authentication. Credentials are set via `MQTT_USERNAME` / `MQTT_PASSWORD` in `.env`.
 
 This will:
+
 1. Publish 3 MessagePack-encoded MQTT messages (one per hour) to `wlpca/863434080879965/data`
 2. The ingestion worker will decode each batch and insert 3 600 data points per batch into the DB
 3. The sensor `863434080879965` and its devices will be auto-discovered
@@ -183,6 +187,7 @@ Expected MessagePack-encoded payload:
 ```
 
 Key fields:
+
 - `msgId` — integer message identifier (older firmware may send a string; both are accepted)
 - `timestamp` (top-level) — Unix epoch when the message was sent by the sensor
 - `deviceData.timestamp` — Unix epoch of the first RMS sample in the batch
@@ -195,6 +200,7 @@ A full reference payload is available in `scripts/mock-payload.json`.
 See `.env.example` for all available variables.
 
 Key variables:
+
 - `POSTGRES_*` — database credentials
 - `REDIS_*` — Redis connection
 - `MQTT_URL` — broker connection URL (internal: `mqtt://mosquitto:1883`)
@@ -210,6 +216,7 @@ Key variables:
 ## Microsoft Entra ID SSO (Optional)
 
 To enable SSO:
+
 1. Register an app in Azure Active Directory
 2. Set in `.env`:
    ```
@@ -255,6 +262,7 @@ Run `make help` to see all available targets.
 Swagger UI is available at http://localhost:3001/api/docs when running.
 
 Key endpoints:
+
 - `POST /api/v1/auth/login` — login with email/password
 - `GET /api/v1/sensors` — list sensors
 - `GET /api/v1/current-data` — query time-series data
@@ -270,6 +278,7 @@ Key endpoints:
 ## Data Retention
 
 Default configuration:
+
 - Raw data: **30-day retention** (automatically drops data older than 30 days)
 - Compression: chunks older than 7 days are compressed automatically
 - Continuous aggregates: refreshed every minute (1m) / every hour (1h)
