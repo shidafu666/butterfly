@@ -5,7 +5,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/main.ts",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
     "archiver": "^7.0.1",

@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Data files
+data/
+
+# Lock files
+pnpm-lock.yaml
+
+# Prisma auto-generated
+**/prisma/generated/
