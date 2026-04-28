@@ -60,6 +60,8 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
     let timestamp: number;
     if (timestampRaw instanceof Date) {
       timestamp = timestampRaw.getTime() / 1000;
+    } else if (typeof timestampRaw === 'bigint') {
+      timestamp = Number(timestampRaw);
     } else if (typeof timestampRaw === 'number') {
       timestamp = timestampRaw;
     } else {
