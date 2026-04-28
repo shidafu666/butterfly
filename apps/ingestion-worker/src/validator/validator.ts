@@ -56,8 +56,18 @@ export function validatePayload(raw: unknown, topicSn: string): ValidatedPayload
       throw new Error(`devices[${index}].deviceData is not an object`);
     }
 
-    const timestamp = deviceData['timestamp'];
-    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp <= 0) {
+    const timestampRaw = deviceData['timestamp'];
+    let timestamp: number;
+    if (timestampRaw instanceof Date) {
+      timestamp = timestampRaw.getTime() / 1000;
+    } else if (typeof timestampRaw === 'number') {
+      timestamp = timestampRaw;
+    } else {
+      throw new Error(
+        `devices[${index}].deviceData.timestamp must be a positive finite number (unix seconds)`,
+      );
+    }
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
       throw new Error(
         `devices[${index}].deviceData.timestamp must be a positive finite number (unix seconds)`,
       );
