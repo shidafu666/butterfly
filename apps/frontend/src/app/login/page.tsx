@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Form, Input, Button, Alert, Typography, Divider, Space, Card } from 'antd';
 import { MailOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api } from '@/lib/api';
-import { setToken, isAuthenticated } from '@/lib/auth';
+import { isAuthenticated } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
 import type { LoginResponse } from '@butterfly/shared-types';

@@ -27,8 +27,6 @@ function DeviceList() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
   const searchInput = useRef<InputRef>(null);
-  const [searchText, setSearchText] = useState('');
-  const [searchedColumn, setSearchedColumn] = useState('');
 
   // ── Inline edit state ──────────────────────────────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -91,16 +89,13 @@ function DeviceList() {
   const handleSearch = (
     selectedKeys: string[],
     confirm: FilterDropdownProps['confirm'],
-    dataIndex: string,
+    _dataIndex: string,
   ) => {
     confirm();
-    setSearchText(selectedKeys[0]);
-    setSearchedColumn(dataIndex);
   };
 
   const handleReset = (clearFilters: () => void, confirm: FilterDropdownProps['confirm']) => {
     clearFilters();
-    setSearchText('');
     confirm();
   };
 

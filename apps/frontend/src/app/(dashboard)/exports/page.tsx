@@ -61,7 +61,6 @@ export default function ExportsPage() {
   const {
     data: jobs = [],
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: ['exports'],
     queryFn: async () => {
