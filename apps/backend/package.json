@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "prisma generate",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
+    "pretypecheck": "prisma generate",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
