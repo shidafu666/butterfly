@@ -78,6 +78,12 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @ApiPropertyOptional({ example: ['viewer', 'exporter'], type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  roleCodes?: string[];
 }
 
 export class BatchAssignSensorPermissionDto {

@@ -49,7 +49,7 @@ export class AdminController {
   }
 
   @Patch('users/:userId')
-  @ApiOperation({ summary: 'Update user info (name, email, password, status)' })
+  @ApiOperation({ summary: 'Update user info (name, email, password, status, roles)' })
   @ApiParam({ name: 'userId', description: 'User UUID' })
   async updateUser(
     @Param('userId') userId: string,

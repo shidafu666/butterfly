@@ -199,6 +199,7 @@ export class UsersService {
       name?: string;
       password?: string;
       status?: string;
+      roleCodes?: string[];
     },
   ): Promise<AdminUserDto> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -217,7 +218,32 @@ export class UsersService {
     if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
     if (dto.status) data.status = dto.status;
 
-    await this.prisma.user.update({ where: { id: userId }, data });
+    if (dto.roleCodes !== undefined) {
+      const roleCodes = [...new Set(dto.roleCodes)];
+      const roles = await this.prisma.role.findMany({
+        where: { code: { in: roleCodes } },
+      });
+
+      if (roles.length !== roleCodes.length) {
+        const foundCodes = roles.map((role) => role.code);
+        const missing = roleCodes.filter((code) => !foundCodes.includes(code));
+        throw new NotFoundException(`Roles not found: ${missing.join(', ')}`);
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({ where: { id: userId }, data });
+        await tx.userRole.deleteMany({ where: { userId } });
+
+        if (roles.length > 0) {
+          await tx.userRole.createMany({
+            data: roles.map((role) => ({ userId, roleId: role.id })),
+          });
+        }
+      });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data });
+    }
+
     return this.getUserWithRoles(userId);
   }
 

@@ -43,6 +43,7 @@ export class AdminService {
     const user = await this.usersService.updateUser(userId, dto);
     await this.auditService.log(actorId, 'UPDATE_USER', 'user', userId, {
       fields: Object.keys(dto).filter((k) => k !== 'password'),
+      ...(dto.roleCodes !== undefined ? { roleCodes: dto.roleCodes } : {}),
     });
     return user;
   }

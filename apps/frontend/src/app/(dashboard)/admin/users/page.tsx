@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -412,12 +412,27 @@ function EditUserModal({
   const [notifApi, contextHolder] = notification.useNotification();
   const { t } = useLocale();
 
+  useEffect(() => {
+    if (user) {
+      form.setFieldsValue({
+        email: user.email,
+        name: user.name ?? '',
+        password: '',
+        status: user.status ?? 'active',
+        roleCodes: user.roles ?? [],
+      });
+    } else {
+      form.resetFields();
+    }
+  }, [form, user]);
+
   const mutation = useMutation({
     mutationFn: async (values: {
       email?: string;
       name?: string;
       password?: string;
       status?: string;
+      roleCodes?: string[];
     }) => {
       if (!user) return;
       const payload = { ...values };
@@ -450,11 +465,6 @@ function EditUserModal({
         <Form
           form={form}
           layout="vertical"
-          initialValues={{
-            email: user?.email,
-            name: user?.name ?? '',
-            status: user?.status ?? 'active',
-          }}
           onFinish={(v) => mutation.mutate(v)}
           style={{ marginTop: 16 }}
         >
@@ -485,6 +495,18 @@ function EditUserModal({
               <Option value="inactive">{t('status.inactive')}</Option>
             </Select>
           </Form.Item>
+          <Form.Item
+            name="roleCodes"
+            label={t('users.role')}
+            rules={[{ required: true, message: t('users.roleRequired') }]}
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder={t('users.rolesPlaceholder')}
+              options={ROLES.map((role) => ({ label: role, value: role }))}
+            />
+          </Form.Item>
         </Form>
       </Modal>
     </>
@@ -503,22 +525,55 @@ function AssignRoleModal({
   const [form] = Form.useForm();
   const [notifApi, contextHolder] = notification.useNotification();
   const { t } = useLocale();
+  const [assignedRoles, setAssignedRoles] = useState<string[]>([]);
+  const [removingRole, setRemovingRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAssignedRoles(user?.roles ?? []);
+    form.resetFields();
+  }, [form, user]);
 
   const mutation = useMutation({
     mutationFn: async (values: { roleCode: string }) => {
       if (!user) return;
-      await api.post(`/admin/users/${user.id}/roles`, values);
+      const res = await api.post<AdminUserDto>(`/admin/users/${user.id}/roles`, values);
+      return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
       notifApi.success({ message: t('users.roleAssigned') });
       form.resetFields();
+      if (updatedUser) {
+        setAssignedRoles(updatedUser.roles);
+      }
       onSuccess();
-      onClose();
     },
     onError: () => {
       notifApi.error({ message: t('users.roleAssignFailed') });
     },
   });
+
+  const removeMutation = useMutation({
+    mutationFn: async (roleCode: string) => {
+      if (!user) return;
+      const res = await api.delete<AdminUserDto>(`/admin/users/${user.id}/roles/${roleCode}`);
+      return res.data;
+    },
+    onSuccess: (updatedUser) => {
+      notifApi.success({ message: t('users.roleRemoved') });
+      if (updatedUser) {
+        setAssignedRoles(updatedUser.roles);
+      }
+      onSuccess();
+    },
+    onError: () => {
+      notifApi.error({ message: t('users.roleRemoveFailed') });
+    },
+    onSettled: () => {
+      setRemovingRole(null);
+    },
+  });
+
+  const availableRoles = ROLES.filter((role) => !assignedRoles.includes(role));
 
   return (
     <>
@@ -531,8 +586,59 @@ function AssignRoleModal({
         confirmLoading={mutation.isPending}
         okText={t('common.confirm')}
         cancelText={t('common.cancel')}
+        okButtonProps={{ disabled: availableRoles.length === 0 }}
         destroyOnClose
       >
+        <Text strong style={{ color: 'var(--brand-text)', fontSize: 13 }}>
+          {t('users.assignedRoles')}
+        </Text>
+        <div style={{ marginTop: 8, marginBottom: 20, minHeight: 40 }}>
+          {assignedRoles.length === 0 ? (
+            <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
+              {t('users.noAssignedRoles')}
+            </Text>
+          ) : (
+            <Space wrap size={[8, 8]}>
+              {assignedRoles.map((role) => (
+                <div
+                  key={role}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 6px',
+                    background: 'var(--brand-bg)',
+                    border: '1px solid var(--brand-border)',
+                    borderRadius: 6,
+                  }}
+                >
+                  <Tag color={ROLE_COLOR[role] || 'default'} style={{ margin: 0 }}>
+                    {role}
+                  </Tag>
+                  <Popconfirm
+                    title={t('users.confirmRemoveRole')}
+                    onConfirm={() => {
+                      setRemovingRole(role);
+                      removeMutation.mutate(role);
+                    }}
+                    okText={t('users.revoke')}
+                    cancelText={t('common.cancel')}
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      loading={removeMutation.isPending && removingRole === role}
+                      style={{ color: 'var(--brand-text-secondary)' }}
+                    />
+                  </Popconfirm>
+                </div>
+              ))}
+            </Space>
+          )}
+        </div>
+
         <Form
           form={form}
           layout="vertical"
@@ -544,13 +650,18 @@ function AssignRoleModal({
             label={t('users.role')}
             rules={[{ required: true, message: t('users.roleRequired') }]}
           >
-            <Select placeholder={t('users.selectRolePlaceholder')}>
-              {ROLES.map((r) => (
-                <Option key={r} value={r}>
-                  {r}
-                </Option>
-              ))}
-            </Select>
+            <Select
+              placeholder={
+                availableRoles.length === 0
+                  ? t('users.allRolesAssigned')
+                  : t('users.selectRolePlaceholder')
+              }
+              options={ROLES.map((role) => ({
+                label: role,
+                value: role,
+                disabled: assignedRoles.includes(role),
+              }))}
+            />
           </Form.Item>
         </Form>
       </Modal>
