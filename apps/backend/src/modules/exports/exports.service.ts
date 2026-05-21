@@ -16,7 +16,7 @@ import { EXPORT_QUEUE } from './exports.queue';
 
 @Injectable()
 export class ExportsService {
-  private static readonly MAX_EXPORT_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
+  private static readonly MAX_EXPORT_RANGE_MS = 14 * 24 * 60 * 60 * 1000;
 
   constructor(
     private prisma: PrismaService,
@@ -52,7 +52,7 @@ export class ExportsService {
     const oneYear = 365 * 24 * 60 * 60 * 1000;
 
     if (diffMs > ExportsService.MAX_EXPORT_RANGE_MS) {
-      throw new BadRequestException('Export time range must not exceed 7 days');
+      throw new BadRequestException('Export time range must not exceed 14 days');
     }
 
     if (resolution === '1m' && diffMs > ninetyDays) {
