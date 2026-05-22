@@ -37,7 +37,7 @@ export REDIS_IMAGE_TAG
 resolve_arch_digest() {
   local source_ref="$1"
   local arch="$2"
-  echo "   Resolving ${arch} digest from manifest: ${source_ref}"
+  echo "   Resolving ${arch} digest from manifest: ${source_ref}" >&2
   docker manifest inspect "$source_ref" | jq -r --arg arch "$arch" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' | head -n1
 }
 
