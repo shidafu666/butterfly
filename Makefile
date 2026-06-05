@@ -106,7 +106,10 @@ logs-infra: ## Tail postgres / redis / mosquitto logs
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 ## Database
-.PHONY: db-push db-generate db-shell
+.PHONY: db-push db-generate db-shell migrate
+
+migrate: ## Apply pending SQL migrations to the local database
+	@bash scripts/migrate.sh --local
 
 db-push: ## Push Prisma schema changes to the database
 	pnpm --filter backend prisma:push
@@ -146,21 +149,24 @@ scale-ingestion: ## Scale ingestion workers  (N=3)
 
 # ─── ACI Deployment (Azure China 21Vianet) ───────────────────────────────────
 ## ACI 部署 (Azure China)
-.PHONY: aci-login aci-build aci-push aci-deploy aci-all aci-status aci-logs aci-delete aci-db-init
+.PHONY: aci-login aci-build aci-push aci-migrate aci-deploy aci-all aci-status aci-logs aci-delete aci-db-init
 
 aci-login: ## 登录 Azure China 和 ACR
 	@bash scripts/deploy-aci.sh login
 
-aci-build: ## 构建所有镜像 (linux/amd64, 跨架构编译)
+aci-build: ## 构建所有镜像 (linux/amd64, 标签=git SHA)
 	@bash scripts/deploy-aci.sh build
 
-aci-push: ## 推送所有镜像到 Azure Container Registry
+aci-push: ## 推送所有镜像到 Azure Container Registry (SHA + latest)
 	@bash scripts/deploy-aci.sh push
+
+aci-migrate: ## 应用待执行的 SQL 迁移到 Azure 数据库
+	@bash scripts/deploy-aci.sh migrate
 
 aci-deploy: ## 部署容器组到 ACI
 	@bash scripts/deploy-aci.sh deploy
 
-aci-all: aci-build aci-push aci-deploy ## 一键部署: 构建 → 推送 → 部署
+aci-all: aci-build aci-push aci-migrate aci-deploy ## 一键部署: 构建 → 推送 → 迁移 → 部署
 
 aci-status: ## 查看 ACI 容器组状态和访问地址
 	@bash scripts/deploy-aci.sh status

@@ -28,6 +28,19 @@ echo "🚀 Starting all services..."
 docker compose up -d --build
 
 echo ""
+echo "⏳ Waiting for Postgres to be ready..."
+for _ in $(seq 1 30); do
+  if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-app}" -d "${POSTGRES_DB:-current_platform}" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+# Apply pending SQL migrations (idempotent; safe on a fresh init too)
+echo "🗄️  Applying database migrations..."
+bash "$SCRIPT_DIR/migrate.sh" --local || echo "⚠️  Migration step failed — see output above."
+
+echo ""
 echo "⏳ Waiting for services to be healthy..."
 sleep 5
 

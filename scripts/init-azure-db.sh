@@ -299,6 +299,12 @@ if [ "$TSDB_LICENSE" = "apache" ]; then
   done
 fi
 
+# ─── Step 4c: Apply SQL migrations ────────────────────────────
+# init/ only builds the base schema; versioned changes live in migrations/.
+# DATABASE_URL is already exported from .env.aci above.
+echo "🗄️  Step 3c/4: 应用 SQL 迁移..."
+bash "${SCRIPT_DIR}/migrate.sh" || echo "   ⚠️ 迁移步骤有错误，请检查上方输出"
+
 # ─── Step 5: Verify ───────────────────────────────────────────
 echo "🔍 Step 4/4: 验证 TimescaleDB..."
 
