@@ -25,7 +25,21 @@ set +a
 
 # Derived variables
 export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
-export IMAGE_TAG="${IMAGE_TAG:-latest}"
+
+# Image tag defaults to the current git commit so each deploy produces a
+# *different* deploy.yaml — this is what makes ACI actually roll the
+# containers (an unchanged `:latest` reference is treated as a no-op).
+# A dirty working tree gets a unique `-dirty.<timestamp>` suffix so
+# uncommitted rebuilds still roll. Override by exporting IMAGE_TAG yourself.
+if [ -z "${IMAGE_TAG:-}" ]; then
+  GIT_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo nogit)"
+  if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
+    GIT_SHA="${GIT_SHA}-dirty.$(date +%Y%m%d%H%M%S)"
+  fi
+  IMAGE_TAG="$GIT_SHA"
+fi
+export IMAGE_TAG
+echo "🏷️  Image tag: ${IMAGE_TAG}"
 
 # Redis strategy is fully automatic:
 # - keep one universal tag for runtime use
@@ -197,16 +211,28 @@ case "$ACTION" in
   push)
     echo "📤 Pushing images to ACR: ${ACR_LOGIN_SERVER}..."
 
-    docker push "${ACR_LOGIN_SERVER}/butterfly/backend:${IMAGE_TAG}"
-    docker push "${ACR_LOGIN_SERVER}/butterfly/frontend:${IMAGE_TAG}"
-    docker push "${ACR_LOGIN_SERVER}/butterfly/ingestion-worker:${IMAGE_TAG}"
-    docker push "${ACR_LOGIN_SERVER}/butterfly/export-worker:${IMAGE_TAG}"
-    docker push "${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}"
+    # Push the immutable SHA tag, then also move `:latest` to the same image
+    # so it stays a convenient pointer to the most recent deploy.
+    for svc in backend frontend ingestion-worker export-worker mosquitto; do
+      repo="${ACR_LOGIN_SERVER}/butterfly/${svc}"
+      docker push "${repo}:${IMAGE_TAG}"
+      if [ "$IMAGE_TAG" != "latest" ]; then
+        docker tag "${repo}:${IMAGE_TAG}" "${repo}:latest"
+        docker push "${repo}:latest"
+      fi
+    done
 
     echo "📥 Importing redis:${REDIS_IMAGE_TAG} into ACR..."
     import_redis_image
 
     echo "✅ All images pushed."
+    ;;
+
+  # ── Migrate (apply pending SQL migrations to the Azure DB) ───
+  migrate)
+    echo "🗄️  Applying database migrations to Azure PostgreSQL..."
+    # DATABASE_URL is already exported from .env.aci above.
+    bash "${SCRIPT_DIR}/migrate.sh"
     ;;
 
   # ── Generate YAML ────────────────────────────────────────────
@@ -298,8 +324,9 @@ case "$ACTION" in
     echo ""
     echo "Actions:"
     echo "  login          登录 Azure China 和 ACR"
-    echo "  build          构建所有镜像 (linux/amd64)"
-    echo "  push           推送所有镜像到 ACR"
+    echo "  build          构建所有镜像 (linux/amd64, 标签=git SHA)"
+    echo "  push           推送所有镜像到 ACR (SHA 标签 + latest)"
+    echo "  migrate        应用待执行的 SQL 迁移到 Azure 数据库"
     echo "  generate-yaml  从模板生成 deploy.yaml"
     echo "  deploy         生成 YAML 并部署到 ACI"
     echo "  status         查看容器组状态和访问地址"
@@ -314,6 +341,6 @@ case "$ACTION" in
     echo "  1. cp .env.aci.example .env.aci  # 填写配置"
     echo "  2. make aci-login                 # 登录 Azure"
     echo "  3. make aci-db-init               # 初始化数据库 (首次)"
-    echo "  4. make aci-all                   # 构建 + 推送 + 部署"
+    echo "  4. make aci-all                   # 构建 + 推送 + 迁移 + 部署"
     ;;
 esac

@@ -74,7 +74,10 @@ CREATE TABLE IF NOT EXISTS raw_current_measurements (
   msg_id        VARCHAR(128),
   source_topic  VARCHAR(255),
   created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
-  PRIMARY KEY (id, ts)
+  PRIMARY KEY (id, ts),
+  -- Natural key: dedupe repeated sensor reports for the same (sensor, device, second).
+  -- Must include the partition column `ts` to satisfy TimescaleDB hypertable rules.
+  CONSTRAINT uq_raw_current_natural UNIQUE (sensor_sn, device_id, ts)
 );
 
 -- Convert to TimescaleDB hypertable
@@ -84,10 +87,10 @@ SELECT create_hypertable(
   if_not_exists => TRUE
 );
 
--- Indexes for common query patterns
-CREATE INDEX IF NOT EXISTS idx_raw_current_sensor_device_ts
-  ON raw_current_measurements (sensor_sn, device_id, ts DESC);
-
+-- Indexes for common query patterns.
+-- NOTE: (sensor_sn, device_id, ts) lookups are served by the uq_raw_current_natural
+-- unique index above (a backward scan covers `ORDER BY ts DESC`), so no separate
+-- index on those columns is needed.
 CREATE INDEX IF NOT EXISTS idx_raw_current_sensor_ts
   ON raw_current_measurements (sensor_sn, ts DESC);
 

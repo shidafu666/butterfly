@@ -44,7 +44,7 @@ async function insertChunk(pool: Pool, chunk: CurrentMeasurementRow[]): Promise<
   const sql = `
     INSERT INTO raw_current_measurements (sensor_sn, device_id, ts, current_value, msg_id, source_topic)
     VALUES ${placeholders.join(', ')}
-    ON CONFLICT DO NOTHING
+    ON CONFLICT (sensor_sn, device_id, ts) DO NOTHING
   `;
 
   await pool.query(sql, values);
