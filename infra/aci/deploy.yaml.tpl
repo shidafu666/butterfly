@@ -36,7 +36,7 @@ properties:
     # ─── Redis ──────────────────────────────────────────────────
     - name: redis
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}
+        image: ${REDIS_IMAGE}
         resources:
           requests:
             cpu: 0.5
@@ -45,7 +45,7 @@ properties:
     # ─── Mosquitto (MQTT Broker) ────────────────────────────────
     - name: mosquitto
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}
+        image: ${MOSQUITTO_IMAGE}
         resources:
           requests:
             cpu: 0.5
@@ -65,7 +65,7 @@ properties:
     # ─── Backend (NestJS API) ───────────────────────────────────
     - name: backend
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/backend:${IMAGE_TAG}
+        image: ${BACKEND_IMAGE}
         resources:
           requests:
             cpu: 1.0
@@ -116,7 +116,7 @@ properties:
     # ─── Frontend (Next.js) ─────────────────────────────────────
     - name: frontend
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/frontend:${IMAGE_TAG}
+        image: ${FRONTEND_IMAGE}
         resources:
           requests:
             cpu: 0.5
@@ -134,7 +134,7 @@ properties:
     # ─── Ingestion Worker (MQTT → DB) ──────────────────────────
     - name: ingestion-worker
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/ingestion-worker:${IMAGE_TAG}
+        image: ${INGESTION_WORKER_IMAGE}
         resources:
           requests:
             cpu: 0.5
@@ -164,7 +164,7 @@ properties:
     # ─── Export Worker (CSV/Log exporter) ──────────────────────
     - name: export-worker
       properties:
-        image: ${ACR_LOGIN_SERVER}/butterfly/export-worker:${IMAGE_TAG}
+        image: ${EXPORT_WORKER_IMAGE}
         resources:
           requests:
             cpu: 0.5
