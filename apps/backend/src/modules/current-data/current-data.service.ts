@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   CurrentDataResponse,
@@ -97,13 +98,14 @@ export class CurrentDataService {
 
     if (resolution === 'raw') {
       return this.queryRaw(params.sensorSn, params.deviceId, startTime, endTime);
-    } else if (resolution === '1m') {
-      return this.query1m(params.sensorSn, params.deviceId, startTime, endTime);
-    } else if (resolution === '1h') {
-      return this.query1h(params.sensorSn, params.deviceId, startTime, endTime);
-    } else {
-      return this.query1d(params.sensorSn, params.deviceId, startTime, endTime);
     }
+    return this.queryAggregated(
+      resolution as '1m' | '1h' | '1d',
+      params.sensorSn,
+      params.deviceId,
+      startTime,
+      endTime,
+    );
   }
 
   private async queryRaw(
@@ -148,31 +150,60 @@ export class CurrentDataService {
     };
   }
 
-  private async query1m(
+  private static readonly AGG_VIEWS: Record<'1m' | '1h' | '1d', string> = {
+    '1m': 'current_1m',
+    '1h': 'current_1h',
+    '1d': 'current_1d',
+  };
+
+  private static readonly AGG_INTERVALS: Record<'1m' | '1h' | '1d', string> = {
+    '1m': '1 minute',
+    '1h': '1 hour',
+    '1d': '1 day',
+  };
+
+  private async queryAggregated(
+    resolution: '1m' | '1h' | '1d',
     sensorSn: string,
     deviceId: string | undefined,
     startTime: Date,
     endTime: Date,
   ): Promise<CurrentDataResponse> {
-    let rows: AggRow[];
+    const view = CurrentDataService.AGG_VIEWS[resolution];
+    const deviceFilter = deviceId ? Prisma.sql`AND device_id = ${deviceId}` : Prisma.empty;
 
-    if (deviceId) {
+    // Fast path: read the pre-aggregated view.
+    let rows = await this.prisma.$queryRaw<AggRow[]>`
+      SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
+      FROM ${Prisma.raw(view)}
+      WHERE sensor_sn = ${sensorSn}
+        ${deviceFilter}
+        AND bucket >= ${startTime}
+        AND bucket < ${endTime}
+      ORDER BY bucket ASC
+    `;
+
+    // Fallback: on Apache-license deployments current_* are plain materialized
+    // views with NOW()-relative windows (1m→7d, 1h→90d, 1d→3y), so a range
+    // outside the window returns nothing even though raw_current_measurements
+    // still has the data. Aggregate raw on the fly so any in-raw range works at
+    // any resolution (mirrors the real-time behaviour of the TSL build).
+    if (rows.length === 0) {
+      const interval = CurrentDataService.AGG_INTERVALS[resolution];
+      const groupExtra = deviceId ? Prisma.empty : Prisma.sql`, device_id`;
       rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1m
+        SELECT
+          time_bucket(${interval}::interval, ts) AS bucket,
+          AVG(current_value) AS avg_current,
+          MIN(current_value) AS min_current,
+          MAX(current_value) AS max_current,
+          COUNT(*)           AS sample_count
+        FROM raw_current_measurements
         WHERE sensor_sn = ${sensorSn}
-          AND device_id = ${deviceId}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
-        ORDER BY bucket ASC
-      `;
-    } else {
-      rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1m
-        WHERE sensor_sn = ${sensorSn}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
+          ${deviceFilter}
+          AND ts >= ${startTime}
+          AND ts < ${endTime}
+        GROUP BY bucket ${groupExtra}
         ORDER BY bucket ASC
       `;
     }
@@ -189,99 +220,7 @@ export class CurrentDataService {
     return {
       sensorSn,
       deviceId: deviceId ?? null,
-      resolution: '1m',
-      points,
-    };
-  }
-
-  private async query1h(
-    sensorSn: string,
-    deviceId: string | undefined,
-    startTime: Date,
-    endTime: Date,
-  ): Promise<CurrentDataResponse> {
-    let rows: AggRow[];
-
-    if (deviceId) {
-      rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1h
-        WHERE sensor_sn = ${sensorSn}
-          AND device_id = ${deviceId}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
-        ORDER BY bucket ASC
-      `;
-    } else {
-      rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1h
-        WHERE sensor_sn = ${sensorSn}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
-        ORDER BY bucket ASC
-      `;
-    }
-
-    const points: AggregatedDataPoint[] = rows.map((r) => ({
-      timestamp:
-        r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
-      avgCurrent: Number(r.avg_current),
-      minCurrent: Number(r.min_current),
-      maxCurrent: Number(r.max_current),
-      sampleCount: Number(r.sample_count),
-    }));
-
-    return {
-      sensorSn,
-      deviceId: deviceId ?? null,
-      resolution: '1h',
-      points,
-    };
-  }
-
-  private async query1d(
-    sensorSn: string,
-    deviceId: string | undefined,
-    startTime: Date,
-    endTime: Date,
-  ): Promise<CurrentDataResponse> {
-    let rows: AggRow[];
-
-    if (deviceId) {
-      rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1d
-        WHERE sensor_sn = ${sensorSn}
-          AND device_id = ${deviceId}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
-        ORDER BY bucket ASC
-      `;
-    } else {
-      rows = await this.prisma.$queryRaw<AggRow[]>`
-        SELECT bucket AS bucket, avg_current, min_current, max_current, sample_count
-        FROM current_1d
-        WHERE sensor_sn = ${sensorSn}
-          AND bucket >= ${startTime}
-          AND bucket < ${endTime}
-        ORDER BY bucket ASC
-      `;
-    }
-
-    const points: AggregatedDataPoint[] = rows.map((r) => ({
-      timestamp:
-        r.bucket instanceof Date ? r.bucket.toISOString() : new Date(r.bucket).toISOString(),
-      avgCurrent: Number(r.avg_current),
-      minCurrent: Number(r.min_current),
-      maxCurrent: Number(r.max_current),
-      sampleCount: Number(r.sample_count),
-    }));
-
-    return {
-      sensorSn,
-      deviceId: deviceId ?? null,
-      resolution: '1d',
+      resolution,
       points,
     };
   }
@@ -306,115 +245,48 @@ export class CurrentDataService {
 
     const resolution = resolveResolution(startTime, endTime, params.resolution ?? 'auto');
 
+    const deviceFilter = params.deviceId
+      ? Prisma.sql`AND device_id = ${params.deviceId}`
+      : Prisma.empty;
+
+    // Summary computed directly from raw measurements (also used as the
+    // fallback when a windowed materialized view has nothing for the range).
+    const summaryFromRaw = () =>
+      this.prisma.$queryRaw<SummaryRow[]>`
+        SELECT
+          MIN(current_value)::float AS min_val,
+          MAX(current_value)::float AS max_val,
+          AVG(current_value)::float AS avg_val,
+          COUNT(*) AS cnt
+        FROM raw_current_measurements
+        WHERE sensor_sn = ${params.sensorSn}
+          ${deviceFilter}
+          AND ts >= ${startTime}
+          AND ts < ${endTime}
+      `;
+
     let rows: SummaryRow[];
 
     if (resolution === 'raw') {
-      if (params.deviceId) {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(current_value)::float AS min_val,
-            MAX(current_value)::float AS max_val,
-            AVG(current_value)::float AS avg_val,
-            COUNT(*) AS cnt
-          FROM raw_current_measurements
-          WHERE sensor_sn = ${params.sensorSn}
-            AND device_id = ${params.deviceId}
-            AND ts >= ${startTime}
-            AND ts < ${endTime}
-        `;
-      } else {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(current_value)::float AS min_val,
-            MAX(current_value)::float AS max_val,
-            AVG(current_value)::float AS avg_val,
-            COUNT(*) AS cnt
-          FROM raw_current_measurements
-          WHERE sensor_sn = ${params.sensorSn}
-            AND ts >= ${startTime}
-            AND ts < ${endTime}
-        `;
-      }
-    } else if (resolution === '1m') {
-      if (params.deviceId) {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1m
-          WHERE sensor_sn = ${params.sensorSn}
-            AND device_id = ${params.deviceId}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
-      } else {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1m
-          WHERE sensor_sn = ${params.sensorSn}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
-      }
-    } else if (resolution === '1h') {
-      if (params.deviceId) {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1h
-          WHERE sensor_sn = ${params.sensorSn}
-            AND device_id = ${params.deviceId}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
-      } else {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1h
-          WHERE sensor_sn = ${params.sensorSn}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
-      }
+      rows = await summaryFromRaw();
     } else {
-      if (params.deviceId) {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1d
-          WHERE sensor_sn = ${params.sensorSn}
-            AND device_id = ${params.deviceId}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
-      } else {
-        rows = await this.prisma.$queryRaw<SummaryRow[]>`
-          SELECT
-            MIN(min_current)::float AS min_val,
-            MAX(max_current)::float AS max_val,
-            AVG(avg_current)::float AS avg_val,
-            SUM(sample_count) AS cnt
-          FROM current_1d
-          WHERE sensor_sn = ${params.sensorSn}
-            AND bucket >= ${startTime}
-            AND bucket < ${endTime}
-        `;
+      const view = CurrentDataService.AGG_VIEWS[resolution as '1m' | '1h' | '1d'];
+      rows = await this.prisma.$queryRaw<SummaryRow[]>`
+        SELECT
+          MIN(min_current)::float AS min_val,
+          MAX(max_current)::float AS max_val,
+          AVG(avg_current)::float AS avg_val,
+          SUM(sample_count) AS cnt
+        FROM ${Prisma.raw(view)}
+        WHERE sensor_sn = ${params.sensorSn}
+          ${deviceFilter}
+          AND bucket >= ${startTime}
+          AND bucket < ${endTime}
+      `;
+      // Same windowed-view gap as queryAggregated: when the pre-aggregated view
+      // has no rows for this range, compute the summary straight from raw.
+      if (rows[0]?.cnt == null || Number(rows[0].cnt) === 0) {
+        rows = await summaryFromRaw();
       }
     }
 
