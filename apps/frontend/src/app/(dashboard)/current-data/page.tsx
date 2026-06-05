@@ -48,6 +48,23 @@ const { Option } = Select;
 
 type Resolution = 'auto' | 'raw' | '1m' | '1h' | '1d';
 
+// Accepted input formats for the time range picker. The first entry is also
+// used to render the selected value; the rest are only used to PARSE what the
+// user types, so a date-only string (down to day granularity) is accepted.
+const TIME_RANGE_FORMATS = ['YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD HH', 'YYYY-MM-DD'];
+
+// Auto-complete the time part when the user only entered a date.
+// Start is left at the parsed 00:00:00; the end bound, when it lands on exact
+// midnight (i.e. no time was typed), is extended to the end of that day so the
+// whole day is included in the range.
+function normalizeTimeRange(value: [Dayjs, Dayjs] | null): [Dayjs, Dayjs] | null {
+  if (!value || !value[0] || !value[1]) return value;
+  const [start, end] = value;
+  const endIsMidnight =
+    end.hour() === 0 && end.minute() === 0 && end.second() === 0 && end.millisecond() === 0;
+  return [start, endIsMidnight ? end.endOf('day') : end];
+}
+
 interface QueryState {
   sensorSn: string;
   deviceId?: string;
@@ -442,9 +459,11 @@ export default function CurrentDataPage() {
               </Text>
               <RangePicker
                 showTime
+                needConfirm={false}
+                format={TIME_RANGE_FORMATS}
                 style={{ width: '100%' }}
                 value={timeRange}
-                onChange={(v) => setTimeRange(v as [Dayjs, Dayjs] | null)}
+                onChange={(v) => setTimeRange(normalizeTimeRange(v as [Dayjs, Dayjs] | null))}
                 presets={[
                   { label: t('time.last1h'), value: [dayjs().subtract(1, 'hour'), dayjs()] },
                   { label: t('time.last6h'), value: [dayjs().subtract(6, 'hour'), dayjs()] },
