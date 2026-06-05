@@ -245,6 +245,32 @@ case "$ACTION" in
     export ACR_PASSWORD
     ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
 
+    # Pin every image to its current ACR digest (@sha256:...). ACI only rolls a
+    # container when its image reference in the group spec changes; a moving tag
+    # like ":latest" is byte-identical across deploys, so `az container create`
+    # treats it as a no-op and keeps running the OLD image. The immutable digest
+    # changes whenever a new image is pushed, so a deploy reliably rolls to the
+    # exact image currently behind the tag in ACR.
+    echo "   Resolving image digests from ACR (tag: ${IMAGE_TAG})..."
+    for spec in \
+      "backend:${IMAGE_TAG}" \
+      "frontend:${IMAGE_TAG}" \
+      "ingestion-worker:${IMAGE_TAG}" \
+      "export-worker:${IMAGE_TAG}" \
+      "mosquitto:${IMAGE_TAG}" \
+      "redis:${REDIS_IMAGE_TAG}"; do
+      svc="${spec%%:*}"
+      tag="${spec#*:}"
+      digest=$(az acr repository show -n "$ACR_NAME" --image "butterfly/${svc}:${tag}" --query digest -o tsv 2>/dev/null || true)
+      if [ -z "$digest" ]; then
+        echo "   ❌ butterfly/${svc}:${tag} not found in ACR — run 'make aci-push' first." >&2
+        exit 1
+      fi
+      varname="$(echo "${svc}_IMAGE" | tr 'a-z-' 'A-Z_')"
+      export "$varname"="${ACR_LOGIN_SERVER}/butterfly/${svc}@${digest}"
+      echo "   • ${svc} → ${digest}"
+    done
+
     envsubst < "$TEMPLATE_FILE" > "$OUTPUT_FILE"
     echo "✅ Generated: infra/aci/deploy.yaml"
     ;;
