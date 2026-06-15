@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import pLimit from 'p-limit';
 import os from 'os';
 import { handleMessage } from './handler';
+import { log, logError } from '../logger';
 
 export async function startMqttClient(pool: Pool): Promise<void> {
   const mqttUrl = process.env.MQTT_URL ?? 'mqtt://mosquitto:1883';
@@ -39,45 +40,54 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   });
 
   client.on('connect', () => {
-    console.log(
-      `[ingestion-worker] Connected to ${mqttUrl} ` +
-        `(clientId=${clientId}, concurrency=${concurrency})`,
-    );
+    log('info', 'mqtt_connected', {
+      mqttUrl,
+      clientId,
+      concurrency,
+      rawTopic,
+      sharedGroup,
+      subscription: topic,
+      username: username ? '<set>' : '<unset>',
+    });
     client.subscribe(topic, { qos: 1 }, (err) => {
       if (err) {
-        console.error(`[ingestion-worker] Failed to subscribe to ${topic}:`, err);
+        logError('mqtt_subscribe_failed', err, { subscription: topic });
       } else {
-        console.log(`[ingestion-worker] Subscribed: ${topic}`);
+        log('info', 'mqtt_subscribed', { subscription: topic, qos: 1 });
       }
     });
   });
 
   client.on('reconnect', () => {
-    console.log('[ingestion-worker] Reconnecting to MQTT broker...');
+    log('warn', 'mqtt_reconnecting', { mqttUrl, clientId });
   });
 
   client.on('disconnect', () => {
-    console.log('[ingestion-worker] Disconnected from MQTT broker.');
+    log('warn', 'mqtt_disconnected', { mqttUrl, clientId });
   });
 
   client.on('offline', () => {
-    console.warn('[ingestion-worker] MQTT client is offline.');
+    log('warn', 'mqtt_offline', { mqttUrl, clientId });
   });
 
   client.on('message', (topic: string, buffer: Buffer) => {
+    log('info', 'mqtt_message_received', {
+      topic,
+      payloadBytes: buffer.length,
+    });
     // Wrap in p-limit: if concurrency slots are full, this queues in memory
     // until a slot opens.  The MQTT ACK (QoS 1) is sent by the library when
     // the message is handed to this callback, so backpressure is handled by
     // the broker's inflight window rather than lost ACKs.
     limit(() => handleMessage(topic, buffer, pool)).catch((err) => {
-      console.error('[ingestion-worker] Unhandled error in handleMessage:', err);
+      logError('mqtt_message_unhandled_error', err, { topic, payloadBytes: buffer.length });
     });
   });
 
   // Return a promise that never resolves so the process stays alive
   return new Promise((_resolve, reject) => {
     client.on('error', (err) => {
-      console.error('[ingestion-worker] MQTT error:', err);
+      logError('mqtt_error', err, { mqttUrl, clientId });
       reject(err);
     });
   });
