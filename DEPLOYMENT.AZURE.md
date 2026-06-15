@@ -248,6 +248,16 @@ make aci-all
 make aci-status
 ```
 
+`make aci-all` runs build, push, migration, and ACI deployment in one script
+process so every step uses the same immutable image tag. The tag defaults to
+the current git SHA; if the worktree is dirty, a timestamp suffix is added so
+ACI rolls to a new digest. To pin a release tag explicitly, pass it on the
+command line:
+
+```bash
+IMAGE_TAG=my-release make aci-all
+```
+
 Detailed steps below.
 
 ---
@@ -331,6 +341,10 @@ before rerunning `make aci-db-init`.
 
 ## 9. Step 3: Build Images
 
+For normal deployments, prefer `make aci-all` so build, push, and deploy share
+one image tag. Use the split commands below only when you intentionally want to
+perform the steps manually.
+
 ```bash
 make aci-build
 ```
@@ -359,6 +373,10 @@ This pushes all built images to:
 ```text
 ${ACR_LOGIN_SERVER}/butterfly/<image>:${IMAGE_TAG}
 ```
+
+The deployment template resolves this tag to an immutable `@sha256:...` digest
+before submitting to ACI. Avoid `IMAGE_TAG=latest`; a mutable tag makes it
+harder to audit what code is running.
 
 Example login server:
 

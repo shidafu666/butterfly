@@ -12,6 +12,11 @@ ENV_FILE="${PROJECT_ROOT}/.env.aci"
 TEMPLATE_FILE="${PROJECT_ROOT}/infra/aci/deploy.yaml.tpl"
 OUTPUT_FILE="${PROJECT_ROOT}/infra/aci/deploy.yaml"
 
+# Only an IMAGE_TAG exported by the caller should override the automatic tag.
+# A historical .env.aci.example set IMAGE_TAG=latest, which made deployments
+# depend on a mutable tag and made it hard to tell what code ACI was running.
+CALLER_IMAGE_TAG="${IMAGE_TAG:-}"
+
 # ─── Load .env.aci ────────────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ .env.aci not found."
@@ -31,7 +36,17 @@ export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
 # containers (an unchanged `:latest` reference is treated as a no-op).
 # A dirty working tree gets a unique `-dirty.<timestamp>` suffix so
 # uncommitted rebuilds still roll. Override by exporting IMAGE_TAG yourself.
-if [ -z "${IMAGE_TAG:-}" ]; then
+ENV_FILE_IMAGE_TAG="${IMAGE_TAG:-}"
+if [ -n "$CALLER_IMAGE_TAG" ]; then
+  IMAGE_TAG="$CALLER_IMAGE_TAG"
+elif [ -n "$ENV_FILE_IMAGE_TAG" ] && [ "$ENV_FILE_IMAGE_TAG" != "latest" ]; then
+  echo "⚠️  Using IMAGE_TAG from .env.aci: ${ENV_FILE_IMAGE_TAG}"
+  echo "   Prefer passing IMAGE_TAG explicitly: IMAGE_TAG=${ENV_FILE_IMAGE_TAG} make aci-all"
+  IMAGE_TAG="$ENV_FILE_IMAGE_TAG"
+else
+  if [ "$ENV_FILE_IMAGE_TAG" = "latest" ]; then
+    echo "⚠️  Ignoring IMAGE_TAG=latest from .env.aci; using an immutable deploy tag instead."
+  fi
   GIT_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo nogit)"
   if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
     GIT_SHA="${GIT_SHA}-dirty.$(date +%Y%m%d%H%M%S)"
@@ -293,6 +308,15 @@ case "$ACTION" in
     "$0" status
     ;;
 
+  # ── Full deploy flow with one stable IMAGE_TAG ───────────────
+  all)
+    echo "🚚 Running full ACI deployment with one image tag: ${IMAGE_TAG}"
+    "$0" build
+    "$0" push
+    "$0" migrate
+    "$0" deploy
+    ;;
+
   # ── Status ───────────────────────────────────────────────────
   status)
     echo "📊 Container group status:"
@@ -355,6 +379,7 @@ case "$ACTION" in
     echo "  migrate        应用待执行的 SQL 迁移到 Azure 数据库"
     echo "  generate-yaml  从模板生成 deploy.yaml"
     echo "  deploy         生成 YAML 并部署到 ACI"
+    echo "  all            构建 + 推送 + 迁移 + 部署（单次 IMAGE_TAG）"
     echo "  status         查看容器组状态和访问地址"
     echo "  logs [name]    查看容器日志 (默认: backend)"
     echo "                 容器名: redis | mosquitto | backend | frontend"
@@ -368,5 +393,8 @@ case "$ACTION" in
     echo "  2. make aci-login                 # 登录 Azure"
     echo "  3. make aci-db-init               # 初始化数据库 (首次)"
     echo "  4. make aci-all                   # 构建 + 推送 + 迁移 + 部署"
+    echo ""
+    echo "可选固定镜像标签:"
+    echo "  IMAGE_TAG=my-release make aci-all"
     ;;
 esac
