@@ -32,11 +32,29 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     const requestId = uuidv4();
+    const timestamp = new Date().toISOString();
+    const logFields = {
+      ts: timestamp,
+      level: status >= 500 ? 'error' : status === 404 || status === 401 ? 'info' : 'warn',
+      service: 'backend',
+      event: 'http_request_failed',
+      requestId,
+      method: request.method,
+      url: request.originalUrl ?? request.url,
+      status,
+      code,
+      message,
+      ip: request.ip,
+      userAgent: request.get('user-agent') ?? null,
+    };
 
-    console.error(
-      `[${requestId}] ${request.method} ${request.url} - ${status}: ${message}`,
-      exception,
-    );
+    if (status >= 500) {
+      console.error(JSON.stringify(logFields), exception);
+    } else if (status === 404 || status === 401) {
+      console.info(JSON.stringify(logFields));
+    } else {
+      console.warn(JSON.stringify(logFields));
+    }
 
     response.status(status).json({
       code,

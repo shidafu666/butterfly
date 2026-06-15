@@ -166,7 +166,8 @@ aci-migrate: ## 应用待执行的 SQL 迁移到 Azure 数据库
 aci-deploy: ## 部署容器组到 ACI
 	@bash scripts/deploy-aci.sh deploy
 
-aci-all: aci-build aci-push aci-migrate aci-deploy ## 一键部署: 构建 → 推送 → 迁移 → 部署
+aci-all: ## 一键部署: 构建 → 推送 → 迁移 → 部署（单次 IMAGE_TAG）
+	@bash scripts/deploy-aci.sh all
 
 aci-status: ## 查看 ACI 容器组状态和访问地址
 	@bash scripts/deploy-aci.sh status

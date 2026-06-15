@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { decodePayload } from '../decoder/decoder';
 import { validatePayload } from '../validator/validator';
 import { bulkInsert, upsertSensor, upsertDevice, CurrentMeasurementRow } from '../writer/writer';
+import { log, logError } from '../logger';
 
 /**
  * Parses the sensor SN from a topic of the form `wlpca/<sensorSn>/data`.
@@ -21,6 +22,7 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
   const receivedAt = new Date();
   let msgId: string | undefined;
   let sensorSn: string | undefined;
+  let raw: unknown;
   const payloadSize: number = buffer.length;
 
   try {
@@ -32,7 +34,6 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
     sensorSn = topicSn;
 
     // 2. Decode MessagePack
-    let raw: unknown;
     try {
       raw = decodePayload(buffer);
     } catch (err) {
@@ -80,10 +81,26 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
       [payload.msgId, payload.sn, topic, payloadSize, deviceCount, pointCount, receivedAt],
     );
 
-    console.log(
-      `[ingestion-worker] Processed msgId=${payload.msgId} sn=${payload.sn} ` +
-        `devices=${deviceCount} points=${pointCount}`,
-    );
+    log('info', 'ingestion_message_processed', {
+      msgId: payload.msgId,
+      sensorSn: payload.sn,
+      topic,
+      payloadBytes: payloadSize,
+      deviceCount,
+      pointCount,
+      receivedAt: receivedAt.toISOString(),
+      processedAt: new Date().toISOString(),
+      devices: payload.devices.map((device) => ({
+        deviceId: device.deviceId,
+        rmsCount: device.deviceData.rms.length,
+        firstMeasurementTs: new Date(device.deviceData.timestamp * 1000).toISOString(),
+        lastMeasurementTs: new Date(
+          (device.deviceData.timestamp + device.deviceData.rms.length - 1) * 1000,
+        ).toISOString(),
+        minCurrent: Math.min(...device.deviceData.rms),
+        maxCurrent: Math.max(...device.deviceData.rms),
+      })),
+    });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     const errorType =
@@ -93,9 +110,15 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
           ? 'DECODE_ERROR'
           : 'PROCESSING_ERROR';
 
-    console.error(
-      `[ingestion-worker] Error handling message on topic "${topic}": [${errorType}] ${errorMessage}`,
-    );
+    logError('ingestion_message_failed', err, {
+      topic,
+      sensorSn,
+      msgId,
+      payloadBytes: payloadSize,
+      errorType,
+      receivedAt: receivedAt.toISOString(),
+      payloadSummary: summarizeRawPayload(raw),
+    });
 
     // Log to ingestion_messages if we have enough context
     try {
@@ -106,7 +129,7 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
         [msgId ?? null, sensorSn ?? null, topic, payloadSize, errorMessage, receivedAt],
       );
     } catch (logErr) {
-      console.error('[ingestion-worker] Failed to log to ingestion_messages:', logErr);
+      logError('ingestion_message_failure_audit_failed', logErr, { topic, sensorSn, msgId });
     }
 
     // Log to ingestion_error_logs with the raw payload
@@ -118,9 +141,67 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
         [topic, errorType, errorMessage, buffer.toString('base64')],
       );
     } catch (logErr) {
-      console.error('[ingestion-worker] Failed to log to ingestion_error_logs:', logErr);
+      logError('ingestion_error_payload_audit_failed', logErr, { topic, sensorSn, msgId });
     }
   }
+}
+
+function summarizeRawPayload(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return raw === undefined ? null : { valueType: typeof raw };
+  }
+
+  const record = raw as Record<string, unknown>;
+  const devices = Array.isArray(record['devices']) ? record['devices'] : [];
+  return {
+    keys: Object.keys(record),
+    msgId: stringifyScalar(record['msgId']),
+    sn: stringifyScalar(record['sn']),
+    timestamp: stringifyScalar(record['timestamp']),
+    timestampType: typeof record['timestamp'],
+    rssi: stringifyScalar(record['rssi']),
+    version: stringifyScalar(record['version']),
+    battery: stringifyScalar(record['battery']),
+    deviceCount: devices.length,
+    devices: devices.slice(0, 5).map((device, index) => summarizeRawDevice(device, index)),
+  };
+}
+
+function summarizeRawDevice(device: unknown, index: number): Record<string, unknown> {
+  if (!device || typeof device !== 'object' || Array.isArray(device)) {
+    return { index, valueType: typeof device };
+  }
+
+  const record = device as Record<string, unknown>;
+  const deviceData =
+    record['deviceData'] &&
+    typeof record['deviceData'] === 'object' &&
+    !Array.isArray(record['deviceData'])
+      ? (record['deviceData'] as Record<string, unknown>)
+      : null;
+  const rms = Array.isArray(deviceData?.['rms']) ? (deviceData['rms'] as unknown[]) : [];
+  const numericRms = rms.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+
+  return {
+    index,
+    deviceId: stringifyScalar(record['deviceId']),
+    deviceFirmware: stringifyScalar(record['deviceFirmware']),
+    deviceState: stringifyScalar(record['deviceState']),
+    deviceDataTimestamp: stringifyScalar(deviceData?.['timestamp']),
+    deviceDataTimestampType: typeof deviceData?.['timestamp'],
+    rmsCount: rms.length,
+    rmsNonzeroCount: numericRms.filter((v) => v !== 0).length,
+    rmsMin: numericRms.length ? Math.min(...numericRms) : null,
+    rmsMax: numericRms.length ? Math.max(...numericRms) : null,
+  };
+}
+
+function stringifyScalar(value: unknown): string | number | boolean | null {
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  return value == null ? null : String(value);
 }
 
 class TopicParseError extends Error {
