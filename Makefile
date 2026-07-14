@@ -183,3 +183,51 @@ aci-db-init: ## 初始化 Azure PostgreSQL (启用 TimescaleDB + Schema)
 
 webapp-deploy: ## 将 frontend 镜像部署到 Azure Web App（需先 aci-push）
 	@bash scripts/deploy-aci.sh webapp-deploy
+
+# ─── Azure 全栈部署 (Web App + Container App + ACI) ──────────────────────────
+## Azure 全栈部署 (Azure China)
+.PHONY: azure-login azure-build azure-push azure-migrate azure-ensure-storage \
+        azure-deploy-mqtt azure-deploy-services azure-deploy-web azure-all \
+        azure-status azure-logs-web azure-logs-services azure-logs-mqtt azure-db-init
+
+azure-login: ## 登录 Azure China 和 ACR
+	@bash scripts/deploy-azure.sh login
+
+azure-build: ## 构建 4 个镜像: web / ingestion-worker / export-worker / mosquitto (linux/amd64)
+	@bash scripts/deploy-azure.sh build
+
+azure-push: ## 推送镜像到 ACR (SHA 标签 + latest)
+	@bash scripts/deploy-azure.sh push
+
+azure-migrate: ## 应用待执行的数据库迁移
+	@bash scripts/deploy-azure.sh migrate
+
+azure-ensure-storage: ## 创建 butterfly-exports File Share 并挂载到 Web App 和 Container Apps（幂等）
+	@bash scripts/deploy-azure.sh ensure-storage
+
+azure-deploy-mqtt: ## 部署/更新 Mosquitto ACI (dev-butterfly)
+	@bash scripts/deploy-azure.sh deploy-mqtt
+
+azure-deploy-services: ## 更新 Container App cyberbee-services (ingestion-worker + export-worker)
+	@bash scripts/deploy-azure.sh deploy-services
+
+azure-deploy-web: ## 更新 cyberbee Web App 容器镜像和配置
+	@bash scripts/deploy-azure.sh deploy-web
+
+azure-all: ## 一键全栈部署: build → push → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web
+	@bash scripts/deploy-azure.sh all
+
+azure-status: ## 查看 Web App / Container App / ACI 状态和访问地址
+	@bash scripts/deploy-azure.sh status
+
+azure-logs-web: ## 查看 Web App 日志流
+	@bash scripts/deploy-azure.sh logs-web
+
+azure-logs-services: ## 查看 Container App 日志流  (CONTAINER=ingestion-worker|export-worker)
+	@bash scripts/deploy-azure.sh logs-services $(or $(CONTAINER),ingestion-worker)
+
+azure-logs-mqtt: ## 查看 Mosquitto ACI 日志
+	@bash scripts/deploy-azure.sh logs-mqtt
+
+azure-db-init: ## 初始化 Azure PostgreSQL (启用 TimescaleDB + Schema)
+	@bash scripts/deploy-azure.sh db-init

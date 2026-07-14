@@ -1,0 +1,72 @@
+# ============================================================
+# Butterfly — Azure 合并 Web 镜像
+# 一次构建 NestJS 后端 (127.0.0.1:3001) + Next.js 前端 (0.0.0.0:3000)
+# 由 scripts/deploy-azure.sh 构建；原前后端 Dockerfile 保留用于本地开发。
+# 命名: butterfly/web
+# ============================================================
+ARG NODE_IMAGE=node:20-alpine
+
+# ── 公共基础层 ────────────────────────────────────────────────
+FROM ${NODE_IMAGE} AS base
+RUN npm install -g pnpm@9 && apk add --no-cache openssl
+
+# ── 后端构建 ──────────────────────────────────────────────────
+FROM base AS backend-builder
+WORKDIR /app
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/tsconfig/package.json          ./packages/tsconfig/
+COPY packages/shared-types/package.json      ./packages/shared-types/
+COPY apps/backend/package.json               ./apps/backend/
+RUN pnpm install --frozen-lockfile
+
+COPY packages/      ./packages/
+COPY apps/backend/  ./apps/backend/
+WORKDIR /app/apps/backend
+RUN pnpm prisma:generate && pnpm build
+
+# ── 前端构建 ──────────────────────────────────────────────────
+FROM base AS frontend-builder
+WORKDIR /app
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/tsconfig/package.json          ./packages/tsconfig/
+COPY packages/shared-types/package.json      ./packages/shared-types/
+COPY apps/frontend/package.json              ./apps/frontend/
+RUN pnpm install --frozen-lockfile
+
+COPY packages/       ./packages/
+COPY apps/frontend/  ./apps/frontend/
+WORKDIR /app/apps/frontend
+ENV NEXT_TELEMETRY_DISABLED=1
+# BACKEND_ORIGIN is baked in at build time; at runtime it is overridden by the
+# entrypoint to http://127.0.0.1:3001 (loopback), so the browser continues to
+# use the same-origin /api path and never sees this value.
+ENV BACKEND_ORIGIN=http://127.0.0.1:3001
+# No external API base URL — browser uses same-origin /api proxy.
+ENV NEXT_PUBLIC_API_BASE_URL=
+RUN pnpm build
+
+# ── 生产运行层 ────────────────────────────────────────────────
+FROM ${NODE_IMAGE} AS runner
+RUN apk add --no-cache openssl
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Backend: root node_modules (hoisted) + compiled dist + Prisma schema.
+# Runs as root because we also manage the frontend process; no escalation risk
+# inside the locked-down App Service container sandbox.
+WORKDIR /app
+COPY --from=backend-builder /app/node_modules        ./node_modules
+COPY --from=backend-builder /app/apps/backend/dist   ./dist
+COPY --from=backend-builder /app/apps/backend/prisma ./prisma
+
+# Frontend: Next.js standalone output is fully self-contained (own node_modules).
+# Placed under /frontend to avoid node_modules conflicts with the backend.
+WORKDIR /frontend
+COPY --from=frontend-builder /app/apps/frontend/.next/standalone  ./
+COPY --from=frontend-builder /app/apps/frontend/.next/static       ./apps/frontend/.next/static
+COPY --from=frontend-builder /app/apps/frontend/public             ./apps/frontend/public
+
+# PID-1 supervisor
+COPY apps/web/entrypoint.js /entrypoint.js
+EXPOSE 3000
+CMD ["node", "/entrypoint.js"]

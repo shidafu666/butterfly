@@ -17,6 +17,9 @@ build/
 
 # ACI generated deploy YAML (contains secrets)
 infra/aci/deploy.yaml
+# Azure deploy temp files (contains secrets, cleaned by deploy script)
+infra/azure/*.yaml
+!infra/azure/*.yaml.tpl
 
 # Prisma
 apps/backend/prisma/generated/

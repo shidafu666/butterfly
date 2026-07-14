@@ -19,6 +19,10 @@ export class EntraCodeStore implements OnModuleDestroy {
     this.redis = new Redis({
       host: config.get<string>('REDIS_HOST', 'redis'),
       port: config.get<number>('REDIS_PORT', 6379),
+      ...(config.get<string>('REDIS_PASSWORD')
+        ? { password: config.get<string>('REDIS_PASSWORD') }
+        : {}),
+      ...(config.get<string>('REDIS_TLS') === 'true' ? { tls: {} } : {}),
       lazyConnect: true,
       maxRetriesPerRequest: 2,
     });
@@ -32,7 +36,12 @@ export class EntraCodeStore implements OnModuleDestroy {
 
   async consume(code: string): Promise<EntraIssuedSession | null> {
     if (!code) return null;
-    const raw = await this.redis.getdel(this.key(code));
+    // Use a Lua script for atomic GET+DEL (compatible with Redis < 6.2 which lacks GETDEL)
+    const raw = (await this.redis.eval(
+      `local v = redis.call('GET', KEYS[1]); if v then redis.call('DEL', KEYS[1]) end; return v`,
+      1,
+      this.key(code),
+    )) as string | null;
     if (!raw) return null;
     return JSON.parse(raw) as EntraIssuedSession;
   }

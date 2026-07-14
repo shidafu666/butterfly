@@ -8,16 +8,22 @@ async function main() {
 
   const redisHost = process.env.REDIS_HOST ?? 'redis';
   const redisPort = parseInt(process.env.REDIS_PORT ?? '6379', 10);
+  const redisPassword = process.env.REDIS_PASSWORD;
+  const redisTls = process.env.REDIS_TLS === 'true';
 
   const connection = new IORedis({
     host: redisHost,
     port: redisPort,
+    ...(redisPassword ? { password: redisPassword } : {}),
+    ...(redisTls ? { tls: {} } : {}),
     maxRetriesPerRequest: null, // Required by BullMQ
     enableReadyCheck: false,
   });
 
   connection.on('connect', () => {
-    console.log(`[export-worker] Connected to Redis at ${redisHost}:${redisPort}`);
+    console.log(
+      `[export-worker] Connected to Redis at ${redisHost}:${redisPort}${redisTls ? ' (TLS)' : ''}`,
+    );
   });
 
   connection.on('error', (err) => {

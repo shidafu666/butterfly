@@ -46,8 +46,12 @@ if ! command -v az &>/dev/null; then
 fi
 
 echo "📋 配置信息:"
-echo "   Server:         ${PG_SERVER_NAME}"
-echo "   Resource Group:  ${AZURE_RESOURCE_GROUP}"
+echo "   Server:          ${PG_SERVER_NAME}"
+# PG_RESOURCE_GROUP allows the database to be in a different resource group
+# from the application resources (e.g. keeping butterfly-pg in the old RG).
+# Falls back to AZURE_RESOURCE_GROUP for backward compatibility.
+PG_EFFECTIVE_RESOURCE_GROUP="${PG_RESOURCE_GROUP:-${AZURE_RESOURCE_GROUP}}"
+echo "   Resource Group:  ${PG_EFFECTIVE_RESOURCE_GROUP}"
 DB_DISPLAY=$(echo "$DATABASE_URL" | sed 's/password=[^&]*/password=***/')
 echo "   Database URL:    ${DB_DISPLAY}"
 echo ""
@@ -56,7 +60,7 @@ echo ""
 # Azure China may not support the latest preview API versions that
 # az postgres flexible-server defaults to, so we call REST directly.
 PG_API_VERSION="2024-08-01"
-PG_RESOURCE_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${PG_SERVER_NAME}"
+PG_RESOURCE_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${PG_EFFECTIVE_RESOURCE_GROUP}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${PG_SERVER_NAME}"
 
 pg_param_get() {
   local param_name="$1"
