@@ -413,6 +413,7 @@ deploy-web)
     --settings \
       "WEBSITES_PORT=3000" \
       "NODE_ENV=production" \
+      "KEEP_ALIVE_TIMEOUT=65000" \
       "REDIS_HOST=${REDIS_HOST}" \
       "REDIS_PORT=6380" \
       "REDIS_PASSWORD=${REDIS_PASSWORD}" \
