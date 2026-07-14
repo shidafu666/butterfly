@@ -149,7 +149,7 @@ scale-ingestion: ## Scale ingestion workers  (N=3)
 
 # ─── ACI Deployment (Azure China 21Vianet) ───────────────────────────────────
 ## ACI 部署 (Azure China)
-.PHONY: aci-login aci-build aci-push aci-migrate aci-deploy aci-all aci-status aci-logs aci-delete aci-db-init
+.PHONY: aci-login aci-build aci-push aci-migrate aci-deploy aci-all aci-status aci-logs aci-delete aci-db-init webapp-deploy
 
 aci-login: ## 登录 Azure China 和 ACR
 	@bash scripts/deploy-aci.sh login
@@ -166,7 +166,7 @@ aci-migrate: ## 应用待执行的 SQL 迁移到 Azure 数据库
 aci-deploy: ## 部署容器组到 ACI
 	@bash scripts/deploy-aci.sh deploy
 
-aci-all: ## 一键部署: 构建 → 推送 → 迁移 → 部署（单次 IMAGE_TAG）
+aci-all: ## 一键部署: 构建 → 推送 → 迁移 → ACI + Web App
 	@bash scripts/deploy-aci.sh all
 
 aci-status: ## 查看 ACI 容器组状态和访问地址
@@ -180,3 +180,6 @@ aci-delete: ## 删除 ACI 容器组
 
 aci-db-init: ## 初始化 Azure PostgreSQL (启用 TimescaleDB + Schema)
 	@bash scripts/init-azure-db.sh
+
+webapp-deploy: ## 将 frontend 镜像部署到 Azure Web App（需先 aci-push）
+	@bash scripts/deploy-aci.sh webapp-deploy

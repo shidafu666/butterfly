@@ -12,8 +12,6 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.6",
-    "@azure/msal-browser": "^3.14.0",
-    "@azure/msal-react": "^2.0.22",
     "@butterfly/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.36.2",
     "antd": "^5.16.1",

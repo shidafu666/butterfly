@@ -32,11 +32,11 @@ export class SetupDto {
   name: string;
 }
 
-export class EntraLoginDto {
-  @ApiProperty({ description: 'Microsoft Entra ID access token' })
+export class EntraExchangeDto {
+  @ApiProperty({ description: 'Short-lived, single-use SSO exchange code' })
   @IsString()
   @IsNotEmpty()
-  accessToken: string;
+  code: string;
 }
 
 export class ChangePasswordDto {

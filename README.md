@@ -211,23 +211,25 @@ Key variables:
 - `EXPORT_JOB_RETENTION_HOURS` — hours before export jobs and their files are automatically deleted (default: `24`)
 - `INGESTION_CONCURRENCY` — max concurrent message handlers per ingestion worker replica (default: `10`)
 - `DB_POOL_MAX` — PostgreSQL connection pool size per ingestion worker replica (default: `20`)
-- `NEXT_PUBLIC_ENTRA_*` — Microsoft Entra ID SSO (optional)
+- `ENTRA_*` / `COOKIE_SECRET` — Microsoft Entra ID SSO (optional)
 
 ## Microsoft Entra ID SSO (Optional)
 
 To enable SSO:
 
-1. Register an app in Azure Active Directory
-2. Set in `.env`:
+1. Register a single-tenant **Web** application in global Microsoft Entra ID and create a client secret.
+2. Add the exact redirect URI `http://localhost:3000/api/v1/auth/entra/callback` for local development, or the Web App HTTPS equivalent in Azure.
+3. Set in `.env`:
    ```
-   JWT_AUDIENCE=api://your-app-id
-   JWT_ISSUER=https://login.microsoftonline.com/your-tenant-id/v2.0
-   NEXT_PUBLIC_ENTRA_CLIENT_ID=your-client-id
-   NEXT_PUBLIC_ENTRA_TENANT_ID=your-tenant-id
-   NEXT_PUBLIC_ENTRA_REDIRECT_URI=http://localhost:3000
+   COOKIE_SECRET=<strong-random-secret>
+   ENTRA_CLIENT_ID=<application-client-id>
+   ENTRA_CLIENT_SECRET=<client-secret>
+   ENTRA_TENANT_ID=<tenant-id>
+   ENTRA_REDIRECT_URI=http://localhost:3000/api/v1/auth/entra/callback
+   ENTRA_POST_LOGIN_REDIRECT=http://localhost:3000/auth/callback
    ```
 
-Local username/password login always remains available regardless of SSO configuration.
+The backend uses Authorization Code + PKCE and validates the tenant and nonce. Local password login remains available. New Entra users receive the `exporter` role but no sensor permissions.
 
 ## Common Operations
 

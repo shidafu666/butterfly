@@ -187,21 +187,23 @@ All variables live in `.env` (copied from `.env.example`).
 
 ### Microsoft Entra ID SSO (optional)
 
-Leave all four variables empty to disable SSO and use local auth only.
+Leave the Entra variables empty to disable SSO and use local auth only.
 
-| Variable                         | Description                                          |
-| -------------------------------- | ---------------------------------------------------- |
-| `JWT_AUDIENCE`                   | App ID URI, e.g. `api://your-app-id`                 |
-| `JWT_ISSUER`                     | `https://login.microsoftonline.com/<tenant-id>/v2.0` |
-| `NEXT_PUBLIC_ENTRA_CLIENT_ID`    | Azure app client ID                                  |
-| `NEXT_PUBLIC_ENTRA_TENANT_ID`    | Azure tenant ID                                      |
-| `NEXT_PUBLIC_ENTRA_REDIRECT_URI` | Frontend URL, e.g. `https://your-domain.com`         |
+| Variable                    | Description                                                     |
+| --------------------------- | --------------------------------------------------------------- |
+| `COOKIE_SECRET`             | Strong secret used to sign the temporary SSO transaction cookie |
+| `ENTRA_CLIENT_ID`           | Global Entra Web application client ID                          |
+| `ENTRA_CLIENT_SECRET`       | Entra Web application client secret                             |
+| `ENTRA_TENANT_ID`           | Allowed single tenant ID                                        |
+| `ENTRA_REDIRECT_URI`        | Exact backend callback URL exposed through the frontend proxy   |
+| `ENTRA_POST_LOGIN_REDIRECT` | Frontend `/auth/callback` URL                                   |
 
 ### Frontend
 
-| Variable                   | Default                 | Description                                                                             |
-| -------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:3001` | Backend URL as seen from the **browser** — change to your public hostname in production |
+| Variable                   | Default                 | Description                                          |
+| -------------------------- | ----------------------- | ---------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL` | _(empty)_               | Keep empty to use the same-origin `/api` proxy       |
+| `BACKEND_ORIGIN`           | `http://localhost:3001` | Backend origin used by the Next.js server-side proxy |
 
 ---
 

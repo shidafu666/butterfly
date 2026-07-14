@@ -19,8 +19,6 @@ properties:
     dnsNameLabel: ${ACI_DNS_LABEL}
     ports:
       - protocol: TCP
-        port: 3000
-      - protocol: TCP
         port: 3001
       - protocol: TCP
         port: 1883
@@ -105,31 +103,21 @@ properties:
             secureValue: "${INITIAL_ADMIN_PASSWORD}"
           - name: INITIAL_ADMIN_NAME
             value: "${INITIAL_ADMIN_NAME}"
-          - name: JWT_AUDIENCE
-            value: "${JWT_AUDIENCE}"
-          - name: JWT_ISSUER
-            value: "${JWT_ISSUER}"
+          - name: COOKIE_SECRET
+            secureValue: "${COOKIE_SECRET}"
+          - name: ENTRA_CLIENT_ID
+            value: "${ENTRA_CLIENT_ID}"
+          - name: ENTRA_CLIENT_SECRET
+            secureValue: "${ENTRA_CLIENT_SECRET}"
+          - name: ENTRA_TENANT_ID
+            value: "${ENTRA_TENANT_ID}"
+          - name: ENTRA_REDIRECT_URI
+            value: "${ENTRA_REDIRECT_URI}"
+          - name: ENTRA_POST_LOGIN_REDIRECT
+            value: "${ENTRA_POST_LOGIN_REDIRECT}"
         volumeMounts:
           - name: exports
             mountPath: /app/exports
-
-    # ─── Frontend (Next.js) ─────────────────────────────────────
-    - name: frontend
-      properties:
-        image: ${FRONTEND_IMAGE}
-        resources:
-          requests:
-            cpu: 0.5
-            memoryInGb: 0.5
-        ports:
-          - port: 3000
-        environmentVariables:
-          - name: NODE_ENV
-            value: "production"
-          - name: PORT
-            value: "3000"
-          - name: HOSTNAME
-            value: "0.0.0.0"
 
     # ─── Ingestion Worker (MQTT → DB) ──────────────────────────
     - name: ingestion-worker

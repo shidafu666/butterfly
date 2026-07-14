@@ -74,6 +74,16 @@ export const zh = {
     passwordRequired: '请输入密码',
     loginFailed: '登录失败，请检查邮箱和密码后重试。',
     ssoFailed: 'SSO 登录失败，请稍后重试。',
+    ssoCompleting: '正在完成单点登录…',
+    ssoErrors: {
+      provider: 'Microsoft 登录已取消或被拒绝。',
+      state: '登录状态已失效，请重新发起登录。',
+      exchange: '无法完成 SSO 登录，请重新尝试。',
+      tenant: '该 Microsoft 账号不属于允许的组织。',
+      disabled: '该账号已被停用，请联系管理员。',
+      config: 'SSO 尚未正确配置，请联系管理员。',
+      generic: 'SSO 登录失败，请重新尝试。',
+    },
   },
   changePassword: {
     title: '修改密码',
