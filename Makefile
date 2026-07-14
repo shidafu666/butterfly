@@ -193,10 +193,10 @@ webapp-deploy: ## 将 frontend 镜像部署到 Azure Web App（需先 aci-push�
 azure-login: ## 登录 Azure China 和 ACR
 	@bash scripts/deploy-azure.sh login
 
-azure-build: ## 构建 4 个镜像: web / ingestion-worker / export-worker / mosquitto (linux/amd64)
+azure-build: ## 通过 ACR Tasks 云端构建镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker / mosquitto
 	@bash scripts/deploy-azure.sh build
 
-azure-push: ## 推送镜像到 ACR (SHA 标签 + latest)
+azure-push: ## (no-op) 镜像已在 azure-build 阶段直接推送到 ACR
 	@bash scripts/deploy-azure.sh push
 
 azure-migrate: ## 应用待执行的数据库迁移
@@ -214,7 +214,7 @@ azure-deploy-services: ## 更新 Container App cyberbee-services (ingestion-work
 azure-deploy-web: ## 更新 cyberbee Web App 容器镜像和配置
 	@bash scripts/deploy-azure.sh deploy-web
 
-azure-all: ## 一键全栈部署: build → push → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web
+azure-all: ## 一键全栈部署: build → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web
 	@bash scripts/deploy-azure.sh all
 
 azure-status: ## 查看 Web App / Container App / ACI 状态和访问地址

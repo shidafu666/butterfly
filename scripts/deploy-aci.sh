@@ -64,61 +64,6 @@ REDIS_IMAGE_TAG="7-alpine"
 REDIS_SOURCE_IMAGE="docker.io/library/redis:7-alpine"
 export REDIS_IMAGE_TAG
 
-resolve_arch_digest() {
-  local source_ref="$1"
-  local arch="$2"
-  echo "   Resolving ${arch} digest from manifest: ${source_ref}" >&2
-  docker manifest inspect "$source_ref" | jq -r --arg arch "$arch" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' | head -n1
-}
-
-source_repo_without_tag_or_digest() {
-  local source_ref="$1"
-  echo "$source_ref" | sed 's/@.*$//' | sed 's/:[^/:]*$//'
-}
-
-local_image_has_arch() {
-  local image_ref="$1"
-  local expected_arch="$2"
-  local actual_arch
-
-  actual_arch=$(docker image inspect "$image_ref" --format '{{.Architecture}}' 2>/dev/null || true)
-  [ "$actual_arch" = "$expected_arch" ]
-}
-
-ensure_local_redis_arch_cache() {
-  local arch="$1"
-  local local_tag="$2"
-
-  if local_image_has_arch "$local_tag" "$arch"; then
-    echo "   Reusing local Redis cache for ${arch}: ${local_tag}"
-    return
-  fi
-
-  local source_repo
-  local arch_digest
-  local arch_ref
-
-  source_repo=$(source_repo_without_tag_or_digest "$REDIS_SOURCE_IMAGE")
-  arch_digest=$(resolve_arch_digest "$REDIS_SOURCE_IMAGE" "$arch")
-
-  if [ -z "$arch_digest" ] || [ "$arch_digest" = "null" ]; then
-    echo "❌ Failed to resolve ${arch} digest for ${REDIS_SOURCE_IMAGE}"
-    return 1
-  fi
-
-  arch_ref="${source_repo}@${arch_digest}"
-  echo "   Pulling Redis for ${arch} by digest: ${arch_digest}"
-  docker pull "$arch_ref"
-
-  local pulled_arch
-  docker tag "$arch_ref" "$local_tag"
-  pulled_arch=$(docker image inspect "$local_tag" --format '{{.Architecture}}' 2>/dev/null || true)
-  if [ "$pulled_arch" != "$arch" ]; then
-    echo "❌ Pulled Redis architecture is ${pulled_arch}, expected ${arch}"
-    return 1
-  fi
-}
-
 import_redis_image_via_acr_import() {
   local source_ref="$REDIS_SOURCE_IMAGE"
   echo "   Importing upstream Redis manifest/image: ${source_ref}"
@@ -130,34 +75,9 @@ import_redis_image_via_acr_import() {
     --force >/dev/null
 }
 
-import_redis_image_via_local_copy() {
-  local dest_ref="${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}"
-  local local_amd64_tag="butterfly-local/redis:${REDIS_IMAGE_TAG}-amd64"
-  local acr_amd64_tag="${ACR_LOGIN_SERVER}/butterfly/redis:${REDIS_IMAGE_TAG}-amd64"
-
-  # ACI needs amd64. Reuse local amd64 cache if present, otherwise pull it.
-  ensure_local_redis_arch_cache "amd64" "$local_amd64_tag"
-  echo "   Pushing Redis amd64 tag to ACR: ${acr_amd64_tag}"
-  docker tag "$local_amd64_tag" "$acr_amd64_tag"
-  docker push "$acr_amd64_tag"
-
-  # For ACI deployment, keep runtime tag pinned to amd64 source.
-  if docker buildx imagetools version >/dev/null 2>&1; then
-    echo "   Creating Redis runtime tag from amd64 only: ${dest_ref}"
-    docker buildx imagetools create --tag "$dest_ref" "$acr_amd64_tag"
-    return
-  fi
-
-  echo "   docker buildx imagetools unavailable; falling back to docker manifest commands..."
-  docker manifest create "$dest_ref" "$acr_amd64_tag"
-  docker manifest push --purge "$dest_ref"
-}
-
 import_redis_image() {
-  echo "   Redis import mode: automatic"
-  echo "   - prefer local amd64 cache"
-  echo "   - pull amd64 from source only when cache is missing"
-  import_redis_image_via_local_copy
+  echo "   Importing Redis via ACR: ${REDIS_SOURCE_IMAGE}"
+  import_redis_image_via_acr_import
 }
 
 # ─── Action dispatcher ────────────────────────────────────────
@@ -179,67 +99,65 @@ case "$ACTION" in
 
   # ── Build ────────────────────────────────────────────────────
   build)
-    echo "🔨 Building all images for linux/amd64..."
-    echo "   (cross-build from ARM64 → AMD64, this may take a few minutes)"
+    echo "🔨 Building all images via ACR Tasks (linux/amd64)..."
     echo ""
     cd "$PROJECT_ROOT"
 
-    echo "── [1/6] backend ──"
-    docker build --platform linux/amd64 \
-      -f apps/backend/Dockerfile \
-      -t "${ACR_LOGIN_SERVER}/butterfly/backend:${IMAGE_TAG}" .
+    echo "── [1/5] backend ──"
+    az acr build \
+      --registry "$ACR_NAME" \
+      --image "butterfly/backend:${IMAGE_TAG}" \
+      --file apps/backend/Dockerfile \
+      --platform linux/amd64 \
+      .
 
-    echo "── [2/6] frontend ──"
-    docker build --platform linux/amd64 \
-      -f apps/frontend/Dockerfile \
+    echo "── [2/5] frontend ──"
+    az acr build \
+      --registry "$ACR_NAME" \
+      --image "butterfly/frontend:${IMAGE_TAG}" \
+      --file apps/frontend/Dockerfile \
       --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-}" \
       --build-arg "BACKEND_ORIGIN=${BACKEND_ORIGIN}" \
-      -t "${ACR_LOGIN_SERVER}/butterfly/frontend:${IMAGE_TAG}" .
+      --platform linux/amd64 \
+      .
 
-    echo "── [3/6] ingestion-worker ──"
-    docker build --platform linux/amd64 \
-      -f apps/ingestion-worker/Dockerfile \
-      -t "${ACR_LOGIN_SERVER}/butterfly/ingestion-worker:${IMAGE_TAG}" .
+    echo "── [3/5] ingestion-worker ──"
+    az acr build \
+      --registry "$ACR_NAME" \
+      --image "butterfly/ingestion-worker:${IMAGE_TAG}" \
+      --file apps/ingestion-worker/Dockerfile \
+      --platform linux/amd64 \
+      .
 
-    echo "── [4/6] export-worker ──"
-    docker build --platform linux/amd64 \
-      -f apps/export-worker/Dockerfile \
-      -t "${ACR_LOGIN_SERVER}/butterfly/export-worker:${IMAGE_TAG}" .
+    echo "── [4/5] export-worker ──"
+    az acr build \
+      --registry "$ACR_NAME" \
+      --image "butterfly/export-worker:${IMAGE_TAG}" \
+      --file apps/export-worker/Dockerfile \
+      --platform linux/amd64 \
+      .
 
-    echo "── [5/6] mosquitto ──"
-    docker build --platform linux/amd64 \
-      -f infra/aci/Dockerfile.mosquitto \
-      -t "${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}" \
+    echo "── [5/5] mosquitto ──"
+    az acr build \
+      --registry "$ACR_NAME" \
+      --image "butterfly/mosquitto:${IMAGE_TAG}" \
+      --file infra/aci/Dockerfile.mosquitto \
+      --platform linux/amd64 \
       infra/docker/mosquitto/
 
-    echo "── [6/6] redis ──"
-    echo "   Redis is synced to ACR during push (mode: automatic)"
-    echo "   Strategy: local amd64 cache first, source fallback"
-    echo "   Source fallback: ${REDIS_SOURCE_IMAGE}"
-
     echo ""
-    echo "✅ All images built successfully."
+    echo "✅ All images built and pushed to ACR."
     ;;
 
   # ── Push ─────────────────────────────────────────────────────
   push)
-    echo "📤 Pushing images to ACR: ${ACR_LOGIN_SERVER}..."
-
-    # Push the immutable SHA tag, then also move `:latest` to the same image
-    # so it stays a convenient pointer to the most recent deploy.
-    for svc in backend frontend ingestion-worker export-worker mosquitto; do
-      repo="${ACR_LOGIN_SERVER}/butterfly/${svc}"
-      docker push "${repo}:${IMAGE_TAG}"
-      if [ "$IMAGE_TAG" != "latest" ]; then
-        docker tag "${repo}:${IMAGE_TAG}" "${repo}:latest"
-        docker push "${repo}:latest"
-      fi
-    done
+    echo "ℹ️  'push' is a no-op when using ACR Tasks — images are pushed during 'build'."
+    echo "   Run: $0 build"
 
     echo "📥 Importing redis:${REDIS_IMAGE_TAG} into ACR..."
-    import_redis_image
+    import_redis_image_via_acr_import
 
-    echo "✅ All images pushed."
+    echo "✅ Done."
     ;;
 
   # ── Migrate (apply pending SQL migrations to the Azure DB) ───
@@ -342,7 +260,6 @@ case "$ACTION" in
   all)
     echo "🚚 Running full deployment with one image tag: ${IMAGE_TAG}"
     "$0" build
-    "$0" push
     "$0" migrate
     "$0" deploy
     "$0" webapp-deploy
