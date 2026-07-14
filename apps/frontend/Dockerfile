@@ -1,4 +1,5 @@
-FROM node:20-alpine AS base
+ARG NODE_IMAGE=node:20-alpine
+FROM ${NODE_IMAGE} AS base
 RUN npm install -g pnpm@9
 
 FROM base AS builder
@@ -23,7 +24,7 @@ ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
 
 RUN pnpm build
 
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

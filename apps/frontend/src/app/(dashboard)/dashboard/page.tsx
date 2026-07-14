@@ -93,21 +93,7 @@ export default function DashboardPage() {
     },
   });
 
-  // Count total devices by summing across sensors
-  const { data: deviceCounts } = useQuery({
-    queryKey: ['device-counts', sensors?.map((s) => s.sensorSn)],
-    queryFn: async () => {
-      if (!sensors) return 0;
-      const counts = await Promise.all(
-        sensors.map(async (s) => {
-          const res = await api.get(`/sensors/${s.sensorSn}/devices`);
-          return (res.data as unknown[]).length;
-        }),
-      );
-      return counts.reduce((a, b) => a + b, 0);
-    },
-    enabled: !!sensors && sensors.length > 0,
-  });
+  const totalDevices = sensors?.reduce((sum, sensor) => sum + (sensor.deviceCount ?? 0), 0) ?? 0;
 
   const exportColumns = [
     {
@@ -173,7 +159,7 @@ export default function DashboardPage() {
         <Col xs={24} sm={12} lg={6}>
           <StatCard
             title={t('dashboard.devices')}
-            value={deviceCounts ?? 0}
+            value={totalDevices}
             icon={<AppstoreOutlined />}
             loading={sensorsLoading}
           />

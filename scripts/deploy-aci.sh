@@ -192,7 +192,7 @@ case "$ACTION" in
     echo "── [2/6] frontend ──"
     docker build --platform linux/amd64 \
       -f apps/frontend/Dockerfile \
-      --build-arg "NEXT_PUBLIC_API_BASE_URL=" \
+      --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-}" \
       --build-arg "BACKEND_ORIGIN=${BACKEND_ORIGIN}" \
       -t "${ACR_LOGIN_SERVER}/butterfly/frontend:${IMAGE_TAG}" .
 
@@ -327,6 +327,10 @@ case "$ACTION" in
       --resource-group "$AZURE_RESOURCE_GROUP" \
       --name "$AZURE_WEBAPP_NAME" \
       --settings WEBSITES_PORT=3000
+    az webapp config set \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --name "$AZURE_WEBAPP_NAME" \
+      --generic-configurations '{"healthCheckPath":"/login"}' >/dev/null
     az webapp update \
       --resource-group "$AZURE_RESOURCE_GROUP" \
       --name "$AZURE_WEBAPP_NAME" \

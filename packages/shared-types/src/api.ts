@@ -50,6 +50,7 @@ export interface SensorDto {
   createdAt: string;
   lastReportTime: string | null;
   isActive: boolean;
+  deviceCount?: number;
 }
 
 export interface DeviceDto {

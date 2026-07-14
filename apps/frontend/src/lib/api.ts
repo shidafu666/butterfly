@@ -1,8 +1,10 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+const API_V1_BASE = API_BASE_URL ? `${API_BASE_URL}/api/v1` : '/api/v1';
 
-export const api = axios.create({ baseURL: `${API_URL}/api/v1` });
+export const api = axios.create({ baseURL: API_V1_BASE });
+export const ssoLoginPath = `${API_V1_BASE}/auth/entra/login?returnTo=%2Fdashboard`;
 
 // Add auth header
 api.interceptors.request.use((config) => {

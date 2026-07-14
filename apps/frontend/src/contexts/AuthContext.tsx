@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const res = await api.get<UserProfile>('/auth/me');
+      const res = await api.get<UserProfile>('/auth/me', { timeout: 8000 });
       setUser(res.data);
     } catch {
       clearToken();
