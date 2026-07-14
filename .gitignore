@@ -13,6 +13,7 @@ build/
 .env.local
 .env.*.local
 .env.aci
+.env.azure
 
 # ACI generated deploy YAML (contains secrets)
 infra/aci/deploy.yaml
