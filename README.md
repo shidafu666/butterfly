@@ -136,7 +136,7 @@ butterfly/
 │   ├── shared-types/     # Shared TypeScript interfaces
 │   └── tsconfig/         # Shared TS compiler configs
 ├── infra/
-│   ├── aci/              # Legacy ACI deploy template (single container group)
+│   ├── aci/              # Mosquitto ACI Dockerfile and config
 │   ├── azure/            # Azure full-stack deploy templates (Web App + Container App + ACI)
 │   └── docker/
 │       ├── mosquitto/    # Mosquitto MQTT broker config
@@ -266,7 +266,50 @@ make azure-status             # view status and endpoints
 
 Run `make help` to see all available targets. See `DEPLOYMENT.AZURE.md` for the full Azure deployment guide.
 
-## API Documentation
+## Azure Production Deployment
+
+### Resource Mapping
+
+| Azure Resource | Type | Purpose |
+| --- | --- | --- |
+| `cyberbee` | App Service (Web App) | Next.js frontend (port 3000) + NestJS backend (loopback 3001) in a single merged image |
+| `cyberbee-services` | Container App | `ingestion-worker` + `export-worker` (two containers, one revision) |
+| `dev-butterfly` | ACI | Mosquitto MQTT broker, public TCP 1883 |
+| `cyberbee` | Azure Cache for Redis | BullMQ job queue and Entra login-code store (TLS port 6380) |
+| `cyberbeestorage` / `butterfly-exports` | Storage Account / File Share | Export files, mounted at `/app/exports` on Web App and Container App |
+| `butterfly-pg` | PostgreSQL Flexible Server | Application database |
+| `cyberbee.azurecr.cn` | Azure Container Registry | Container images, tagged by git SHA |
+
+### Quick Reference
+
+```bash
+# One-time setup
+cp .env.azure.example .env.azure  # fill in all values
+make azure-login
+make azure-db-init                # init PostgreSQL + TimescaleDB
+
+# Normal deployment (build → migrate → deploy all services)
+make azure-all
+
+# View status and endpoints
+make azure-status
+
+# Individual service deploys
+make azure-deploy-web
+make azure-deploy-services
+make azure-deploy-mqtt
+
+# Logs
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
+make azure-logs-mqtt
+```
+
+> **No local Docker needed.** `make azure-build` uses ACR Tasks to build `linux/amd64` images in the cloud. See `DEPLOYMENT.AZURE.md` for the full guide.
+
+---
+
+
 
 Swagger UI is available at http://localhost:3001/api/docs when running.
 

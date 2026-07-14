@@ -59,10 +59,11 @@ Minimum practical setup:
 Before deploying from your machine:
 
 - Azure CLI installed
-- Docker installed and running
 - `psql` installed
 - `make` available
 - Access to Azure China subscription
+
+> **No local Docker required.** `make azure-build` uses `az acr build` (ACR Tasks) to build images in the cloud on a managed Linux AMD64 host. You only need the Azure CLI and an internet connection.
 
 macOS example:
 
@@ -74,7 +75,6 @@ Check tools:
 
 ```bash
 az version
-docker --version
 psql --version
 make --version
 ```
@@ -303,20 +303,20 @@ before rerunning `make azure-db-init`.
 
 ## 9. Step 3: Build Images
 
-For normal deployments, prefer `make azure-all` so build, push, and deploy share one image tag. Use the split commands below only when you intentionally want to perform the steps manually.
+For normal deployments, prefer `make azure-all` so build and deploy share one image tag. Use the split commands below only when you intentionally want to perform the steps manually.
 
 ```bash
 make azure-build
 ```
 
-This builds 4 images for **linux/amd64**:
+This uploads the repository context to ACR and uses **ACR Tasks** (cloud build) to build 4 images for **linux/amd64** — no local Docker daemon required:
 
 - `butterfly/web` — merged Next.js + NestJS image
 - `butterfly/ingestion-worker`
 - `butterfly/export-worker`
 - `butterfly/mosquitto`
 
-This is required even on Apple Silicon because App Service / Container Apps / ACI all run Linux AMD64 images.
+Images are built and pushed directly to ACR in one step. ACR Tasks run on a managed AMD64 host, so this works identically from Apple Silicon, Intel Mac, Linux, or CI.
 
 ---
 
@@ -326,7 +326,9 @@ This is required even on Apple Silicon because App Service / Container Apps / AC
 make azure-push
 ```
 
-This pushes all built images to:
+> **This is a no-op.** Images are already pushed to ACR during `make azure-build` (ACR Tasks builds and pushes atomically). The `azure-push` target exists for pipeline compatibility but takes no action.
+
+Images are available at:
 
 ```text
 cyberbee.azurecr.cn/butterfly/<image>:<IMAGE_TAG>
@@ -364,8 +366,8 @@ make azure-all
 
 This runs in sequence:
 
-1. `azure-build`
-2. `azure-push`
+1. `azure-build` — cloud build via ACR Tasks, images pushed directly to ACR
+2. `azure-push` — no-op (images already in ACR after build)
 3. `azure-migrate`
 4. `azure-ensure-storage`
 5. `azure-deploy-mqtt`

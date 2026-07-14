@@ -20,7 +20,7 @@
 - 消息接入：Mosquitto + MQTT + MessagePack
 - 鉴权：Microsoft Entra ID SSO（可选）+ 本地用户名密码登录
 - 导出任务：Redis + BullMQ
-- 部署方式：Docker Compose（monorepo，pnpm workspaces）
+- 部署方式：Docker Compose（本地开发 / 自托管）；Azure China 生产环境：Web App + Container App + ACI（见第 12 节）
 - 国际化：简体中文 / English，运行时切换
 - 主题：Light / Dark / System，浏览器级持久化
 
@@ -1340,10 +1340,85 @@ make up
 - [x] `docker-compose.yml`
 - [x] `.env.example`
 - [x] SQL 初始化脚本（`infra/docker/postgres/init/`）
-- [x] `README.md`（含快速启动、MQTT 测试、常用命令）
+- [x] `README.md`（含快速启动、MQTT 测试、常用命令、Azure 快速参考）
 - [x] `DEPLOYMENT.md`（含生产加固清单）
-- [x] `architecture.md`（本文档）
+- [x] `DEPLOYMENT.AZURE.md`（Azure China 全栈部署指南）
+- [x] `architecture.md`（本文档，含 Azure 生产拓扑）
 - [x] 测试 MQTT 发布脚本（`scripts/test-mqtt.js`）
 - [x] 参考 Payload 文件（`scripts/mock-payload.json`）
 - [x] Swagger UI（`http://localhost:3001/api/docs`）
 - [x] Makefile（含所有运维快捷命令）
+
+---
+
+## 12. Azure 生产拓扑
+
+本节描述项目在 Azure China (21Vianet) 生产环境的部署形态，与第 10 节 Docker Compose 本地开发架构并列。
+
+### 12.1 服务映射
+
+| Azure 资源 | 类型 | 对应服务 |
+| --- | --- | --- |
+| `cyberbee` (Web App) | Azure App Service | Next.js 前端 + NestJS 后端（同一容器，同一 origin） |
+| `cyberbee-services` | Azure Container App | ingestion-worker + export-worker（同一 revision，两个容器） |
+| `dev-butterfly` | ACI | Mosquitto MQTT Broker，公网 TCP 1883 |
+| `cyberbee` (Redis) | Azure Cache for Redis | BullMQ 作业队列 + Entra 登录码存储（TLS 6380） |
+| `cyberbeestorage` / `butterfly-exports` | Storage Account / File Share | 导出文件，挂载至 `/app/exports` |
+| `butterfly-pg` | PostgreSQL Flexible Server | 应用数据库（保持原有资源组） |
+| `cyberbee.azurecr.cn` | Azure Container Registry | 容器镜像，按 git SHA 打标签 |
+
+### 12.2 合并镜像结构（`butterfly/web`）
+
+`apps/web/Dockerfile.azure` 使用三阶段构建，将 NestJS 和 Next.js 打包进同一镜像：
+
+```
+Stage 1: backend-builder   — pnpm install + nest build → /app/dist
+Stage 2: frontend-builder  — pnpm install + next build → standalone
+Stage 3: runner            — Node 20 Alpine
+    /app/           ← NestJS (port 3001, loopback only)
+    /frontend/      ← Next.js standalone (port 3000, 0.0.0.0)
+    /entrypoint.js  ← PID-1 supervisor
+```
+
+`apps/web/entrypoint.js` 作为 PID-1 启动并管理两个子进程，任一子进程退出则终止整个容器（fail-fast 语义）。浏览器通过同源 `/api` 路径访问后端，无需跨域配置。
+
+### 12.3 Redis TLS 兼容性
+
+Azure Cache for Redis 需要 TLS（端口 6380）和访问密钥。代码中通过以下环境变量启用：
+
+```env
+REDIS_HOST=<name>.redis.cache.chinacloudapi.cn
+REDIS_PORT=6380
+REDIS_PASSWORD=<access-key>
+REDIS_TLS=true
+```
+
+所有使用 Redis 的模块（BullMQ、IORedis、Entra Code Store）均已兼容这两种模式：
+- `REDIS_TLS=true` → TLS 连接（生产）
+- 未设置 → 普通连接（本地 Docker Compose）
+
+### 12.4 ACR Tasks（云端构建）
+
+镜像构建使用 `az acr build`（ACR Tasks），在 ACR 托管的 linux/amd64 环境中完成，构建完成后直接推送到 ACR。无需本地 Docker daemon，在 Apple Silicon、Intel Mac、Linux 及 CI 环境均能产出一致的 amd64 镜像。
+
+### 12.5 部署命令
+
+```bash
+# 一键全栈部署（构建 → 迁移 → 存储 → 三服务部署）
+make azure-all
+
+# 单独部署
+make azure-deploy-mqtt       # Mosquitto ACI
+make azure-deploy-services   # Container App（两个 worker）
+make azure-deploy-web        # Web App（合并镜像）
+
+# 查看状态和端点
+make azure-status
+
+# 查看日志
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
+make azure-logs-mqtt
+```
+
+详细操作见 `DEPLOYMENT.AZURE.md`。
