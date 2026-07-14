@@ -27,7 +27,7 @@ import { Request as ExpressRequest, Response } from 'express';
 import { EntraService } from './entra.service';
 import { EntraCodeStore } from './entra-code.store';
 
-const ENTRA_TX_COOKIE = 'butterfly_entra_tx';
+const ENTRA_TX_COOKIE = 'cyberbee_entra_tx';
 
 interface EntraTransaction {
   verifier: string;
@@ -165,7 +165,7 @@ export class AuthController {
 
   @Post('entra/exchange')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Exchange a one-time SSO code for a Butterfly session' })
+  @ApiOperation({ summary: 'Exchange a one-time SSO code for a CyberBee session' })
   async entraExchange(@Body() dto: EntraExchangeDto) {
     const session = await this.entraCodeStore.consume(dto.code);
     if (!session) throw new BadRequestException('Invalid or expired SSO exchange code');

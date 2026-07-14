@@ -1,4 +1,4 @@
-# Butterfly — 电流数据采集与可视化平台
+# CyberBee — 电流数据采集与可视化平台
 # Usage: make <target>  |  make help
 
 .DEFAULT_GOAL := help
@@ -11,7 +11,7 @@ CYAN   := \033[36m
 # ─── Help ─────────────────────────────────────────────────────────────────────
 .PHONY: help
 help: ## Show this help
-	@printf '$(BOLD)Butterfly — 电流数据采集与可视化平台$(RESET)\n\n'
+	@printf '$(BOLD)CyberBee — 电流数据采集与可视化平台$(RESET)\n\n'
 	@printf '$(BOLD)Usage:$(RESET)  make $(CYAN)<target>$(RESET)  [VAR=value]\n\n'
 	@awk 'BEGIN {FS = ":.*##"}; \
 	      /^## / { printf "\n$(BOLD)%s$(RESET)\n", substr($$0, 4) }; \

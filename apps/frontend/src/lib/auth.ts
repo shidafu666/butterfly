@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'butterfly_token';
+const TOKEN_KEY = 'cyberbee_token';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;

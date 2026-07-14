@@ -1,4 +1,4 @@
-# Butterfly — 电流数据采集与可视化平台
+# CyberBee — 电流数据采集与可视化平台
 
 A current (electrical) data collection and visualization platform built with NestJS, Next.js, TimescaleDB, MQTT, and Redis.
 

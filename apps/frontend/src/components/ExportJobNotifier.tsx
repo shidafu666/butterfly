@@ -9,7 +9,7 @@ import { useLocale } from '@/contexts/LocaleContext';
 import type { ExportJobDto, SensorDto } from '@butterfly/shared-types';
 
 const NOTIFY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-const SESSION_KEY = 'butterfly_notified_exports';
+const SESSION_KEY = 'cyberbee_notified_exports';
 
 function readNotifiedIds(): Set<string> {
   try {

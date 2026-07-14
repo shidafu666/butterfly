@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Butterfly — SQL migration runner
+# CyberBee — SQL migration runner
 #
 # Applies every infra/docker/postgres/migrations/*.sql file (in filename
 # order) that has not yet been recorded in the schema_migrations table.

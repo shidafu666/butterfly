@@ -6,7 +6,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$ROOT_DIR"
 
-echo "🛑 Stopping Butterfly services..."
+echo "🛑 Stopping CyberBee services..."
 docker compose down
 
 echo "✅ All services stopped."

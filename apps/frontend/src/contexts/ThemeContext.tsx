@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ThemeMode = 'light' | 'dark';
 
-const STORAGE_KEY = 'butterfly_theme';
+const STORAGE_KEY = 'cyberbee_theme';
 
 interface ThemeContextValue {
   themePreference: ThemePreference;

@@ -7,7 +7,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$ROOT_DIR"
 
 echo "╔══════════════════════════════════════════╗"
-echo "║   Butterfly - 电流数据采集与可视化平台     ║"
+echo "║   CyberBee - 电流数据采集与可视化平台     ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
@@ -49,7 +49,7 @@ docker compose ps
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo "  ✅ Butterfly is starting up!"
+echo "  ✅ CyberBee is starting up!"
 echo ""
 echo "  Frontend:      http://localhost:3000"
 echo "  Backend API:   http://localhost:3001"

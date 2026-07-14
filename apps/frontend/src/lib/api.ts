@@ -9,7 +9,7 @@ export const ssoLoginPath = `${API_V1_BASE}/auth/entra/login?returnTo=%2Fdashboa
 // Add auth header
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('butterfly_token');
+    const token = localStorage.getItem('cyberbee_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -20,7 +20,7 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('butterfly_token');
+      localStorage.removeItem('cyberbee_token');
       window.location.href = '/login';
     }
     return Promise.reject(error);

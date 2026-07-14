@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Butterfly — Azure 全栈部署脚本（Azure China 21Vianet）
+# CyberBee — Azure 全栈部署脚本（Azure China 21Vianet）
 # 目标拓扑:
 #   cyberbee (Web App)            — butterfly/web 合并镜像
 #   cyberbee-services (Container App) — ingestion-worker + export-worker
@@ -544,7 +544,7 @@ db-init)
 
 # ── Help ───────────────────────────────────────────────────────
 help|*)
-  echo "Butterfly — Azure 全栈部署脚本 (Azure China 21Vianet)"
+  echo "CyberBee — Azure 全栈部署脚本 (Azure China 21Vianet)"
   echo ""
   echo "Usage: $0 <action>"
   echo ""

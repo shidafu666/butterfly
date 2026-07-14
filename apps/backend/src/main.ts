@@ -42,7 +42,7 @@ async function bootstrap() {
 
   // Swagger documentation
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Butterfly API')
+    .setTitle('CyberBee API')
     .setDescription('Current data collection and visualization platform API')
     .setVersion('1.0')
     .addBearerAuth(

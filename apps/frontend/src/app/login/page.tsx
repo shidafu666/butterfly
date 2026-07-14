@@ -99,7 +99,7 @@ export default function LoginPage() {
             <ThunderboltOutlined style={{ fontSize: 28, color: '#fff' }} />
           </div>
           <Title level={3} style={{ color: 'var(--brand-text)', margin: 0 }}>
-            Butterfly
+            CyberBee
           </Title>
           <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 13 }}>
             {t('login.subtitle')}

@@ -261,7 +261,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           {!collapsed && (
             <Text strong style={{ color: 'var(--brand-text)', fontSize: 16, letterSpacing: 1 }}>
-              Butterfly
+              CyberBee
             </Text>
           )}
         </div>

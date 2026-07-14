@@ -3,7 +3,7 @@ import { Providers } from '@/components/Providers';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Butterfly - 电流数据采集与可视化',
+  title: 'CyberBee - 电流数据采集与可视化',
   description: '工业电流数据采集与实时可视化平台',
 };
 

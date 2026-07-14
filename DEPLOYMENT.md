@@ -1,6 +1,6 @@
-# Butterfly — Deployment Guide
+# CyberBee — Deployment Guide
 
-This guide covers deploying Butterfly via Docker Compose, from first-time setup to production hardening and ongoing operations.
+This guide covers deploying CyberBee via Docker Compose, from first-time setup to production hardening and ongoing operations.
 
 ---
 

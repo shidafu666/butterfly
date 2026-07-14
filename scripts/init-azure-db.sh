@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Butterfly — Azure PostgreSQL 初始化脚本
+# CyberBee — Azure PostgreSQL 初始化脚本
 # 在 Azure PostgreSQL Flexible Server 上启用 TimescaleDB 并初始化 Schema
 #
 # 前置条件:
@@ -28,7 +28,7 @@ source "$ENV_FILE"
 set +a
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Butterfly — Azure PostgreSQL 初始化             ║"
+echo "║  CyberBee — Azure PostgreSQL 初始化             ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 

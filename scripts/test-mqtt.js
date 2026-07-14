@@ -110,7 +110,7 @@ const batches = Array.from({ length: BATCH_COUNT }, (_, i) => {
 });
 
 console.log('╔═══════════════════════════════════════════╗');
-console.log('║      Butterfly - MQTT Test Publisher      ║');
+console.log('║      CyberBee - MQTT Test Publisher      ║');
 console.log('╚═══════════════════════════════════════════╝');
 console.log('');
 console.log(`Broker:    ${BROKER_URL}`);

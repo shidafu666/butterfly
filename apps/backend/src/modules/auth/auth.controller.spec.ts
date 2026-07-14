@@ -38,7 +38,7 @@ describe('AuthController Entra endpoints', () => {
     await controller.entraLogin('//evil.example', response as never);
 
     expect(response.cookie).toHaveBeenCalledWith(
-      'butterfly_entra_tx',
+      'cyberbee_entra_tx',
       JSON.stringify({ verifier: 'verifier', state: 'state', nonce: 'nonce' }),
       expect.objectContaining({
         httpOnly: true,
@@ -57,7 +57,7 @@ describe('AuthController Entra endpoints', () => {
     const { controller, entraService } = setup();
     const request = {
       signedCookies: {
-        butterfly_entra_tx: JSON.stringify({
+        cyberbee_entra_tx: JSON.stringify({
           verifier: 'verifier',
           state: 'expected',
           nonce: 'nonce',
@@ -74,7 +74,7 @@ describe('AuthController Entra endpoints', () => {
       response as never,
     );
 
-    expect(response.clearCookie).toHaveBeenCalledWith('butterfly_entra_tx', { path: '/' });
+    expect(response.clearCookie).toHaveBeenCalledWith('cyberbee_entra_tx', { path: '/' });
     expect(response.redirect).toHaveBeenCalledWith('https://app.example/login?sso_error=state');
     expect(entraService.handleCallback).not.toHaveBeenCalled();
   });

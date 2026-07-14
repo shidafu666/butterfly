@@ -2,7 +2,7 @@
   "name": "butterfly-scripts",
   "version": "1.0.0",
   "private": true,
-  "description": "Utility scripts for Butterfly platform",
+  "description": "Utility scripts for CyberBee platform",
   "dependencies": {
     "mqtt": "^5.3.4",
     "msgpackr": "^1.10.1"

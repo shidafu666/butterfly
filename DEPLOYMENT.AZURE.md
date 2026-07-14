@@ -1,6 +1,6 @@
-# Butterfly Azure China Deployment Guide
+# CyberBee Azure China Deployment Guide
 
-This document covers deploying Butterfly to **Azure China (21Vianet)** using the production topology described below. For local Docker Compose deployment, see `DEPLOYMENT.md`.
+This document covers deploying CyberBee to **Azure China (21Vianet)** using the production topology described below. For local Docker Compose deployment, see `DEPLOYMENT.md`.
 
 ---
 

@@ -9,7 +9,7 @@ export type Locale = 'zh' | 'en';
 
 const translations: Record<Locale, Translations> = { zh, en };
 
-const STORAGE_KEY = 'butterfly_locale';
+const STORAGE_KEY = 'cyberbee_locale';
 
 type NestedRecord = { [key: string]: string | NestedRecord };
 
