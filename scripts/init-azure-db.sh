@@ -4,9 +4,9 @@
 # 在 Azure PostgreSQL Flexible Server 上启用 TimescaleDB 并初始化 Schema
 #
 # 前置条件:
-#   - 已登录 Azure (make aci-login)
+#   - 已登录 Azure (az login)
 #   - 已安装 psql (brew install postgresql)
-#   - .env.aci 已正确填写
+#   - .env.azure 已正确填写
 #
 # Usage: bash scripts/init-azure-db.sh
 # ============================================================
