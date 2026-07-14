@@ -1,4 +1,5 @@
-FROM node:20-alpine AS base
+ARG NODE_IMAGE=node:20-alpine
+FROM ${NODE_IMAGE} AS base
 RUN npm install -g pnpm@9
 RUN apk add --no-cache openssl
 
@@ -20,7 +21,7 @@ WORKDIR /app/apps/backend
 RUN pnpm prisma:generate
 RUN pnpm build
 
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 RUN apk add --no-cache openssl
 WORKDIR /app
 # With node-linker=hoisted, all packages are in root node_modules (no symlinks)

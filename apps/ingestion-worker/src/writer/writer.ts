@@ -54,7 +54,9 @@ export async function upsertSensor(pool: Pool, sensorSn: string): Promise<void> 
   await pool.query(
     `INSERT INTO sensors (sensor_sn, status, created_at, updated_at)
      VALUES ($1, 'active', NOW(), NOW())
-     ON CONFLICT (sensor_sn) DO NOTHING`,
+     ON CONFLICT (sensor_sn) DO UPDATE
+     SET status = 'active',
+         updated_at = NOW()`,
     [sensorSn],
   );
 }

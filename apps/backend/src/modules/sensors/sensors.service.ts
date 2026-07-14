@@ -9,6 +9,7 @@ interface SensorRow {
   status: string;
   createdAt: Date;
   lastReportTime: Date | null;
+  deviceCount?: number | bigint;
 }
 
 @Injectable()
@@ -31,10 +32,14 @@ export class SensorsService {
           s.display_name  AS "displayName",
           s.status,
           s.created_at    AS "createdAt",
-          MAX(r.ts)       AS "lastReportTime"
+          s.updated_at    AS "lastReportTime",
+          dc.count        AS "deviceCount"
         FROM sensors s
-        LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
-        GROUP BY s.id
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) AS count
+          FROM devices d
+          WHERE d.sensor_id = s.id
+        ) dc ON true
         ORDER BY s.created_at ASC
       `;
     } else {
@@ -45,12 +50,16 @@ export class SensorsService {
           s.display_name  AS "displayName",
           s.status,
           s.created_at    AS "createdAt",
-          MAX(r.ts)       AS "lastReportTime"
+          s.updated_at    AS "lastReportTime",
+          dc.count        AS "deviceCount"
         FROM sensors s
         INNER JOIN user_sensor_permissions p ON p.sensor_id = s.id
-        LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) AS count
+          FROM devices d
+          WHERE d.sensor_id = s.id
+        ) dc ON true
         WHERE p.user_id = ${userId}::uuid AND p.can_view = true
-        GROUP BY s.id
         ORDER BY s.created_at ASC
       `;
     }
@@ -105,6 +114,7 @@ export class SensorsService {
       createdAt: new Date(sensor.createdAt).toISOString(),
       lastReportTime: lastReportTime ? lastReportTime.toISOString() : null,
       isActive: lastReportTime ? now - lastReportTime.getTime() < this.thresholdMs : false,
+      deviceCount: sensor.deviceCount != null ? Number(sensor.deviceCount) : 0,
     };
   }
 }

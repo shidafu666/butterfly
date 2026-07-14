@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Form, Input, Button, Alert, Typography, Divider, Space, Card } from 'antd';
 import { MailOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { api } from '@/lib/api';
+import { api, ssoLoginPath } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -58,7 +58,7 @@ export default function LoginPage() {
   const handleSsoLogin = async () => {
     setSsoLoading(true);
     setError(null);
-    window.location.assign('/api/v1/auth/entra/login?returnTo=%2Fdashboard');
+    window.location.assign(ssoLoginPath);
   };
 
   return (
