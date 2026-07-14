@@ -30,6 +30,7 @@ set +a
 
 # Derived variables
 export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
+export BACKEND_ORIGIN="${BACKEND_ORIGIN:-http://${ACI_DNS_LABEL}.${AZURE_LOCATION}.azurecontainer.console.azure.cn:3001}"
 
 # Image tag defaults to the current git commit so each deploy produces a
 # *different* deploy.yaml — this is what makes ACI actually roll the
@@ -191,10 +192,8 @@ case "$ACTION" in
     echo "── [2/6] frontend ──"
     docker build --platform linux/amd64 \
       -f apps/frontend/Dockerfile \
-      --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
-      --build-arg "NEXT_PUBLIC_ENTRA_CLIENT_ID=${NEXT_PUBLIC_ENTRA_CLIENT_ID:-}" \
-      --build-arg "NEXT_PUBLIC_ENTRA_TENANT_ID=${NEXT_PUBLIC_ENTRA_TENANT_ID:-}" \
-      --build-arg "NEXT_PUBLIC_ENTRA_REDIRECT_URI=${NEXT_PUBLIC_ENTRA_REDIRECT_URI:-}" \
+      --build-arg "NEXT_PUBLIC_API_BASE_URL=" \
+      --build-arg "BACKEND_ORIGIN=${BACKEND_ORIGIN}" \
       -t "${ACR_LOGIN_SERVER}/butterfly/frontend:${IMAGE_TAG}" .
 
     echo "── [3/6] ingestion-worker ──"
@@ -269,7 +268,6 @@ case "$ACTION" in
     echo "   Resolving image digests from ACR (tag: ${IMAGE_TAG})..."
     for spec in \
       "backend:${IMAGE_TAG}" \
-      "frontend:${IMAGE_TAG}" \
       "ingestion-worker:${IMAGE_TAG}" \
       "export-worker:${IMAGE_TAG}" \
       "mosquitto:${IMAGE_TAG}" \
@@ -308,13 +306,42 @@ case "$ACTION" in
     "$0" status
     ;;
 
+  # ── Deploy frontend to Azure Web App ─────────────────────────
+  webapp-deploy)
+    : "${AZURE_WEBAPP_NAME:?AZURE_WEBAPP_NAME must be set in .env.aci}"
+    echo "🌐 Deploying frontend to Azure Web App '${AZURE_WEBAPP_NAME}'..."
+    FRONTEND_DIGEST=$(az acr repository show -n "$ACR_NAME" \
+      --image "butterfly/frontend:latest" --query digest -o tsv)
+    FRONTEND_REF="${ACR_LOGIN_SERVER}/butterfly/frontend@${FRONTEND_DIGEST}"
+    ACR_USERNAME=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+    ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
+
+    az webapp config container set \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --name "$AZURE_WEBAPP_NAME" \
+      --docker-custom-image-name "$FRONTEND_REF" \
+      --docker-registry-server-url "https://${ACR_LOGIN_SERVER}" \
+      --docker-registry-server-user "$ACR_USERNAME" \
+      --docker-registry-server-password "$ACR_PASSWORD"
+    az webapp config appsettings set \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --name "$AZURE_WEBAPP_NAME" \
+      --settings WEBSITES_PORT=3000
+    az webapp update \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --name "$AZURE_WEBAPP_NAME" \
+      --https-only true >/dev/null
+    echo "✅ Frontend: https://${AZURE_WEBAPP_NAME}.chinacloudsites.cn"
+    ;;
+
   # ── Full deploy flow with one stable IMAGE_TAG ───────────────
   all)
-    echo "🚚 Running full ACI deployment with one image tag: ${IMAGE_TAG}"
+    echo "🚚 Running full deployment with one image tag: ${IMAGE_TAG}"
     "$0" build
     "$0" push
     "$0" migrate
     "$0" deploy
+    "$0" webapp-deploy
     ;;
 
   # ── Status ───────────────────────────────────────────────────
@@ -341,7 +368,9 @@ case "$ACTION" in
       --resource-group "$AZURE_RESOURCE_GROUP" \
       --name "$ACI_CONTAINER_GROUP_NAME" \
       --query "ipAddress.ip" -o tsv 2>/dev/null || echo "<pending>")
-    echo "   Frontend:  http://${FQDN}:3000  (or http://${IP}:3000)"
+    if [ -n "${AZURE_WEBAPP_NAME:-}" ]; then
+      echo "   Frontend:  https://${AZURE_WEBAPP_NAME}.chinacloudsites.cn"
+    fi
     echo "   Backend:   http://${FQDN}:3001  (or http://${IP}:3001)"
     echo "   MQTT:      mqtt://${FQDN}:1883  (or mqtt://${IP}:1883)"
     ;;
@@ -379,11 +408,11 @@ case "$ACTION" in
     echo "  migrate        应用待执行的 SQL 迁移到 Azure 数据库"
     echo "  generate-yaml  从模板生成 deploy.yaml"
     echo "  deploy         生成 YAML 并部署到 ACI"
-    echo "  all            构建 + 推送 + 迁移 + 部署（单次 IMAGE_TAG）"
+    echo "  all            构建 + 推送 + 迁移 + 部署 ACI 和 Web App"
+    echo "  webapp-deploy  将 frontend 镜像部署到 Azure Web App"
     echo "  status         查看容器组状态和访问地址"
     echo "  logs [name]    查看容器日志 (默认: backend)"
-    echo "                 容器名: redis | mosquitto | backend | frontend"
-    echo "                         ingestion-worker | export-worker"
+    echo "                 容器名: redis | mosquitto | backend | ingestion-worker | export-worker"
     echo "  delete         删除容器组"
     echo ""
     echo "Redis 行为为脚本内自动策略，无需 .env.aci 配置 REDIS_* 变量"

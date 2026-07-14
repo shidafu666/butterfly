@@ -8,11 +8,10 @@ import { api } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/contexts/LocaleContext';
-import type { LoginResponse } from '@butterfly/shared-types';
+import { ssoErrorMessage } from '@/lib/ssoErrors';
+import type { EntraEnabledResponse, LoginResponse } from '@butterfly/shared-types';
 
 const { Title, Text } = Typography;
-
-const SSO_ENABLED = !!process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,13 +20,24 @@ export default function LoginPage() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated()) {
       router.replace('/dashboard');
+      return;
     }
-  }, [router]);
+
+    const params = new URLSearchParams(window.location.search);
+    const ssoError = params.get('sso_error');
+    if (ssoError) setError(ssoErrorMessage(t, ssoError));
+
+    api
+      .get<EntraEnabledResponse>('/auth/entra/enabled')
+      .then(({ data }) => setSsoEnabled(data.enabled))
+      .catch(() => setSsoEnabled(false));
+  }, [router, t]);
 
   const handleLogin = async (values: { email: string; password: string }) => {
     setLoading(true);
@@ -48,23 +58,7 @@ export default function LoginPage() {
   const handleSsoLogin = async () => {
     setSsoLoading(true);
     setError(null);
-    try {
-      const { PublicClientApplication } = await import('@azure/msal-browser');
-      const { msalConfig, loginRequest } = await import('@/lib/msalConfig');
-      const msalInstance = new PublicClientApplication(msalConfig);
-      await msalInstance.initialize();
-      const result = await msalInstance.loginPopup(loginRequest);
-      const entraToken = result.idToken;
-      const res = await api.post<LoginResponse>('/auth/entra-login', { entraToken });
-      const { accessToken, user } = res.data;
-      login(accessToken, user);
-      router.replace('/dashboard');
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(axiosErr.response?.data?.message || axiosErr.message || t('login.ssoFailed'));
-    } finally {
-      setSsoLoading(false);
-    }
+    window.location.assign('/api/v1/auth/entra/login?returnTo=%2Fdashboard');
   };
 
   return (
@@ -165,7 +159,7 @@ export default function LoginPage() {
           </Form.Item>
         </Form>
 
-        {SSO_ENABLED && (
+        {ssoEnabled && (
           <>
             <Divider
               style={{

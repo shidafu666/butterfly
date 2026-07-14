@@ -534,20 +534,18 @@ If you change values in `.env.aci` that are passed to containers at runtime, red
 make aci-deploy
 ```
 
-### 15.2 Frontend `NEXT_PUBLIC_*` variables
+### 15.2 Frontend proxy configuration
 
-If you change any frontend build-time variables, especially:
-
-- `NEXT_PUBLIC_API_BASE_URL`
-- `NEXT_PUBLIC_ENTRA_CLIENT_ID`
-- `NEXT_PUBLIC_ENTRA_TENANT_ID`
-- `NEXT_PUBLIC_ENTRA_REDIRECT_URI`
-
-you must rebuild and repush:
+If `BACKEND_ORIGIN` changes, rebuild and push the frontend image, then deploy it to Web App:
 
 ```bash
 make aci-all
+make webapp-deploy
 ```
+
+The Web App provides the public HTTPS endpoint and proxies `/api/*` to ACI. The current public HTTP Web App-to-ACI hop is suitable for development only; production should use VNet/private connectivity or an HTTPS gateway.
+
+Create a Linux Azure Web App once (Azure China portal or CLI), set its name as `AZURE_WEBAPP_NAME`, and configure the Entra Web redirect URI to exactly match `https://<app>.chinacloudsites.cn/api/v1/auth/entra/callback`. `make aci-all` subsequently deploys both the ACI group and the frontend image, enables HTTPS-only, and sets `WEBSITES_PORT=3000`.
 
 ---
 

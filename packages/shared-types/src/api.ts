@@ -18,6 +18,14 @@ export interface LoginResponse {
   user: UserProfile;
 }
 
+export interface EntraEnabledResponse {
+  enabled: boolean;
+}
+
+export interface EntraExchangeRequest {
+  code: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;

@@ -1184,15 +1184,17 @@ INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=Admin@123456   # 生产环境必须修改
 INITIAL_ADMIN_NAME=Administrator
 
-# Entra ID（可选，留空则禁用 SSO 登录，仅保留本地登录）
-JWT_AUDIENCE=api://your-app-id
-JWT_ISSUER=https://login.microsoftonline.com/your-tenant-id/v2.0
+# Entra ID（可选，后端 Authorization Code + PKCE）
+COOKIE_SECRET=your-independent-cookie-secret
+ENTRA_CLIENT_ID=your-client-id
+ENTRA_CLIENT_SECRET=your-client-secret
+ENTRA_TENANT_ID=your-tenant-id
+ENTRA_REDIRECT_URI=http://localhost:3000/api/v1/auth/entra/callback
+ENTRA_POST_LOGIN_REDIRECT=http://localhost:3000/auth/callback
 
 # frontend
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001   # 生产环境改为公网后端地址
-NEXT_PUBLIC_ENTRA_CLIENT_ID=your-client-id
-NEXT_PUBLIC_ENTRA_TENANT_ID=your-tenant-id
-NEXT_PUBLIC_ENTRA_REDIRECT_URI=http://localhost:3000
+NEXT_PUBLIC_API_BASE_URL=                        # 留空，浏览器使用同源 /api
+BACKEND_ORIGIN=http://localhost:3001             # Next.js 服务端代理目标
 
 # app
 NODE_ENV=development

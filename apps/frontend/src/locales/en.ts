@@ -76,6 +76,16 @@ export const en: Translations = {
     passwordRequired: 'Please enter your password',
     loginFailed: 'Login failed. Please check your email and password.',
     ssoFailed: 'SSO login failed. Please try again later.',
+    ssoCompleting: 'Completing single sign-on…',
+    ssoErrors: {
+      provider: 'Microsoft sign-in was cancelled or denied.',
+      state: 'The sign-in request has expired. Please start again.',
+      exchange: 'Unable to complete SSO. Please try again.',
+      tenant: 'This Microsoft account does not belong to an allowed organization.',
+      disabled: 'This account is disabled. Contact an administrator.',
+      config: 'SSO is not configured correctly. Contact an administrator.',
+      generic: 'SSO failed. Please try again.',
+    },
   },
   changePassword: {
     title: 'Change Password',
