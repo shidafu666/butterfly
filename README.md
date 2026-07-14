@@ -136,6 +136,8 @@ butterfly/
 │   ├── shared-types/     # Shared TypeScript interfaces
 │   └── tsconfig/         # Shared TS compiler configs
 ├── infra/
+│   ├── aci/              # Legacy ACI deploy template (single container group)
+│   ├── azure/            # Azure full-stack deploy templates (Web App + Container App + ACI)
 │   └── docker/
 │       ├── mosquitto/    # Mosquitto MQTT broker config
 │       └── postgres/init/ # SQL initialization scripts
@@ -202,7 +204,8 @@ See `.env.example` for all available variables.
 Key variables:
 
 - `POSTGRES_*` — database credentials
-- `REDIS_*` — Redis connection
+- `REDIS_HOST` / `REDIS_PORT` — Redis connection
+- `REDIS_PASSWORD` / `REDIS_TLS=true` — required for Azure Cache for Redis (TLS port 6380); leave unset for local Docker Compose Redis
 - `MQTT_URL` — broker connection URL (internal: `mqtt://mosquitto:1883`)
 - `MQTT_USERNAME` / `MQTT_PASSWORD` — broker auth credentials; sensors must use these same credentials
 - `JWT_SECRET` — secret for signing local JWTs (change in production!)
@@ -255,9 +258,13 @@ make db-generate              # regenerate Prisma client after schema changes
 make set-retention DAYS=30    # set raw data retention to N days
 make scale-ingestion N=3      # run N ingestion-worker replicas
 make test-mqtt                # send a test MQTT message
+
+# Azure full-stack deployment (Web App + Container App + ACI):
+make azure-all                # build → push → migrate → deploy all services
+make azure-status             # view status and endpoints
 ```
 
-Run `make help` to see all available targets.
+Run `make help` to see all available targets. See `DEPLOYMENT.AZURE.md` for the full Azure deployment guide.
 
 ## API Documentation
 

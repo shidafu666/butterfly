@@ -1,49 +1,31 @@
 # Butterfly Azure China Deployment Guide
 
-This document covers deploying Butterfly to **Azure China (21Vianet)** using:
-
-- **Azure Container Registry (ACR)** for images
-- **Azure Container Instances (ACI)** for runtime
-- **Azure Database for PostgreSQL Flexible Server** for the database
-- **Azure Storage File Share** for exported files
-
-This guide is for the repository's existing Azure deployment flow based on:
-
-- `.env.aci`
-- `scripts/deploy-aci.sh`
-- `scripts/init-azure-db.sh`
-- `infra/aci/deploy.yaml.tpl`
-
-For local Docker Compose deployment, see `DEPLOYMENT.md`.
+This document covers deploying Butterfly to **Azure China (21Vianet)** using the production topology described below. For local Docker Compose deployment, see `DEPLOYMENT.md`.
 
 ---
 
 ## 1. Deployment Architecture
 
-The Azure China deployment runs all app containers inside a single ACI container group:
+| Component | Resource | Purpose |
+| --------- | -------- | ------- |
+| **Web App** | `cyberbee` (Azure App Service) | Runs the merged `butterfly/web` image: Next.js frontend (port 3000) + NestJS backend (loopback 3001). Browser accesses everything via the same origin. |
+| **Container App** | `cyberbee-services` | Runs `ingestion-worker` and `export-worker` in a single revision, no external ingress, fixed 1 replica. |
+| **ACI** | `dev-butterfly` | Runs Mosquitto only, public TCP `1883`. |
+| **Azure Cache for Redis** | `cyberbee` | BullMQ queue and Entra login-code store. Connected via TLS `6380` with access key. |
+| **Storage** | `cyberbeestorage` / `butterfly-exports` share | Export files mounted at `/app/exports` on both Web App and Container App. |
+| **PostgreSQL** | `butterfly-pg` (existing) | Application database. Not migrated — reused from its current resource group. |
+| **ACR** | `cyberbee.azurecr.cn` | Container images. Tagged by git SHA, deployed by digest. |
 
-| Container          | Purpose                      | Publicly exposed |
-| ------------------ | ---------------------------- | ---------------- |
-| `frontend`         | Next.js UI                   | Yes, port `3000` |
-| `backend`          | NestJS API                   | Yes, port `3001` |
-| `mosquitto`        | MQTT broker                  | Yes, port `1883` |
-| `ingestion-worker` | MQTT -> PostgreSQL ingestion | No               |
-| `export-worker`    | Async export jobs            | No               |
-| `redis`            | BullMQ backing store         | No               |
+### Image layout
 
-Other Azure resources:
+| Image | Built from | Deployed to |
+| ----- | ---------- | ----------- |
+| `butterfly/web` | `apps/web/Dockerfile.azure` | Web App `cyberbee` |
+| `butterfly/ingestion-worker` | `apps/ingestion-worker/Dockerfile` | Container App `cyberbee-services` |
+| `butterfly/export-worker` | `apps/export-worker/Dockerfile` | Container App `cyberbee-services` |
+| `butterfly/mosquitto` | `infra/aci/Dockerfile.mosquitto` | ACI `dev-butterfly` |
 
-| Resource                         | Purpose                                           |
-| -------------------------------- | ------------------------------------------------- |
-| Azure PostgreSQL Flexible Server | Application database                              |
-| Azure Storage File Share         | Shared export directory for backend/export-worker |
-| ACR                              | Stores container images                           |
-
-Notes:
-
-- PostgreSQL and Redis are **not** exposed from ACI.
-- Export files are shared through Azure File Share.
-- Frontend build-time variables are injected during image build, so changing `NEXT_PUBLIC_*` values requires a rebuild.
+The `butterfly/web` image runs a PID-1 supervisor (`apps/web/entrypoint.js`) that launches both Node processes and terminates the container if either one exits.
 
 ---
 
@@ -109,11 +91,11 @@ The deployment scripts expect Azure China:
 az cloud set --name AzureChinaCloud
 ```
 
-`make aci-login` already does this.
+`make azure-login` already does this.
 
 ### 4.2 PostgreSQL firewall must allow your current public IP
 
-`make aci-db-init` connects from **your machine** to Azure PostgreSQL. The PG firewall must allow your current public IP.
+`make azure-db-init` connects from **your machine** to Azure PostgreSQL. The PG firewall must allow your current public IP.
 
 If your network changes, you may need to update the PostgreSQL firewall rules again.
 
@@ -147,7 +129,7 @@ Recommended fixes:
    - or the PG server IP / hostname
 3. Ensure the PG firewall allows your current public IP
 
-Before running `make aci-db-init`, verify DNS and connectivity:
+Before running `make azure-db-init`, verify DNS and connectivity:
 
 ```bash
 nslookup <pg-server>.postgres.database.chinacloudapi.cn
@@ -163,33 +145,31 @@ If DNS resolves to `198.18.x.x`, your proxy bypass is not effective yet.
 Copy the template:
 
 ```bash
-cp .env.aci.example .env.aci
+cp .env.azure.example .env.azure
 ```
 
-Then fill in real values.
+Then fill in real values. The deployment script fetches ACR credentials, Redis keys and Storage keys at runtime from the Azure CLI — they do **not** need to be in `.env.azure`.
 
 Key variables:
 
-| Variable                          | Description                         |
-| --------------------------------- | ----------------------------------- |
-| `AZURE_SUBSCRIPTION_ID`           | Azure China subscription ID         |
-| `AZURE_RESOURCE_GROUP`            | Resource group name                 |
-| `AZURE_LOCATION`                  | Region, e.g. `chinaeast2`           |
-| `ACR_NAME`                        | ACR resource name                   |
-| `ACR_LOGIN_SERVER`                | Usually `<acr-name>.azurecr.cn`     |
-| `AZURE_STORAGE_ACCOUNT`           | Storage account used for file share |
-| `AZURE_STORAGE_KEY`               | Storage account key                 |
-| `AZURE_FILE_SHARE_NAME`           | File share name for exports         |
-| `PG_SERVER_NAME`                  | PostgreSQL Flexible Server name     |
-| `DATABASE_URL`                    | Full PostgreSQL connection string   |
-| `ACI_CONTAINER_GROUP_NAME`        | ACI container group name            |
-| `ACI_DNS_LABEL`                   | Public DNS label used by ACI        |
-| `NEXT_PUBLIC_API_BASE_URL`        | Browser-facing backend URL          |
-| `MQTT_USERNAME` / `MQTT_PASSWORD` | MQTT credentials                    |
-| `JWT_SECRET`                      | Backend JWT signing secret          |
-| `INITIAL_ADMIN_*`                 | Initial admin bootstrap account     |
-
-Important details:
+| Variable                          | Description                                               |
+| --------------------------------- | --------------------------------------------------------- |
+| `AZURE_SUBSCRIPTION_ID`           | Azure China subscription ID (pre-filled)                  |
+| `AZURE_RESOURCE_GROUP`            | Application resource group (pre-filled)                   |
+| `AZURE_LOCATION`                  | Region, e.g. `chinaeast2`                                 |
+| `ACR_NAME`                        | ACR resource name (pre-filled: `cyberbee`)                |
+| `AZURE_WEBAPP_NAME`               | Web App name (pre-filled: `cyberbee`)                     |
+| `CONTAINER_APP_NAME`              | Container App name (pre-filled: `cyberbee-services`)      |
+| `REDIS_CACHE_NAME`                | Azure Cache for Redis name (pre-filled: `cyberbee`)       |
+| `AZURE_STORAGE_ACCOUNT`           | Storage account (pre-filled: `cyberbeestorage`)           |
+| `AZURE_FILE_SHARE_NAME`           | File share name (pre-filled: `butterfly-exports`)         |
+| `PG_RESOURCE_GROUP`               | Resource group of the PostgreSQL server (may differ from app RG) |
+| `PG_SERVER_NAME`                  | PostgreSQL Flexible Server name (pre-filled: `butterfly-pg`) |
+| `DATABASE_URL`                    | Full PostgreSQL connection string                         |
+| `MQTT_URL`                        | Mosquitto ACI URL for workers, e.g. `mqtt://<fqdn>:1883` |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | MQTT credentials                                          |
+| `JWT_SECRET`                      | Backend JWT signing secret                                |
+| `INITIAL_ADMIN_*`                 | Initial admin bootstrap account                           |
 
 ### 5.1 `DATABASE_URL`
 
@@ -201,23 +181,9 @@ DATABASE_URL="postgresql://<user>:<password>@<server>.postgres.database.chinaclo
 
 If the password contains special characters, keep the whole value quoted.
 
-### 5.2 `NEXT_PUBLIC_API_BASE_URL`
+### 5.2 Browser API URL
 
-The frontend needs the backend public URL at **build time**.
-
-Use:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://<aci-dns-label>.<location>.azurecontainer.console.azure.cn:3001
-```
-
-Example:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://butterfly.chinaeast2.azurecontainer.console.azure.cn:3001
-```
-
-If you change this later, rebuild and redeploy the frontend by rerunning `make aci-all`.
+The merged `butterfly/web` image runs both frontend and backend in the same container. The browser uses the same-origin `/api` path — **no `NEXT_PUBLIC_API_BASE_URL` is needed for the Web App deployment**. Leave it empty.
 
 ### 5.3 Secrets
 
@@ -225,11 +191,11 @@ At minimum, replace all placeholders for:
 
 - `MQTT_PASSWORD`
 - `JWT_SECRET`
+- `COOKIE_SECRET`
 - `INITIAL_ADMIN_PASSWORD`
-- `AZURE_STORAGE_KEY`
 - DB password inside `DATABASE_URL`
 
-Generate a strong JWT secret:
+Generate strong secrets:
 
 ```bash
 openssl rand -hex 64
@@ -242,20 +208,16 @@ openssl rand -hex 64
 The intended flow is:
 
 ```bash
-make aci-login
-make aci-db-init
-make aci-all
-make aci-status
+make azure-login
+make azure-db-init   # first time only
+make azure-all
+make azure-status
 ```
 
-`make aci-all` runs build, push, migration, and ACI deployment in one script
-process so every step uses the same immutable image tag. The tag defaults to
-the current git SHA; if the worktree is dirty, a timestamp suffix is added so
-ACI rolls to a new digest. To pin a release tag explicitly, pass it on the
-command line:
+`make azure-all` runs build, push, migration, storage setup, and all three service deployments in one script process so every step uses the same immutable image tag. The tag defaults to the current git SHA; if the worktree is dirty, a timestamp suffix is added. To pin a release tag explicitly:
 
 ```bash
-IMAGE_TAG=my-release make aci-all
+IMAGE_TAG=my-release make azure-all
 ```
 
 Detailed steps below.
@@ -265,7 +227,7 @@ Detailed steps below.
 ## 7. Step 1: Login to Azure China and ACR
 
 ```bash
-make aci-login
+make azure-login
 ```
 
 This runs:
@@ -335,82 +297,60 @@ If this fails from your machine, fix:
 - PG firewall
 - DNS resolution
 
-before rerunning `make aci-db-init`.
+before rerunning `make azure-db-init`.
 
 ---
 
 ## 9. Step 3: Build Images
 
-For normal deployments, prefer `make aci-all` so build, push, and deploy share
-one image tag. Use the split commands below only when you intentionally want to
-perform the steps manually.
+For normal deployments, prefer `make azure-all` so build, push, and deploy share one image tag. Use the split commands below only when you intentionally want to perform the steps manually.
 
 ```bash
-make aci-build
+make azure-build
 ```
 
-This builds all app images for **linux/amd64**:
+This builds 4 images for **linux/amd64**:
 
-- backend
-- frontend
-- ingestion-worker
-- export-worker
-- mosquitto
-- redis (pull + retag)
+- `butterfly/web` — merged Next.js + NestJS image
+- `butterfly/ingestion-worker`
+- `butterfly/export-worker`
+- `butterfly/mosquitto`
 
-This is required even on Apple Silicon because ACI runs Linux AMD64 images.
+This is required even on Apple Silicon because App Service / Container Apps / ACI all run Linux AMD64 images.
 
 ---
 
 ## 10. Step 4: Push Images to ACR
 
 ```bash
-make aci-push
+make azure-push
 ```
 
 This pushes all built images to:
 
 ```text
-${ACR_LOGIN_SERVER}/butterfly/<image>:${IMAGE_TAG}
+cyberbee.azurecr.cn/butterfly/<image>:<IMAGE_TAG>
 ```
 
-The deployment template resolves this tag to an immutable `@sha256:...` digest
-before submitting to ACI. Avoid `IMAGE_TAG=latest`; a mutable tag makes it
-harder to audit what code is running.
-
-Example login server:
-
-```text
-myregistry.azurecr.cn
-```
+The deploy steps resolve each tag to an immutable `@sha256:...` digest before updating the service, so a deploy always rolls to the exact image currently behind the tag in ACR.
 
 ---
 
-## 11. Step 5: Deploy to ACI
+## 11. Step 5: Deploy Services
 
 ```bash
-make aci-deploy
+make azure-deploy-mqtt       # Mosquitto ACI
+make azure-deploy-services   # Container App (two workers)
+make azure-deploy-web        # Web App (merged image)
 ```
 
-This does two things:
+Or all at once:
 
-1. Generates `infra/aci/deploy.yaml` from `infra/aci/deploy.yaml.tpl`
-2. Runs `az container create --file infra/aci/deploy.yaml`
+```bash
+make azure-all
+```
 
-The generated deployment includes:
-
-- public IP + DNS label
-- ACR image credentials
-- Azure File Share mount
-- all six containers
-- environment variables from `.env.aci`
-
-You usually do not edit `infra/aci/deploy.yaml` directly. Edit:
-
-- `.env.aci`
-- `infra/aci/deploy.yaml.tpl`
-
-then redeploy.
+`deploy-mqtt` notes: after first deploy, update `MQTT_URL` in `.env.azure` to the printed FQDN, then run `make azure-deploy-services` to give workers the correct broker address.
 
 ---
 
@@ -419,14 +359,18 @@ then redeploy.
 After database initialization is done, you can use:
 
 ```bash
-make aci-all
+make azure-all
 ```
 
-This runs:
+This runs in sequence:
 
-1. `make aci-build`
-2. `make aci-push`
-3. `make aci-deploy`
+1. `azure-build`
+2. `azure-push`
+3. `azure-migrate`
+4. `azure-ensure-storage`
+5. `azure-deploy-mqtt`
+6. `azure-deploy-services`
+7. `azure-deploy-web`
 
 Use this for normal application updates.
 
@@ -434,44 +378,38 @@ Use this for normal application updates.
 
 ## 13. Post-Deployment Verification
 
-### 13.1 Check ACI status
+### 13.1 Check status
 
 ```bash
-make aci-status
+make azure-status
 ```
 
-This prints:
-
-- container group status
-- each container state
-- public endpoints
+This prints Web App state, Container App latest revision, ACI container states, and public endpoints.
 
 Expected public endpoints:
 
-- Frontend: `http://<fqdn>:3000`
-- Backend: `http://<fqdn>:3001`
-- MQTT: `mqtt://<fqdn>:1883`
+- Web App (frontend + backend): `https://cyberbee.chinacloudsites.cn`
+- Health check: `https://cyberbee.chinacloudsites.cn/health`
+- MQTT: `mqtt://dev-butterfly.<region>.azurecontainer.console.azure.cn:1883`
 
 ### 13.2 Check backend health
 
 ```bash
-curl http://<fqdn>:3001/health
+curl https://cyberbee.chinacloudsites.cn/health
 ```
 
-### 13.3 Check container logs
+### 13.3 Check logs
 
 ```bash
-make aci-logs CONTAINER=backend
-make aci-logs CONTAINER=frontend
-make aci-logs CONTAINER=ingestion-worker
-make aci-logs CONTAINER=export-worker
-make aci-logs CONTAINER=mosquitto
-make aci-logs CONTAINER=redis
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
+make azure-logs-services CONTAINER=export-worker
+make azure-logs-mqtt
 ```
 
 ### 13.4 Verify first login
 
-Use the initial admin credentials from `.env.aci`:
+Use the initial admin credentials from `.env.azure`:
 
 - `INITIAL_ADMIN_EMAIL`
 - `INITIAL_ADMIN_PASSWORD`
@@ -483,41 +421,29 @@ Use the initial admin credentials from `.env.aci`:
 ### 14.1 View status
 
 ```bash
-make aci-status
+make azure-status
 ```
 
 ### 14.2 View logs
 
 ```bash
-make aci-logs CONTAINER=backend
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
 ```
 
 ### 14.3 Redeploy after code changes
 
 ```bash
-git checkout aci
 git pull
-make aci-all
+make azure-all
 ```
 
-### 14.4 Delete the container group
-
-```bash
-make aci-delete
-```
-
-This removes the ACI container group only. It does **not** delete:
-
-- ACR images
-- PostgreSQL data
-- Azure File Share data
-
-### 14.5 Reinitialize database policies / aggregates
+### 14.4 Reinitialize database policies / aggregates
 
 If you changed SQL init logic or need to repair aggregate views:
 
 ```bash
-make aci-db-init
+make azure-db-init
 ```
 
 This operation is intended to be idempotent.
@@ -528,30 +454,22 @@ This operation is intended to be idempotent.
 
 ### 15.1 Runtime variables
 
-If you change values in `.env.aci` that are passed to containers at runtime, redeploy:
+If you change values in `.env.azure` that are passed to containers at runtime, redeploy the affected service:
 
 ```bash
-make aci-deploy
+make azure-deploy-web        # Web App settings
+make azure-deploy-services   # Container App env vars
 ```
 
-### 15.2 Frontend proxy configuration
+### 15.2 BACKEND_ORIGIN
 
-If `BACKEND_ORIGIN` changes, rebuild and push the frontend image, then deploy it to Web App:
-
-```bash
-make aci-all
-make webapp-deploy
-```
-
-The Web App provides the public HTTPS endpoint and proxies `/api/*` to ACI. The current public HTTP Web App-to-ACI hop is suitable for development only; production should use VNet/private connectivity or an HTTPS gateway.
-
-Create a Linux Azure Web App once (Azure China portal or CLI), set its name as `AZURE_WEBAPP_NAME`, and configure the Entra Web redirect URI to exactly match `https://<app>.chinacloudsites.cn/api/v1/auth/entra/callback`. `make aci-all` subsequently deploys both the ACI group and the frontend image, enables HTTPS-only, and sets `WEBSITES_PORT=3000`.
+In the merged `butterfly/web` image, `BACKEND_ORIGIN` is always `http://127.0.0.1:3001` (set by the PID-1 entrypoint). Changing it requires rebuilding and redeploying the `web` image.
 
 ---
 
 ## 16. Troubleshooting
 
-### 16.1 `make aci-login` fails
+### 16.1 `make azure-login` fails
 
 Check:
 
@@ -571,7 +489,7 @@ If not:
 az cloud set --name AzureChinaCloud
 ```
 
-### 16.2 `make aci-db-init` cannot connect to PostgreSQL
+### 16.2 `make azure-db-init` cannot connect to PostgreSQL
 
 Check DNS:
 
@@ -593,7 +511,7 @@ Fixes:
 2. add direct rule for `chinacloudapi.cn`
 3. allow your current public IP in the PG firewall
 
-### 16.3 `make aci-db-init` pauses at PostgreSQL restart
+### 16.3 `make azure-db-init` pauses at PostgreSQL restart
 
 This can happen because Azure PG may:
 
@@ -612,7 +530,7 @@ psql "$DATABASE_URL" -c "SHOW shared_preload_libraries;"
 3. rerun:
 
 ```bash
-make aci-db-init
+make azure-db-init
 ```
 
 ### 16.4 Historical current-data queries fail for non-raw resolution
@@ -626,26 +544,12 @@ materialized view "current_1m" has not been populated
 rerun:
 
 ```bash
-make aci-db-init
+make azure-db-init
 ```
 
 The current version of the repo explicitly refreshes Azure materialized views during initialization.
 
-### 16.5 ACI deploy succeeds but frontend points to the wrong backend URL
-
-Check:
-
-```env
-NEXT_PUBLIC_API_BASE_URL
-```
-
-Then rebuild and redeploy:
-
-```bash
-make aci-all
-```
-
-### 16.6 Images fail to pull from ACR
+### 16.5 Images fail to pull from ACR
 
 Check:
 
@@ -660,38 +564,34 @@ For Azure China, login server should end with:
 .azurecr.cn
 ```
 
-### 16.7 Backend or workers fail after deploy
+### 16.6 Web App or workers fail after deploy
 
 Inspect logs:
 
 ```bash
-make aci-logs CONTAINER=backend
-make aci-logs CONTAINER=ingestion-worker
-make aci-logs CONTAINER=export-worker
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
+make azure-logs-services CONTAINER=export-worker
 ```
 
 Pay special attention to:
 
 - `DATABASE_URL`
 - `JWT_SECRET`
-- MQTT credentials
-- Redis connection
-- mounted Azure File Share
+- MQTT credentials and `MQTT_URL`
+- Redis connection (TLS port 6380, password)
+- mounted Azure File Share at `/app/exports`
 
-### 16.8 Export files are not downloadable
+### 16.7 Export files are not downloadable
 
-Both `backend` and `export-worker` must mount the same Azure File Share path:
+Both the Web App backend and `export-worker` must mount the same Azure File Share at `/app/exports`.
 
-```text
-/app/exports
-```
-
-If export jobs complete but downloads fail, verify:
+Run `make azure-ensure-storage` to (re-)create the binding and mounts idempotently, then verify:
 
 - `AZURE_STORAGE_ACCOUNT`
-- `AZURE_STORAGE_KEY`
 - `AZURE_FILE_SHARE_NAME`
-- ACI volume mount configuration
+- Web App storage account configuration in Azure Portal
+- Container Apps environment storage binding
 
 ---
 
@@ -703,8 +603,8 @@ Before using this deployment in production:
 - Restrict PostgreSQL firewall to the smallest possible IP range
 - Do not leave "allow all public IPs" enabled
 - Keep ACR private; do not enable anonymous pull
-- Keep Redis and PostgreSQL private
-- Review ACI public exposure; currently only `3000`, `3001`, and `1883` are public
+- Keep Redis and PostgreSQL private (no public endpoints)
+- Web App HTTPS-only is enforced by `deploy-web`; verify in Azure Portal
 - Rotate admin password after first login if needed
 - Rotate MQTT credentials before device rollout
 - Prefer storing long-lived secrets in a secure secret-management process outside plaintext files when possible
@@ -715,17 +615,17 @@ Before using this deployment in production:
 
 For a brand-new Azure China environment:
 
-1. Create required Azure resources
-2. Copy `.env.aci.example` to `.env.aci`
+1. Create required Azure resources (ACR, Web App, Container App, ACI, Redis, Storage, PostgreSQL)
+2. Copy `.env.azure.example` to `.env.azure`
 3. Fill all Azure names, connection strings, and secrets
 4. Verify PostgreSQL firewall allows your current public IP
 5. Disable proxy/TUN or configure direct routing for Azure PostgreSQL if necessary
-6. Run `make aci-login`
-7. Run `make aci-db-init`
-8. Run `make aci-all`
-9. Run `make aci-status`
-10. Open frontend and backend health endpoints
-11. Log in with initial admin account
+6. Run `make azure-login`
+7. Run `make azure-db-init`
+8. Run `make azure-all`
+9. After first `deploy-mqtt`, update `MQTT_URL` in `.env.azure` and run `make azure-deploy-services`
+10. Run `make azure-status`
+11. Open `https://cyberbee.chinacloudsites.cn` and log in with initial admin account
 12. Publish a test MQTT message and verify ingestion
 
 ---
@@ -734,29 +634,33 @@ For a brand-new Azure China environment:
 
 ```bash
 # Login
-make aci-login
+make azure-login
 
 # Init Azure PostgreSQL
-make aci-db-init
+make azure-db-init
 
 # Build images
-make aci-build
+make azure-build
 
 # Push images
-make aci-push
+make azure-push
 
-# Deploy ACI
-make aci-deploy
+# Full deployment
+make azure-all
 
-# Build + push + deploy
-make aci-all
+# Individual service deploys
+make azure-deploy-mqtt
+make azure-deploy-services
+make azure-deploy-web
 
 # View status and endpoints
-make aci-status
+make azure-status
 
 # View logs
-make aci-logs CONTAINER=backend
+make azure-logs-web
+make azure-logs-services CONTAINER=ingestion-worker
+make azure-logs-mqtt
 
-# Delete ACI container group
-make aci-delete
+# Ensure File Share and mounts (idempotent)
+make azure-ensure-storage
 ```
