@@ -123,7 +123,7 @@ Typical causes:
 
 Recommended fixes:
 
-1. Temporarily disable proxy/TUN while running `make aci-db-init`
+1. Temporarily disable proxy/TUN while running `make azure-db-init`
 2. Or add a direct/bypass rule for:
    - `DOMAIN-SUFFIX,chinacloudapi.cn,DIRECT`
    - or the PG server IP / hostname
@@ -246,7 +246,7 @@ If login succeeds, you are ready for both database initialization and image push
 Run this once for a new environment, and rerun it if you need to repair aggregate views or database policies:
 
 ```bash
-make aci-db-init
+make azure-db-init
 ```
 
 This script does all of the following:
@@ -267,7 +267,7 @@ This script does all of the following:
 
 ### 8.1 Why this step matters
 
-Without `make aci-db-init`:
+Without `make azure-db-init`:
 
 - tables may not exist
 - TimescaleDB may not be loaded

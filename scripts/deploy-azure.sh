@@ -115,48 +115,61 @@ login)
   echo "✅ Login complete."
   ;;
 
-# ── Build ──────────────────────────────────────────────────────
+# ── Build (cloud build via ACR Tasks — no local Docker required) ──
 build)
-  echo "🔨 Building 4 images for linux/amd64..."
+  echo "🔨 Building 4 images via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
   cd "$PROJECT_ROOT"
 
   echo "── [1/4] web (frontend + backend merged) ──"
-  docker build --platform linux/amd64 --provenance=false \
-    -f apps/web/Dockerfile.azure \
-    -t "${ACR_LOGIN_SERVER}/butterfly/web:${IMAGE_TAG}" .
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/web:${IMAGE_TAG}" \
+    --file apps/web/Dockerfile.azure \
+    --platform linux/amd64 \
+    .
 
   echo "── [2/4] ingestion-worker ──"
-  docker build --platform linux/amd64 --provenance=false \
-    -f apps/ingestion-worker/Dockerfile \
-    -t "${ACR_LOGIN_SERVER}/butterfly/ingestion-worker:${IMAGE_TAG}" .
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/ingestion-worker:${IMAGE_TAG}" \
+    --file apps/ingestion-worker/Dockerfile \
+    --platform linux/amd64 \
+    .
 
   echo "── [3/4] export-worker ──"
-  docker build --platform linux/amd64 --provenance=false \
-    -f apps/export-worker/Dockerfile \
-    -t "${ACR_LOGIN_SERVER}/butterfly/export-worker:${IMAGE_TAG}" .
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/export-worker:${IMAGE_TAG}" \
+    --file apps/export-worker/Dockerfile \
+    --platform linux/amd64 \
+    .
 
   echo "── [4/4] mosquitto ──"
-  docker build --platform linux/amd64 --provenance=false \
-    -f infra/aci/Dockerfile.mosquitto \
-    -t "${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}" \
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/mosquitto:${IMAGE_TAG}" \
+    --file infra/aci/Dockerfile.mosquitto \
+    --platform linux/amd64 \
     infra/docker/mosquitto/
 
-  echo "✅ All images built."
+  # Tag each image as 'latest' as well
+  if [ "$IMAGE_TAG" != "latest" ]; then
+    for svc in web ingestion-worker export-worker mosquitto; do
+      az acr import \
+        --name "$ACR_NAME" \
+        --source "${ACR_LOGIN_SERVER}/butterfly/${svc}:${IMAGE_TAG}" \
+        --image "butterfly/${svc}:latest" \
+        --force 2>/dev/null || true
+    done
+  fi
+
+  echo "✅ All images built and pushed to ACR."
   ;;
 
-# ── Push ───────────────────────────────────────────────────────
+# ── Push (no-op: ACR Tasks push during build) ─────────────────
 push)
-  echo "📤 Pushing images to ACR: ${ACR_LOGIN_SERVER}..."
-  for svc in web ingestion-worker export-worker mosquitto; do
-    repo="${ACR_LOGIN_SERVER}/butterfly/${svc}"
-    echo "   Pushing ${svc}:${IMAGE_TAG}..."
-    docker push "${repo}:${IMAGE_TAG}"
-    if [ "$IMAGE_TAG" != "latest" ]; then
-      docker tag "${repo}:${IMAGE_TAG}" "${repo}:latest"
-      docker push "${repo}:latest"
-    fi
-  done
-  echo "✅ All images pushed."
+  echo "ℹ️  'push' is a no-op when using ACR Tasks — images are pushed during 'build'."
+  echo "   Run: $0 build"
   ;;
 
 # ── Migrate ────────────────────────────────────────────────────
@@ -455,7 +468,6 @@ deploy-web)
 all)
   echo "🚀 Full Azure deployment (tag: ${IMAGE_TAG})"
   "$0" build
-  "$0" push
   "$0" migrate
   "$0" ensure-storage
   "$0" deploy-mqtt
@@ -537,14 +549,14 @@ help|*)
   echo ""
   echo "Actions:"
   echo "  login               登录 Azure China 和 ACR"
-  echo "  build               构建 4 个镜像 (linux/amd64): web / ingestion-worker / export-worker / mosquitto"
-  echo "  push                推送镜像到 ACR (SHA 标签 + latest)"
+  echo "  build               通过 ACR Tasks 云端构建 4 个镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker / mosquitto"
+  echo "  push                (no-op) 镜像已在 build 阶段直接推送到 ACR"
   echo "  migrate             应用数据库迁移"
   echo "  ensure-storage      创建 File Share 并挂载到 Web App 和 Container Apps（幂等）"
   echo "  deploy-mqtt         部署/更新 Mosquitto ACI (dev-butterfly)"
   echo "  deploy-services     更新 Container App (ingestion-worker + export-worker)"
   echo "  deploy-web          更新 Web App 容器镜像和配置 (cyberbee)"
-  echo "  all                 完整部署: build → push → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web"
+  echo "  all                 完整部署: build → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web"
   echo "  status              查看所有组件状态和访问地址"
   echo "  logs-web            Web App 日志流"
   echo "  logs-services       Container App 日志流 (CONTAINER=ingestion-worker|export-worker)"

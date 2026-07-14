@@ -147,43 +147,6 @@ scale-ingestion: ## Scale ingestion workers  (N=3)
 	@[ -n "$(N)" ] || { echo "Usage: make scale-ingestion N=<number>"; exit 1; }
 	docker compose up -d --scale ingestion-worker=$(N) ingestion-worker
 
-# ─── ACI Deployment (Azure China 21Vianet) ───────────────────────────────────
-## ACI 部署 (Azure China)
-.PHONY: aci-login aci-build aci-push aci-migrate aci-deploy aci-all aci-status aci-logs aci-delete aci-db-init webapp-deploy
-
-aci-login: ## 登录 Azure China 和 ACR
-	@bash scripts/deploy-aci.sh login
-
-aci-build: ## 构建所有镜像 (linux/amd64, 标签=git SHA)
-	@bash scripts/deploy-aci.sh build
-
-aci-push: ## 推送所有镜像到 Azure Container Registry (SHA + latest)
-	@bash scripts/deploy-aci.sh push
-
-aci-migrate: ## 应用待执行的 SQL 迁移到 Azure 数据库
-	@bash scripts/deploy-aci.sh migrate
-
-aci-deploy: ## 部署容器组到 ACI
-	@bash scripts/deploy-aci.sh deploy
-
-aci-all: ## 一键部署: 构建 → 推送 → 迁移 → ACI + Web App
-	@bash scripts/deploy-aci.sh all
-
-aci-status: ## 查看 ACI 容器组状态和访问地址
-	@bash scripts/deploy-aci.sh status
-
-aci-logs: ## 查看 ACI 容器日志  (CONTAINER=backend)
-	@bash scripts/deploy-aci.sh logs $(or $(CONTAINER),backend)
-
-aci-delete: ## 删除 ACI 容器组
-	@bash scripts/deploy-aci.sh delete
-
-aci-db-init: ## 初始化 Azure PostgreSQL (启用 TimescaleDB + Schema)
-	@bash scripts/init-azure-db.sh
-
-webapp-deploy: ## 将 frontend 镜像部署到 Azure Web App（需先 aci-push）
-	@bash scripts/deploy-aci.sh webapp-deploy
-
 # ─── Azure 全栈部署 (Web App + Container App + ACI) ──────────────────────────
 ## Azure 全栈部署 (Azure China)
 .PHONY: azure-login azure-build azure-push azure-migrate azure-ensure-storage \
@@ -193,10 +156,10 @@ webapp-deploy: ## 将 frontend 镜像部署到 Azure Web App（需先 aci-push�
 azure-login: ## 登录 Azure China 和 ACR
 	@bash scripts/deploy-azure.sh login
 
-azure-build: ## 构建 4 个镜像: web / ingestion-worker / export-worker / mosquitto (linux/amd64)
+azure-build: ## 通过 ACR Tasks 云端构建镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker / mosquitto
 	@bash scripts/deploy-azure.sh build
 
-azure-push: ## 推送镜像到 ACR (SHA 标签 + latest)
+azure-push: ## (no-op) 镜像已在 azure-build 阶段直接推送到 ACR
 	@bash scripts/deploy-azure.sh push
 
 azure-migrate: ## 应用待执行的数据库迁移
@@ -214,7 +177,7 @@ azure-deploy-services: ## 更新 Container App cyberbee-services (ingestion-work
 azure-deploy-web: ## 更新 cyberbee Web App 容器镜像和配置
 	@bash scripts/deploy-azure.sh deploy-web
 
-azure-all: ## 一键全栈部署: build → push → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web
+azure-all: ## 一键全栈部署: build → migrate → ensure-storage → deploy-mqtt → deploy-services → deploy-web
 	@bash scripts/deploy-azure.sh all
 
 azure-status: ## 查看 Web App / Container App / ACI 状态和访问地址
