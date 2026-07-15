@@ -1,5 +1,9 @@
-FROM node:20-alpine AS base
-RUN npm install -g pnpm@9
+ARG BUILD_IMAGE=mcr.azure.cn/devcontainers/javascript-node:20-bookworm
+ARG NODE_IMAGE=mcr.azure.cn/azurelinux/base/nodejs:20.14
+FROM ${BUILD_IMAGE} AS base
+ENV npm_config_build_from_source=true
+ENV npm_config_nodedir=/usr/local
+RUN npm install -g pnpm@9.15.9
 
 FROM base AS builder
 WORKDIR /app
@@ -14,7 +18,7 @@ COPY apps/export-worker/ ./apps/export-worker/
 WORKDIR /app/apps/export-worker
 RUN pnpm build
 
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/export-worker/dist ./dist

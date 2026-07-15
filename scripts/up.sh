@@ -23,9 +23,8 @@ fi
 echo "📁 Creating data directories..."
 mkdir -p data/postgres data/exports
 
-# Start services
-echo "🚀 Starting all services..."
-docker compose up -d --build
+echo "🚀 Starting local infrastructure (Postgres, Redis, Mosquitto)..."
+docker compose up -d postgres redis mosquitto
 
 echo ""
 echo "⏳ Waiting for Postgres to be ready..."
@@ -40,21 +39,22 @@ done
 echo "🗄️  Applying database migrations..."
 bash "$SCRIPT_DIR/migrate.sh" --local || echo "⚠️  Migration step failed — see output above."
 
-echo ""
-echo "⏳ Waiting for services to be healthy..."
-sleep 5
-
 # Show status
-docker compose ps
+docker compose ps postgres redis mosquitto
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo "  ✅ CyberBee is starting up!"
+echo "  ✅ Local infrastructure is ready!"
 echo ""
-echo "  Frontend:      http://localhost:3000"
-echo "  Backend API:   http://localhost:3001"
-echo "  Swagger Docs:  http://localhost:3001/api/docs"
-echo "  Health Check:  http://localhost:3001/health"
+echo "  Start app dev servers in another terminal:"
+echo "    make install   # first time only"
+echo "    make dev-all"
+echo ""
+echo "  Or start them separately:"
+echo "    make dev-backend"
+echo "    make dev-frontend"
+echo "    make dev-ingestion"
+echo "    make dev-export"
 echo ""
 echo "  MQTT Broker:   localhost:1883"
 echo "  PostgreSQL:    localhost:5432"
@@ -64,6 +64,6 @@ echo ""
 echo "  To send a test MQTT message:"
 echo "  node scripts/test-mqtt.js"
 echo ""
-echo "  To view logs:"
-echo "  ./scripts/logs.sh [service]"
+echo "  To run the old full Docker production-style stack:"
+echo "    make up-prod"
 echo "═══════════════════════════════════════════"

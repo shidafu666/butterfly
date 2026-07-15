@@ -46,8 +46,11 @@ If you previously exported `DOCKER_DEFAULT_PLATFORM=linux/amd64`, unset it (or c
 git clone <repo-url>
 cd butterfly
 
-# Start all services (creates .env from .env.example if missing)
+# Start local infrastructure (creates .env from .env.example if missing)
 make up
+
+# In another terminal, start the app dev servers
+make dev-all
 ```
 
 Or without make:
@@ -56,7 +59,9 @@ Or without make:
 cp .env.example .env
 # Edit .env if needed (especially passwords for production)
 mkdir -p data/postgres data/exports
-docker compose up -d --build
+docker compose up -d postgres redis mosquitto
+pnpm install
+make dev-all
 ```
 
 ### 2. Access the Application
@@ -111,6 +116,8 @@ See `scripts/mock-payload.json` for a reference payload that matches the real se
 ```bash
 make install        # install all workspace dependencies
 
+make up             # start Postgres / Redis / Mosquitto
+make dev-all        # start all app dev servers
 make dev-backend    # start backend in watch mode
 make dev-ingestion  # start ingestion worker
 make dev-export     # start export worker
@@ -237,7 +244,9 @@ The backend uses Authorization Code + PKCE and validates the tenant and nonce. L
 ## Common Operations
 
 ```bash
-make up                       # start all services
+make up                       # start local infrastructure only
+make dev-all                  # start all app dev servers on host
+make up-prod                  # start full Docker stack with production image builds
 make down                     # stop all services
 make restart                  # stop then start
 make rebuild                  # rebuild app images and restart (no infra restart)

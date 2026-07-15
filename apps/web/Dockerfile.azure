@@ -4,11 +4,14 @@
 # 由 scripts/deploy-azure.sh 构建；原前后端 Dockerfile 保留用于本地开发。
 # 命名: butterfly/web
 # ============================================================
-ARG NODE_IMAGE=node:20-alpine
+ARG BUILD_IMAGE=mcr.azure.cn/devcontainers/javascript-node:20-bookworm
+ARG NODE_IMAGE=mcr.azure.cn/azurelinux/base/nodejs:20.14
 
 # ── 公共基础层 ────────────────────────────────────────────────
-FROM ${NODE_IMAGE} AS base
-RUN npm install -g pnpm@9 && apk add --no-cache openssl
+FROM ${BUILD_IMAGE} AS base
+ENV npm_config_build_from_source=true
+ENV npm_config_nodedir=/usr/local
+RUN npm install -g pnpm@9.15.9
 
 # ── 后端构建 ──────────────────────────────────────────────────
 FROM base AS backend-builder
@@ -47,7 +50,6 @@ RUN pnpm build
 
 # ── 生产运行层 ────────────────────────────────────────────────
 FROM ${NODE_IMAGE} AS runner
-RUN apk add --no-cache openssl
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -68,5 +70,6 @@ COPY --from=frontend-builder /app/apps/frontend/public             ./apps/fronte
 
 # PID-1 supervisor
 COPY apps/web/entrypoint.js /entrypoint.js
+COPY apps/web/next-server-timeouts.js /next-server-timeouts.js
 EXPOSE 3000
 CMD ["node", "/entrypoint.js"]

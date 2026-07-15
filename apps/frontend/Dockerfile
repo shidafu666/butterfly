@@ -1,6 +1,9 @@
-ARG NODE_IMAGE=node:20-alpine
-FROM ${NODE_IMAGE} AS base
-RUN npm install -g pnpm@9
+ARG BUILD_IMAGE=mcr.azure.cn/devcontainers/javascript-node:20-bookworm
+ARG NODE_IMAGE=mcr.azure.cn/azurelinux/base/nodejs:20.14
+FROM ${BUILD_IMAGE} AS base
+ENV npm_config_build_from_source=true
+ENV npm_config_nodedir=/usr/local
+RUN npm install -g pnpm@9.15.9
 
 FROM base AS builder
 WORKDIR /app
@@ -28,11 +31,10 @@ FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
-USER nextjs
+COPY --from=builder --chown=nonroot:nonroot /app/apps/frontend/.next/standalone ./
+COPY --from=builder --chown=nonroot:nonroot /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder --chown=nonroot:nonroot /app/apps/frontend/public ./apps/frontend/public
+USER nonroot
 EXPOSE 3000
 ENV PORT=3000
 CMD ["node", "apps/frontend/server.js"]

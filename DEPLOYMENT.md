@@ -38,19 +38,21 @@ mkdir -p data/postgres data/exports
 
 These directories are mounted into the containers and are gitignored. `data/postgres` holds the database files; `data/exports` holds generated export files.
 
-### 1.4 Start all services
+### 1.4 Start local development
 
 ```bash
 make up
+make dev-all
 ```
 
-This script copies `.env.example` → `.env` if no `.env` is present, creates the `data/` directories, and runs `docker compose up -d --build`. Alternatively:
+`make up` copies `.env.example` → `.env` if no `.env` is present, creates the `data/` directories, starts only Postgres / Redis / Mosquitto, and applies local migrations. `make dev-all` then runs the Node app services on the host in watch mode. Alternatively:
 
 ```bash
-docker compose up -d --build
+docker compose up -d postgres redis mosquitto
+make dev-all
 ```
 
-On first startup, Docker will build all images and initialize the database schema automatically. This takes 2–3 minutes.
+This avoids production Docker image builds during local development. To run the old full Docker stack, use `make up-prod`.
 
 ### 1.5 Verify services are healthy
 
@@ -344,7 +346,9 @@ docker exec butterfly-postgres psql -U app -d current_platform -c \
 ### Start / stop
 
 ```bash
-make up          # start all services (builds if needed)
+make up          # start local infrastructure only
+make dev-all     # start all app dev servers on host
+make up-prod     # start full Docker stack with production image builds
 make down        # stop all services (data is preserved)
 make restart     # stop then start
 ```

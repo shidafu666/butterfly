@@ -19,6 +19,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="${PROJECT_ROOT}/.env.azure"
 INFRA_DIR="${PROJECT_ROOT}/infra/azure"
 MOSQUITTO_TPL="${INFRA_DIR}/mosquitto-aci.yaml.tpl"
+STATE_DIR="${PROJECT_ROOT}/.azure"
+LAST_IMAGE_TAG_FILE="${STATE_DIR}/last-image-tag"
 
 # Temporary directory: deleted automatically on exit.
 TEMP_DIR="$(mktemp -d)"
@@ -42,20 +44,59 @@ set +a
 
 export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
 
-# ─── Image tag ────────────────────────────────────────────────
-if [ -n "$CALLER_IMAGE_TAG" ]; then
-  IMAGE_TAG="$CALLER_IMAGE_TAG"
-else
-  GIT_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo nogit)"
-  if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
-    GIT_SHA="${GIT_SHA}-dirty.$(date +%Y%m%d%H%M%S)"
-  fi
-  IMAGE_TAG="$GIT_SHA"
-fi
-export IMAGE_TAG
-echo "🏷️  Image tag: ${IMAGE_TAG}"
+# Mosquitto is an infra image that rarely changes. Keep it on a stable tag by
+# default so app releases do not need to rebuild or retag the broker image.
+export MOSQUITTO_IMAGE_TAG="${MOSQUITTO_IMAGE_TAG:-latest}"
 
 # ─── Helpers ──────────────────────────────────────────────────
+
+generate_image_tag() {
+  local git_sha
+  git_sha="$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo nogit)"
+  if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
+    git_sha="${git_sha}-dirty.$(date +%Y%m%d%H%M%S)"
+  fi
+  echo "$git_sha"
+}
+
+load_last_image_tag() {
+  if [ -f "$LAST_IMAGE_TAG_FILE" ]; then
+    tr -d '[:space:]' < "$LAST_IMAGE_TAG_FILE"
+  fi
+}
+
+save_last_image_tag() {
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$IMAGE_TAG" > "$LAST_IMAGE_TAG_FILE"
+}
+
+use_new_image_tag() {
+  if [ -n "$CALLER_IMAGE_TAG" ]; then
+    IMAGE_TAG="$CALLER_IMAGE_TAG"
+  else
+    IMAGE_TAG="$(generate_image_tag)"
+  fi
+  export IMAGE_TAG
+  echo "🏷️  Image tag: ${IMAGE_TAG}"
+}
+
+use_deploy_image_tag() {
+  if [ -n "$CALLER_IMAGE_TAG" ]; then
+    IMAGE_TAG="$CALLER_IMAGE_TAG"
+    echo "🏷️  Image tag: ${IMAGE_TAG}"
+    return
+  fi
+
+  IMAGE_TAG="$(load_last_image_tag)"
+  if [ -n "$IMAGE_TAG" ]; then
+    echo "🏷️  Image tag: ${IMAGE_TAG} (from ${LAST_IMAGE_TAG_FILE})"
+  else
+    IMAGE_TAG="$(generate_image_tag)"
+    echo "🏷️  Image tag: ${IMAGE_TAG}"
+    echo "⚠️  No saved build tag found. Run 'make azure-build' first, or pass IMAGE_TAG=<tag>." >&2
+  fi
+  export IMAGE_TAG
+}
 
 # Resolve image to immutable ACR digest reference.
 # Each deploy uses @sha256:... so the service always rolls to the new image.
@@ -67,7 +108,7 @@ resolve_digest() {
     --image "butterfly/${svc}:${tag}" \
     --query digest -o tsv 2>/dev/null || true)
   if [ -z "$digest" ]; then
-    echo "❌ butterfly/${svc}:${tag} not found in ACR — run 'make azure-push' first." >&2
+    echo "❌ butterfly/${svc}:${tag} not found in ACR — run 'make azure-build' first, or pass IMAGE_TAG=<existing-tag>." >&2
     return 1
   fi
   echo "${ACR_LOGIN_SERVER}/butterfly/${svc}@${digest}"
@@ -115,12 +156,13 @@ login)
   echo "✅ Login complete."
   ;;
 
-# ── Build (cloud build via ACR Tasks — no local Docker required) ──
+# ── Build app images (cloud build via ACR Tasks — no local Docker required) ──
 build)
-  echo "🔨 Building 4 images via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
+  use_new_image_tag
+  echo "🔨 Building app images via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
   cd "$PROJECT_ROOT"
 
-  echo "── [1/4] web (frontend + backend merged) ──"
+  echo "── [1/3] web (frontend + backend merged) ──"
   az acr build \
     --registry "$ACR_NAME" \
     --image "butterfly/web:${IMAGE_TAG}" \
@@ -128,7 +170,7 @@ build)
     --platform linux/amd64 \
     .
 
-  echo "── [2/4] ingestion-worker ──"
+  echo "── [2/3] ingestion-worker ──"
   az acr build \
     --registry "$ACR_NAME" \
     --image "butterfly/ingestion-worker:${IMAGE_TAG}" \
@@ -136,7 +178,7 @@ build)
     --platform linux/amd64 \
     .
 
-  echo "── [3/4] export-worker ──"
+  echo "── [3/3] export-worker ──"
   az acr build \
     --registry "$ACR_NAME" \
     --image "butterfly/export-worker:${IMAGE_TAG}" \
@@ -144,17 +186,9 @@ build)
     --platform linux/amd64 \
     .
 
-  echo "── [4/4] mosquitto ──"
-  az acr build \
-    --registry "$ACR_NAME" \
-    --image "butterfly/mosquitto:${IMAGE_TAG}" \
-    --file infra/aci/Dockerfile.mosquitto \
-    --platform linux/amd64 \
-    infra/docker/mosquitto/
-
   # Tag each image as 'latest' as well
   if [ "$IMAGE_TAG" != "latest" ]; then
-    for svc in web ingestion-worker export-worker mosquitto; do
+    for svc in web ingestion-worker export-worker; do
       az acr import \
         --name "$ACR_NAME" \
         --source "${ACR_LOGIN_SERVER}/butterfly/${svc}:${IMAGE_TAG}" \
@@ -163,23 +197,116 @@ build)
     done
   fi
 
-  echo "✅ All images built and pushed to ACR."
+  echo "✅ App images built and pushed to ACR."
+  save_last_image_tag
+  echo "   Saved image tag: ${LAST_IMAGE_TAG_FILE}"
+  echo "ℹ️  Mosquitto is not rebuilt by default. Run: make azure-build-mqtt"
+  ;;
+
+# ── Build Web app image only ──────────────────────────────────
+build-web)
+  use_new_image_tag
+  echo "🔨 Building Web image via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
+  cd "$PROJECT_ROOT"
+
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/web:${IMAGE_TAG}" \
+    --file apps/web/Dockerfile.azure \
+    --platform linux/amd64 \
+    .
+
+  if [ "$IMAGE_TAG" != "latest" ]; then
+    az acr import \
+      --name "$ACR_NAME" \
+      --source "${ACR_LOGIN_SERVER}/butterfly/web:${IMAGE_TAG}" \
+      --image "butterfly/web:latest" \
+      --force 2>/dev/null || true
+  fi
+
+  echo "✅ Web image built and pushed to ACR."
+  save_last_image_tag
+  echo "   Saved image tag: ${LAST_IMAGE_TAG_FILE}"
+  ;;
+
+# ── Build worker app images only ──────────────────────────────
+build-services)
+  use_new_image_tag
+  echo "🔨 Building worker images via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
+  cd "$PROJECT_ROOT"
+
+  echo "── [1/2] ingestion-worker ──"
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/ingestion-worker:${IMAGE_TAG}" \
+    --file apps/ingestion-worker/Dockerfile \
+    --platform linux/amd64 \
+    .
+
+  echo "── [2/2] export-worker ──"
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/export-worker:${IMAGE_TAG}" \
+    --file apps/export-worker/Dockerfile \
+    --platform linux/amd64 \
+    .
+
+  if [ "$IMAGE_TAG" != "latest" ]; then
+    for svc in ingestion-worker export-worker; do
+      az acr import \
+        --name "$ACR_NAME" \
+        --source "${ACR_LOGIN_SERVER}/butterfly/${svc}:${IMAGE_TAG}" \
+        --image "butterfly/${svc}:latest" \
+        --force 2>/dev/null || true
+    done
+  fi
+
+  echo "✅ Worker images built and pushed to ACR."
+  save_last_image_tag
+  echo "   Saved image tag: ${LAST_IMAGE_TAG_FILE}"
+  ;;
+
+# ── Build Mosquitto infra image on demand ─────────────────────
+build-mqtt)
+  use_new_image_tag
+  echo "🔨 Building Mosquitto infra image via ACR Tasks (linux/amd64, tag: ${IMAGE_TAG})..."
+  cd "$PROJECT_ROOT"
+
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "butterfly/mosquitto:${IMAGE_TAG}" \
+    --file infra/aci/Dockerfile.mosquitto \
+    --platform linux/amd64 \
+    infra/docker/mosquitto/
+
+  if [ "$IMAGE_TAG" != "latest" ]; then
+    az acr import \
+      --name "$ACR_NAME" \
+      --source "${ACR_LOGIN_SERVER}/butterfly/mosquitto:${IMAGE_TAG}" \
+      --image "butterfly/mosquitto:latest" \
+      --force 2>/dev/null || true
+  fi
+
+  echo "✅ Mosquitto image built and pushed to ACR."
   ;;
 
 # ── Push (no-op: ACR Tasks push during build) ─────────────────
 push)
+  use_deploy_image_tag
   echo "ℹ️  'push' is a no-op when using ACR Tasks — images are pushed during 'build'."
   echo "   Run: $0 build"
   ;;
 
 # ── Migrate ────────────────────────────────────────────────────
 migrate)
+  use_deploy_image_tag
   echo "🗄️  Applying database migrations..."
   bash "${SCRIPT_DIR}/migrate.sh"
   ;;
 
 # ── Ensure storage (idempotent) ────────────────────────────────
 ensure-storage)
+  use_deploy_image_tag
   echo "🗂️  Ensuring butterfly-exports File Share and mounts..."
 
   fetch_storage_key
@@ -236,6 +363,7 @@ ensure-storage)
 
 # ── Deploy Mosquitto ACI ───────────────────────────────────────
 deploy-mqtt)
+  use_deploy_image_tag
   echo "📡 Deploying Mosquitto ACI '${ACI_MQTT_NAME}'..."
 
   # ACI_LOCATION defaults to AZURE_LOCATION; override in .env.azure when the
@@ -245,10 +373,13 @@ deploy-mqtt)
   echo "   ACI location: ${ACI_LOCATION}"
 
   export MOSQUITTO_IMAGE
-  MOSQUITTO_IMAGE="$(resolve_digest mosquitto "$IMAGE_TAG")"
+  if ! MOSQUITTO_IMAGE="$(resolve_digest mosquitto "$MOSQUITTO_IMAGE_TAG")"; then
+    echo "   Run 'make azure-build-mqtt' once, or set MOSQUITTO_IMAGE_TAG to an existing ACR tag." >&2
+    exit 1
+  fi
 
   fetch_acr_creds
-  echo "   Mosquitto image: ${MOSQUITTO_IMAGE}"
+  echo "   Mosquitto image: ${MOSQUITTO_IMAGE} (tag: ${MOSQUITTO_IMAGE_TAG})"
 
   MQTT_ACI_YAML="${TEMP_DIR}/mosquitto-aci.yaml"
   envsubst < "$MOSQUITTO_TPL" > "$MQTT_ACI_YAML"
@@ -272,6 +403,7 @@ deploy-mqtt)
 
 # ── Deploy Container App (two worker containers) ───────────────
 deploy-services)
+  use_deploy_image_tag
   echo "🐝 Updating Container App '${CONTAINER_APP_NAME}'..."
 
   INGESTION_WORKER_IMAGE="$(resolve_digest ingestion-worker "$IMAGE_TAG")"
@@ -385,6 +517,7 @@ deploy-services)
 
 # ── Deploy Web App ─────────────────────────────────────────────
 deploy-web)
+  use_deploy_image_tag
   : "${AZURE_WEBAPP_NAME:?AZURE_WEBAPP_NAME must be set in .env.azure}"
   echo "🌐 Deploying Web App '${AZURE_WEBAPP_NAME}'..."
 
@@ -414,6 +547,7 @@ deploy-web)
       "WEBSITES_PORT=3000" \
       "NODE_ENV=production" \
       "KEEP_ALIVE_TIMEOUT=65000" \
+      "HEADERS_TIMEOUT=70000" \
       "REDIS_HOST=${REDIS_HOST}" \
       "REDIS_PORT=6380" \
       "REDIS_PASSWORD=${REDIS_PASSWORD}" \
@@ -467,6 +601,7 @@ deploy-web)
 
 # ── Full deployment ────────────────────────────────────────────
 all)
+  use_new_image_tag
   echo "🚀 Full Azure deployment (tag: ${IMAGE_TAG})"
   "$0" build
   "$0" migrate
@@ -550,7 +685,10 @@ help|*)
   echo ""
   echo "Actions:"
   echo "  login               登录 Azure China 和 ACR"
-  echo "  build               通过 ACR Tasks 云端构建 4 个镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker / mosquitto"
+  echo "  build               通过 ACR Tasks 云端构建应用镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker"
+  echo "  build-web           只构建 Web App 镜像"
+  echo "  build-services      只构建 worker 镜像 (ingestion-worker + export-worker)"
+  echo "  build-mqtt          按需构建 Mosquitto ACI 镜像（基础设施镜像，通常不需要每次构建）"
   echo "  push                (no-op) 镜像已在 build 阶段直接推送到 ACR"
   echo "  migrate             应用数据库迁移"
   echo "  ensure-storage      创建 File Share 并挂载到 Web App 和 Container Apps（幂等）"

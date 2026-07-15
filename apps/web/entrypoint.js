@@ -32,6 +32,10 @@ function launch(label, cmd, args, cwd, extraEnv) {
   return proc;
 }
 
+function appendNodeOption(current, option) {
+  return [current, option].filter(Boolean).join(' ');
+}
+
 // Backend: NestJS bound to loopback only; Next.js proxies /api and /health.
 const backend = launch('backend', 'node', ['dist/main.js'], '/app', {
   PORT: '3001',
@@ -44,6 +48,7 @@ const frontend = launch('frontend', 'node', ['apps/frontend/server.js'], '/front
   PORT: '3000',
   HOSTNAME: '0.0.0.0',
   BACKEND_ORIGIN: 'http://127.0.0.1:3001',
+  NODE_OPTIONS: appendNodeOption(process.env.NODE_OPTIONS, '--require=/next-server-timeouts.js'),
 });
 
 function teardown(exitCode) {

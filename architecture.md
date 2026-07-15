@@ -153,7 +153,7 @@ IoT 传感器设备
       v
 +--------------------------+
 | Mosquitto Broker         |
-| eclipse-mosquitto:2      |
+| mcr.azure.cn/devcontainers/base:bookworm + mosquitto |
 | docker-entrypoint.sh 动  |
 | 态生成密码文件            |
 +------------+-------------+
@@ -1132,8 +1132,13 @@ GET    /api/v1/admin/audit-logs
 
 **Dockerfile 关键注意事项：**
 
-- Alpine 镜像需要 `apk add --no-cache openssl`（builder 和 runner 阶段均需），以便 Prisma 正确检测 OpenSSL 3.x 并加载对应引擎二进制
-- Prisma `schema.prisma` 中需声明 `binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]`（ARM64 机器）或 `linux-musl-openssl-3.0.x`（AMD64 机器）
+- Azure China 构建使用 `mcr.azure.cn/devcontainers/javascript-node:20-bookworm` 作为 builder 镜像，使用 `mcr.azure.cn/azurelinux/base/nodejs:20.14` 作为 runner 镜像，避免 ACR Tasks 访问 Docker Hub
+- Mosquitto ACI 镜像基于 `mcr.azure.cn/devcontainers/base:bookworm` 并通过 Debian 包安装 `mosquitto`，避免 ACR Tasks 拉取 Docker Hub 的 `eclipse-mosquitto`
+- Mosquitto 属于基础设施镜像，日常应用发布不随 `azure-build` 重建；仅在 `infra/aci/Dockerfile.mosquitto` 或 `infra/docker/mosquitto/` 改动时运行 `make azure-build-mqtt`
+- Azure Linux NodeJS 镜像已包含 OpenSSL；Prisma 使用 glibc 引擎，无需 Alpine 的 `apk add --no-cache openssl`
+- builder 阶段固定 `pnpm@9.15.9`，避免标准镜像内置的新版 pnpm 要求 Node 22+
+- builder 阶段使用标准 Node 开发镜像自带的 `python3`、`make`、`gcc/g++` 和 Node headers，并设置 `npm_config_build_from_source=true`、`npm_config_nodedir=/usr/local`，确保 `bcrypt` 等 native addon 不依赖外部预编译包
+- Prisma `schema.prisma` 中声明 `binaryTargets = ["native", "debian-openssl-3.0.x"]`，覆盖本机构建和 Azure amd64 部署
 - 使用 `node-linker=hoisted` 后，runner 阶段直接 `COPY /app/node_modules` 即可，无需处理 pnpm 符号链接
 
 目录挂载重点：

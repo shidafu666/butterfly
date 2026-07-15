@@ -1,7 +1,9 @@
-ARG NODE_IMAGE=node:20-alpine
-FROM ${NODE_IMAGE} AS base
-RUN npm install -g pnpm@9
-RUN apk add --no-cache openssl
+ARG BUILD_IMAGE=mcr.azure.cn/devcontainers/javascript-node:20-bookworm
+ARG NODE_IMAGE=mcr.azure.cn/azurelinux/base/nodejs:20.14
+FROM ${BUILD_IMAGE} AS base
+ENV npm_config_build_from_source=true
+ENV npm_config_nodedir=/usr/local
+RUN npm install -g pnpm@9.15.9
 
 FROM base AS builder
 WORKDIR /app
@@ -22,7 +24,6 @@ RUN pnpm prisma:generate
 RUN pnpm build
 
 FROM ${NODE_IMAGE} AS runner
-RUN apk add --no-cache openssl
 WORKDIR /app
 # With node-linker=hoisted, all packages are in root node_modules (no symlinks)
 COPY --from=builder /app/node_modules ./node_modules

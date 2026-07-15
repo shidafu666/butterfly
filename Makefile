@@ -26,18 +26,21 @@ install: ## Install all workspace dependencies
 
 # ─── Dev servers ──────────────────────────────────────────────────────────────
 ## Development
-.PHONY: dev-backend dev-frontend dev-ingestion dev-export
+.PHONY: dev-all dev-backend dev-frontend dev-ingestion dev-export
+dev-all: ## Start all app dev servers on host (requires make up first)
+	$(MAKE) -j4 dev-backend dev-frontend dev-ingestion dev-export
+
 dev-backend: ## Start backend in watch mode
-	pnpm --filter backend dev
+	@bash scripts/dev-env.sh pnpm --filter backend dev
 
 dev-frontend: ## Start frontend dev server (localhost:3000)
-	pnpm --filter frontend dev
+	@bash scripts/dev-env.sh pnpm --filter frontend dev
 
 dev-ingestion: ## Start ingestion worker in dev mode
-	pnpm --filter ingestion-worker dev
+	@bash scripts/dev-env.sh pnpm --filter ingestion-worker dev
 
 dev-export: ## Start export worker in dev mode
-	pnpm --filter export-worker dev
+	@bash scripts/dev-env.sh pnpm --filter export-worker dev
 
 # ─── Build ────────────────────────────────────────────────────────────────────
 ## Build
@@ -62,10 +65,13 @@ lint: ## Run linters across all packages
 
 # ─── Docker / Services ────────────────────────────────────────────────────────
 ## Docker / Services
-.PHONY: up down restart rebuild reset ps
+.PHONY: up up-prod down restart rebuild reset ps
 
-up: ## Start all services (builds images if needed)
+up: ## Start local infrastructure only (fast dev path; no app image builds)
 	@bash scripts/up.sh
+
+up-prod: ## Start full Docker stack with production image builds
+	docker compose up -d --build
 
 down: ## Stop all services
 	@bash scripts/down.sh
@@ -149,15 +155,24 @@ scale-ingestion: ## Scale ingestion workers  (N=3)
 
 # ─── Azure 全栈部署 (Web App + Container App + ACI) ──────────────────────────
 ## Azure 全栈部署 (Azure China)
-.PHONY: azure-login azure-build azure-push azure-migrate azure-ensure-storage \
+.PHONY: azure-login azure-build azure-build-web azure-build-services azure-build-mqtt azure-push azure-migrate azure-ensure-storage \
         azure-deploy-mqtt azure-deploy-services azure-deploy-web azure-all \
         azure-status azure-logs-web azure-logs-services azure-logs-mqtt azure-db-init
 
 azure-login: ## 登录 Azure China 和 ACR
 	@bash scripts/deploy-azure.sh login
 
-azure-build: ## 通过 ACR Tasks 云端构建镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker / mosquitto
+azure-build: ## 通过 ACR Tasks 云端构建应用镜像 (linux/amd64，无需本地 Docker): web / ingestion-worker / export-worker
 	@bash scripts/deploy-azure.sh build
+
+azure-build-web: ## 只构建 Web App 镜像
+	@bash scripts/deploy-azure.sh build-web
+
+azure-build-services: ## 只构建 worker 镜像: ingestion-worker / export-worker
+	@bash scripts/deploy-azure.sh build-services
+
+azure-build-mqtt: ## 按需构建 Mosquitto ACI 镜像（基础设施镜像，通常不需要每次构建）
+	@bash scripts/deploy-azure.sh build-mqtt
 
 azure-push: ## (no-op) 镜像已在 azure-build 阶段直接推送到 ACR
 	@bash scripts/deploy-azure.sh push

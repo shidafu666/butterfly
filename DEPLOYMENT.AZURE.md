@@ -309,14 +309,29 @@ For normal deployments, prefer `make azure-all` so build and deploy share one im
 make azure-build
 ```
 
-This uploads the repository context to ACR and uses **ACR Tasks** (cloud build) to build 4 images for **linux/amd64** — no local Docker daemon required:
+This uploads the repository context to ACR and uses **ACR Tasks** (cloud build) to build the app images for **linux/amd64** — no local Docker daemon required:
 
 - `butterfly/web` — merged Next.js + NestJS image
 - `butterfly/ingestion-worker`
 - `butterfly/export-worker`
-- `butterfly/mosquitto`
 
 Images are built and pushed directly to ACR in one step. ACR Tasks run on a managed AMD64 host, so this works identically from Apple Silicon, Intel Mac, Linux, or CI.
+After a successful build, the deployment script saves the app image tag in `.azure/last-image-tag`; split deploy commands such as `make azure-deploy-web` reuse that saved tag unless you explicitly pass `IMAGE_TAG=<tag>`.
+
+If you only need to update one side of the app, build the narrower image set:
+
+```bash
+make azure-build-web       # web only
+make azure-build-services  # ingestion-worker + export-worker only
+```
+
+Mosquitto is an infra image and normally does not need to be rebuilt for app releases. Build it only when `infra/aci/Dockerfile.mosquitto` or files under `infra/docker/mosquitto/` change:
+
+```bash
+make azure-build-mqtt
+```
+
+`deploy-mqtt` uses `MOSQUITTO_IMAGE_TAG` from `.env.azure` when set, otherwise `latest`.
 
 ---
 
@@ -366,7 +381,7 @@ make azure-all
 
 This runs in sequence:
 
-1. `azure-build` — cloud build via ACR Tasks, images pushed directly to ACR
+1. `azure-build` — cloud build app images via ACR Tasks, images pushed directly to ACR
 2. `azure-push` — no-op (images already in ACR after build)
 3. `azure-migrate`
 4. `azure-ensure-storage`
@@ -643,9 +658,6 @@ make azure-db-init
 
 # Build images
 make azure-build
-
-# Push images
-make azure-push
 
 # Full deployment
 make azure-all
