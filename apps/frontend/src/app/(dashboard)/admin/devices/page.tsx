@@ -147,7 +147,7 @@ function DeviceList() {
   const exportCsv = () => {
     const rows = sensors ?? [];
     const csvHeaders = [
-      'SN',
+      'IMEI',
       t('devices.displayName'),
       t('devices.lastReport'),
       t('devices.onlineStatus'),
@@ -186,7 +186,7 @@ function DeviceList() {
       key: 'sensorSn',
       width: 180,
       sorter: (a, b) => a.sensorSn.localeCompare(b.sensorSn),
-      ...getColumnSearchProps('sensorSn', 'SN'),
+      ...getColumnSearchProps('sensorSn', 'IMEI'),
       render: (v: string) => (
         <Text code style={{ fontSize: 12, color: '#79c0ff' }}>
           {v}
