@@ -71,7 +71,7 @@ async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable):
     if (job.device_id) {
       if (lastTs && lastId) {
         sql = `
-          SELECT id, sensor_sn, device_id, ts, current_value
+          SELECT id, ts, current_value
           FROM raw_current_measurements
           WHERE sensor_sn = $1
             AND device_id = $2
@@ -92,7 +92,7 @@ async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable):
         ];
       } else {
         sql = `
-          SELECT id, sensor_sn, device_id, ts, current_value
+          SELECT id, ts, current_value
           FROM raw_current_measurements
           WHERE sensor_sn = $1
             AND device_id = $2
@@ -105,7 +105,7 @@ async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable):
       }
     } else if (lastTs && lastId) {
       sql = `
-        SELECT id, sensor_sn, device_id, ts, current_value
+        SELECT id, ts, current_value
         FROM raw_current_measurements
         WHERE sensor_sn = $1
           AND ts >= $2
@@ -117,7 +117,7 @@ async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable):
       params = [job.sensor_sn, job.start_time, job.end_time, lastTs, lastId, PAGE_SIZE];
     } else {
       sql = `
-        SELECT id, sensor_sn, device_id, ts, current_value
+        SELECT id, ts, current_value
         FROM raw_current_measurements
         WHERE sensor_sn = $1
           AND ts >= $2
@@ -130,14 +130,12 @@ async function streamRawLog(pool: Pool, job: ExportJobRecord, stream: Writable):
 
     const result = await pool.query<{
       id: string;
-      sensor_sn: string;
-      device_id: string;
       ts: Date;
       current_value: number;
     }>(sql, params);
 
     for (const row of result.rows) {
-      const line = `[${row.ts.toISOString()}] sensor=${row.sensor_sn} device=${row.device_id} current=${row.current_value}A\n`;
+      const line = `[${row.ts.toISOString()}] current=${row.current_value}A\n`;
       stream.write(line);
     }
 

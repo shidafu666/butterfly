@@ -264,7 +264,7 @@ export default function CurrentDataPage() {
         }
       } else {
         for (const point of points as RawDataPoint[]) {
-          content += `[${point.timestamp}] sensor=${sensorSn} device=${deviceId} current=${point.currentValue}A\n`;
+          content += `[${point.timestamp}] current=${point.currentValue}A\n`;
         }
       }
     }
