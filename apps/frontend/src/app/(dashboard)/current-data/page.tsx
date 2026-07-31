@@ -252,9 +252,9 @@ export default function CurrentDataPage() {
           content += `${escapeCsv(sensorSn)},${escapeCsv(deviceId)},${point.timestamp},${point.avgCurrent},${point.minCurrent},${point.maxCurrent},${point.sampleCount}\n`;
         }
       } else {
-        content += 'sensor_sn,device_id,timestamp,current_value\n';
+        content += 'timestamp,current_value\n';
         for (const point of points as RawDataPoint[]) {
-          content += `${escapeCsv(sensorSn)},${escapeCsv(deviceId)},${point.timestamp},${point.currentValue}\n`;
+          content += `${point.timestamp},${point.currentValue}\n`;
         }
       }
     } else {
