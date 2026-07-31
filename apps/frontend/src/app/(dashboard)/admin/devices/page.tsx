@@ -296,6 +296,7 @@ function DeviceList() {
         { text: 'Active', value: true },
         { text: 'Inactive', value: false },
       ],
+      defaultFilteredValue: [true],
       onFilter: (value, record) => record.isActive === value,
       render: (v: boolean) =>
         v ? (
