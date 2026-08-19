@@ -42,6 +42,20 @@ set -a
 source "$ENV_FILE"
 set +a
 
+# Azure Private Endpoint DNS works by resolving the public PostgreSQL FQDN
+# through the privatelink private DNS zone.  Do not use the privatelink FQDN
+# as the connection hostname: Azure's PostgreSQL TLS certificate is issued
+# for <server>.postgres.database.chinacloudapi.cn, so Node's TLS hostname
+# verification rejects the privatelink name.  Normalize old configurations
+# here so a later deploy cannot reintroduce the outage.
+PRIVATE_PG_DNS_SUFFIX='.privatelink.postgres.database.chinacloudapi.cn'
+PUBLIC_PG_DNS_SUFFIX='.postgres.database.chinacloudapi.cn'
+if [[ "${DATABASE_URL:-}" == *"${PRIVATE_PG_DNS_SUFFIX}"* ]]; then
+  DATABASE_URL="${DATABASE_URL/${PRIVATE_PG_DNS_SUFFIX}/${PUBLIC_PG_DNS_SUFFIX}}"
+  export DATABASE_URL
+  echo "⚠️  DATABASE_URL used the Private Endpoint hostname; using the standard PostgreSQL hostname for TLS."
+fi
+
 export ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-${ACR_NAME}.azurecr.cn}"
 
 # Mosquitto is an infra image that rarely changes. Keep it on a stable tag by
