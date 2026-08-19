@@ -1,14 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
-import { AdminUserDto, AuditLogDto, SensorOverviewDto } from '@butterfly/shared-types';
+import {
+  AdminUserDto,
+  AuditLogDto,
+  SensorOverviewDto,
+  SensorOverviewPageDto,
+} from '@butterfly/shared-types';
 import {
   CreateAdminUserDto,
   AssignSensorPermissionDto,
   BatchAssignSensorPermissionDto,
   UpdateSensorDto,
   UpdateUserDto,
+  SensorOverviewQueryDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -154,9 +161,28 @@ export class AdminService {
     });
   }
 
-  async listSensorOverview(): Promise<SensorOverviewDto[]> {
+  async listSensorOverview(query: SensorOverviewQueryDto): Promise<SensorOverviewPageDto> {
     const thresholdHours = parseInt(process.env.SENSOR_ACTIVE_THRESHOLD_HOURS ?? '24', 10);
-    const thresholdMs = thresholdHours * 60 * 60 * 1000;
+    const activeAfter = new Date(Date.now() - thresholdHours * 60 * 60 * 1000);
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.pageSize ?? 100, 200);
+    const offset = (page - 1) * pageSize;
+    const filters = [
+      query.sensorSn
+        ? Prisma.sql`AND s.sensor_sn ILIKE ${`%${query.sensorSn.trim()}%`}`
+        : Prisma.empty,
+      query.displayName
+        ? Prisma.sql`AND s.display_name ILIKE ${`%${query.displayName.trim()}%`}`
+        : Prisma.empty,
+      query.status ? Prisma.sql`AND s.status = ${query.status}` : Prisma.empty,
+    ];
+    const activeFilter =
+      query.isActive === 'true'
+        ? Prisma.sql`WHERE last_report_time >= ${activeAfter}`
+        : query.isActive === 'false'
+          ? Prisma.sql`WHERE last_report_time IS NULL OR last_report_time < ${activeAfter}`
+          : Prisma.empty;
+    const orderBy = this.sensorOverviewOrderBy(query.sortBy, query.sortOrder);
 
     const rows = await this.prisma.$queryRaw<
       {
@@ -166,24 +192,53 @@ export class AdminService {
         status: string;
         createdAt: Date;
         lastReportTime: Date | null;
+        total: bigint;
+        activeCount: bigint;
       }[]
-    >`
-      SELECT
-        s.id,
-        s.sensor_sn        AS "sensorSn",
-        s.display_name     AS "displayName",
-        s.status,
-        s.created_at       AS "createdAt",
-        MAX(r.ts)          AS "lastReportTime"
-      FROM sensors s
-      LEFT JOIN raw_current_measurements r ON s.sensor_sn = r.sensor_sn
-      GROUP BY s.id
-      ORDER BY s.created_at DESC
-    `;
+    >(
+      Prisma.sql`
+        WITH sensor_reports AS MATERIALIZED (
+          SELECT
+            s.id,
+            s.sensor_sn AS "sensorSn",
+            s.display_name AS "displayName",
+            s.status,
+            s.created_at AS "createdAt",
+            latest.ts AS last_report_time
+          FROM sensors s
+          LEFT JOIN LATERAL (
+            SELECT ts
+            FROM raw_current_measurements
+            WHERE sensor_sn = s.sensor_sn
+            ORDER BY ts DESC
+            LIMIT 1
+          ) latest ON TRUE
+          WHERE TRUE ${Prisma.join(filters, ' ')}
+        ), filtered AS (
+          SELECT * FROM sensor_reports
+          ${activeFilter}
+        ), stats AS (
+          SELECT
+            (SELECT COUNT(*) FROM filtered) AS total,
+            (SELECT COUNT(*) FROM sensor_reports WHERE last_report_time >= ${activeAfter}) AS "activeCount"
+        )
+        SELECT
+          f.id,
+          f."sensorSn",
+          f."displayName",
+          f.status,
+          f."createdAt",
+          f.last_report_time AS "lastReportTime",
+          stats.total,
+          stats."activeCount"
+        FROM filtered f
+        CROSS JOIN stats
+        ORDER BY ${orderBy}, f.id ASC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `,
+    );
 
-    const now = Date.now();
-
-    return rows.map((row) => {
+    const items: SensorOverviewDto[] = rows.map((row) => {
       const lastReportTime = row.lastReportTime ? new Date(row.lastReportTime) : null;
       return {
         id: row.id,
@@ -192,9 +247,36 @@ export class AdminService {
         status: row.status,
         createdAt: new Date(row.createdAt).toISOString(),
         lastReportTime: lastReportTime ? lastReportTime.toISOString() : null,
-        isActive: lastReportTime ? now - lastReportTime.getTime() < thresholdMs : false,
+        isActive: lastReportTime ? lastReportTime >= activeAfter : false,
       };
     });
+
+    return {
+      items,
+      total: rows[0] ? Number(rows[0].total) : 0,
+      activeCount: rows[0] ? Number(rows[0].activeCount) : 0,
+    };
+  }
+
+  private sensorOverviewOrderBy(
+    sortBy: SensorOverviewQueryDto['sortBy'],
+    sortOrder: SensorOverviewQueryDto['sortOrder'],
+  ): Prisma.Sql {
+    const direction = sortOrder === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+
+    switch (sortBy) {
+      case 'sensorSn':
+        return Prisma.sql`f."sensorSn" ${direction}`;
+      case 'displayName':
+        return Prisma.sql`f."displayName" ${direction} NULLS LAST`;
+      case 'lastReportTime':
+        return Prisma.sql`f.last_report_time ${direction} NULLS LAST`;
+      case 'status':
+        return Prisma.sql`f.status ${direction}`;
+      case 'createdAt':
+      default:
+        return Prisma.sql`f."createdAt" ${direction}`;
+    }
   }
 
   async listAuditLogs(

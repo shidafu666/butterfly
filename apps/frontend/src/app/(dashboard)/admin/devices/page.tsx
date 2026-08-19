@@ -3,7 +3,12 @@
 import React, { useRef, useState } from 'react';
 import { Table, Typography, Card, Button, Space, Tag, Tooltip, Input, Alert, message } from 'antd';
 import type { InputRef, TableColumnType } from 'antd';
-import type { FilterDropdownProps } from 'antd/es/table/interface';
+import type {
+  FilterDropdownProps,
+  FilterValue,
+  SorterResult,
+  TablePaginationConfig,
+} from 'antd/es/table/interface';
 import {
   SearchOutlined,
   ReloadOutlined,
@@ -19,9 +24,25 @@ import dayjs from 'dayjs';
 import { api } from '@/lib/api';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useLocale } from '@/contexts/LocaleContext';
-import type { SensorOverviewDto } from '@butterfly/shared-types';
+import type { SensorOverviewDto, SensorOverviewPageDto } from '@butterfly/shared-types';
 
 const { Text, Title } = Typography;
+
+type TableQuery = {
+  page: number;
+  pageSize: number;
+  sensorSn?: string;
+  displayName?: string;
+  status?: string;
+  isActive?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+};
+
+function firstFilterValue(filters: FilterValue | null): string | undefined {
+  const value = filters?.[0];
+  return value == null ? undefined : String(value);
+}
 
 function DeviceList() {
   const queryClient = useQueryClient();
@@ -31,17 +52,26 @@ function DeviceList() {
   // ── Inline edit state ──────────────────────────────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [tableQuery, setTableQuery] = useState<TableQuery>({
+    page: 1,
+    pageSize: 100,
+    isActive: 'true',
+    sortBy: 'lastReportTime',
+    sortOrder: 'desc',
+  });
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const {
-    data: sensors,
+    data: sensorPage,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-sensors'],
+    queryKey: ['admin-sensors', tableQuery],
     queryFn: async () => {
-      const res = await api.get<SensorOverviewDto[]>('/admin/sensors');
+      const res = await api.get<SensorOverviewPageDto>('/admin/sensors', {
+        params: tableQuery,
+      });
       return res.data;
     },
   });
@@ -58,8 +88,15 @@ function DeviceList() {
       await api.patch(`/admin/sensors/${sensorSn}`, { displayName });
     },
     onSuccess: (_, { sensorSn, displayName }) => {
-      queryClient.setQueryData<SensorOverviewDto[]>(['admin-sensors'], (old) =>
-        old?.map((s) => (s.sensorSn === sensorSn ? { ...s, displayName } : s)),
+      queryClient.setQueryData<SensorOverviewPageDto>(['admin-sensors', tableQuery], (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((s) =>
+                s.sensorSn === sensorSn ? { ...s, displayName } : s,
+              ),
+            }
+          : old,
       );
       setEditingId(null);
       setEditingValue('');
@@ -104,7 +141,7 @@ function DeviceList() {
     placeholder: string,
   ): Pick<
     TableColumnType<SensorOverviewDto>,
-    'filterDropdown' | 'filterIcon' | 'onFilter' | 'onFilterDropdownOpenChange'
+    'filterDropdown' | 'filterIcon' | 'onFilterDropdownOpenChange'
   > => ({
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
@@ -134,48 +171,60 @@ function DeviceList() {
     filterIcon: (filtered: boolean) => (
       <SearchOutlined style={{ color: filtered ? '#1677ff' : 'var(--brand-text-secondary)' }} />
     ),
-    onFilter: (value, record) => {
-      const val = record[dataIndex];
-      return val ? String(val).toLowerCase().includes(String(value).toLowerCase()) : false;
-    },
     onFilterDropdownOpenChange: (visible) => {
       if (visible) setTimeout(() => searchInput.current?.select(), 100);
     },
   });
 
   // ── CSV export ─────────────────────────────────────────────────────────────
-  const exportCsv = () => {
-    const rows = sensors ?? [];
-    const csvHeaders = [
-      'IMEI',
-      t('devices.displayName'),
-      t('devices.lastReport'),
-      t('devices.onlineStatus'),
-      t('devices.regStatus'),
-      t('devices.regTime'),
-    ];
-    const lines = rows.map((r) =>
-      [
-        r.sensorSn,
-        r.displayName ?? '',
-        r.lastReportTime ? dayjs(r.lastReportTime).format('YYYY-MM-DD HH:mm:ss') : '',
-        r.isActive ? 'Active' : 'Inactive',
-        r.status,
-        dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss'),
-      ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(','),
-    );
-    const csvContent = [csvHeaders.join(','), ...lines].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], {
-      type: 'text/csv;charset=utf-8;',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `devices_${dayjs().format('YYYY-MM-DD')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportCsv = async () => {
+    try {
+      const rows: SensorOverviewDto[] = [];
+      let page = 1;
+      let total = 0;
+
+      do {
+        const res = await api.get<SensorOverviewPageDto>('/admin/sensors', {
+          params: { ...tableQuery, page, pageSize: 200 },
+        });
+        rows.push(...res.data.items);
+        total = res.data.total;
+        page += 1;
+      } while (rows.length < total);
+
+      const csvHeaders = [
+        'IMEI',
+        t('devices.displayName'),
+        t('devices.lastReport'),
+        t('devices.onlineStatus'),
+        t('devices.regStatus'),
+        t('devices.regTime'),
+      ];
+      const lines = rows.map((r) =>
+        [
+          r.sensorSn,
+          r.displayName ?? '',
+          r.lastReportTime ? dayjs(r.lastReportTime).format('YYYY-MM-DD HH:mm:ss') : '',
+          r.isActive ? 'Active' : 'Inactive',
+          r.status,
+          dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss'),
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(','),
+      );
+      const csvContent = [csvHeaders.join(','), ...lines].join('\n');
+      const blob = new Blob(['\ufeff' + csvContent], {
+        type: 'text/csv;charset=utf-8;',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `devices_${dayjs().format('YYYY-MM-DD')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error(t('devices.loadFailed'));
+    }
   };
 
   // ── Table columns ──────────────────────────────────────────────────────────
@@ -185,7 +234,7 @@ function DeviceList() {
       dataIndex: 'sensorSn',
       key: 'sensorSn',
       width: 180,
-      sorter: (a, b) => a.sensorSn.localeCompare(b.sensorSn),
+      sorter: true,
       ...getColumnSearchProps('sensorSn', 'IMEI'),
       render: (v: string) => (
         <Text code style={{ fontSize: 12, color: '#79c0ff' }}>
@@ -269,12 +318,7 @@ function DeviceList() {
       dataIndex: 'lastReportTime',
       key: 'lastReportTime',
       width: 160,
-      sorter: (a, b) => {
-        if (!a.lastReportTime && !b.lastReportTime) return 0;
-        if (!a.lastReportTime) return 1;
-        if (!b.lastReportTime) return -1;
-        return new Date(a.lastReportTime).getTime() - new Date(b.lastReportTime).getTime();
-      },
+      sorter: true,
       defaultSortOrder: 'descend',
       render: (v: string | null) =>
         v ? (
@@ -297,7 +341,6 @@ function DeviceList() {
         { text: 'Inactive', value: false },
       ],
       defaultFilteredValue: [true],
-      onFilter: (value, record) => record.isActive === value,
       render: (v: boolean) =>
         v ? (
           <Space size={4}>
@@ -320,7 +363,6 @@ function DeviceList() {
         { text: 'active', value: 'active' },
         { text: 'inactive', value: 'inactive' },
       ],
-      onFilter: (value, record) => record.status === value,
       render: (v: string) => (
         <Tag color={v === 'active' ? 'blue' : 'default'} style={{ fontSize: 11 }}>
           {v}
@@ -332,7 +374,7 @@ function DeviceList() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 120,
-      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      sorter: true,
       render: (v: string) => (
         <Tooltip title={dayjs(v).format('YYYY-MM-DD HH:mm:ss')}>
           <Text style={{ color: 'var(--brand-text-secondary)', fontSize: 12 }}>
@@ -355,8 +397,30 @@ function DeviceList() {
     );
   }
 
-  const total = sensors?.length ?? 0;
-  const activeCount = sensors?.filter((s) => s.isActive).length ?? 0;
+  const total = sensorPage?.total ?? 0;
+  const activeCount = sensorPage?.activeCount ?? 0;
+
+  const handleTableChange = (
+    pagination: TablePaginationConfig,
+    filters: Record<string, FilterValue | null>,
+    sorter: SorterResult<SensorOverviewDto> | SorterResult<SensorOverviewDto>[],
+  ) => {
+    const selectedSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    const sortBy =
+      typeof selectedSorter?.field === 'string' ? selectedSorter.field : 'lastReportTime';
+    const sortOrder = selectedSorter?.order === 'ascend' ? 'asc' : 'desc';
+
+    setTableQuery({
+      page: pagination.current ?? 1,
+      pageSize: pagination.pageSize ?? 100,
+      sensorSn: firstFilterValue(filters.sensorSn),
+      displayName: firstFilterValue(filters.displayName),
+      status: firstFilterValue(filters.status),
+      isActive: firstFilterValue(filters.isActive),
+      sortBy,
+      sortOrder,
+    });
+  };
 
   return (
     <>
@@ -390,7 +454,11 @@ function DeviceList() {
           >
             {t('common.refresh')}
           </Button>
-          <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!sensors?.length}>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={exportCsv}
+            disabled={!sensorPage?.items.length}
+          >
             {t('devices.exportCsv')}
           </Button>
         </Space>
@@ -401,19 +469,22 @@ function DeviceList() {
         bodyStyle={{ padding: 0 }}
       >
         <Table<SensorOverviewDto>
-          dataSource={sensors ?? []}
+          dataSource={sensorPage?.items ?? []}
           columns={columns}
           rowKey="id"
           loading={isLoading}
           size="small"
           scroll={{ x: 960, y: 'calc(100vh - 280px)' }}
           pagination={{
-            defaultPageSize: 100,
+            current: tableQuery.page,
+            pageSize: tableQuery.pageSize,
+            total,
             pageSizeOptions: [50, 100, 200],
             showSizeChanger: true,
             showTotal: (t2, range) =>
               `${range[0]}-${range[1]} / ${t('common.total', { count: t2 })}`,
           }}
+          onChange={handleTableChange}
           locale={{ emptyText: t('devices.empty') }}
         />
       </Card>

@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -138,4 +139,50 @@ export class AuditLogQueryDto {
   @IsString()
   @IsOptional()
   endTime?: string;
+}
+
+export class SensorOverviewQueryDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 100, maximum: 200 })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  pageSize?: number = 100;
+
+  @ApiPropertyOptional({ description: 'Filter by IMEI' })
+  @IsString()
+  @IsOptional()
+  sensorSn?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by display name' })
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @ApiPropertyOptional({ enum: ['active', 'inactive'] })
+  @IsIn(['active', 'inactive'])
+  @IsOptional()
+  status?: 'active' | 'inactive';
+
+  @ApiPropertyOptional({ enum: ['true', 'false'] })
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  isActive?: 'true' | 'false';
+
+  @ApiPropertyOptional({ enum: ['sensorSn', 'displayName', 'lastReportTime', 'status', 'createdAt'] })
+  @IsIn(['sensorSn', 'displayName', 'lastReportTime', 'status', 'createdAt'])
+  @IsOptional()
+  sortBy?: 'sensorSn' | 'displayName' | 'lastReportTime' | 'status' | 'createdAt';
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'] })
+  @IsIn(['asc', 'desc'])
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc';
 }
