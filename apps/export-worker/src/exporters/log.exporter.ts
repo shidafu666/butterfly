@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { PassThrough, Writable } from 'stream';
-import archiver from 'archiver';
+import { Writable } from 'stream';
 import { Pool } from 'pg';
 import { ExportJobRecord, ExportResult } from '../types';
+import { buildExportFileName } from './file-name';
 
 const PAGE_SIZE = 5000;
 
@@ -12,16 +12,12 @@ export async function exportLog(
   job: ExportJobRecord,
   outputDir: string,
 ): Promise<ExportResult> {
-  const fileName = buildFileName(job, 'zip');
-  const filePath = path.join(outputDir, fileName);
-  const innerFileName = buildFileName(job, 'log');
+  const fileName = buildExportFileName(job, 'log');
+  const jobOutputDir = path.join(outputDir, job.id);
+  const filePath = path.join(jobOutputDir, fileName);
 
+  fs.mkdirSync(jobOutputDir, { recursive: true });
   const fileStream = fs.createWriteStream(filePath);
-  const archive = archiver('zip', { zlib: { level: 6 } });
-  archive.pipe(fileStream);
-
-  const passThrough = new PassThrough();
-  archive.append(passThrough, { name: innerFileName });
 
   let rowCount = 0;
 
@@ -29,19 +25,17 @@ export async function exportLog(
     await new Promise<void>((resolve, reject) => {
       fileStream.on('finish', resolve);
       fileStream.on('error', reject);
-      archive.on('error', reject);
 
       (async () => {
         try {
           if (job.resolution === 'raw') {
-            rowCount = await streamRawLog(pool, job, passThrough);
+            rowCount = await streamRawLog(pool, job, fileStream);
           } else {
-            rowCount = await streamAggregatedLog(pool, job, job.resolution, passThrough);
+            rowCount = await streamAggregatedLog(pool, job, job.resolution, fileStream);
           }
-          passThrough.end();
-          await archive.finalize();
+          fileStream.end();
         } catch (err) {
-          archive.abort();
+          fileStream.destroy(err instanceof Error ? err : new Error(String(err)));
           reject(err);
         }
       })();
@@ -49,6 +43,7 @@ export async function exportLog(
   } catch (err) {
     try {
       fs.unlinkSync(filePath);
+      fs.rmdirSync(jobOutputDir);
     } catch {
       /* ignore */
     }
@@ -254,13 +249,4 @@ async function streamAggregatedLog(
   }
 
   return total;
-}
-
-function buildFileName(job: ExportJobRecord, ext: string): string {
-  const devicePart = job.device_id ? sanitizeSegment(job.device_id) : 'all';
-  return `export_${job.id}_${sanitizeSegment(job.sensor_sn)}_${devicePart}_${job.resolution}.${ext}`;
-}
-
-function sanitizeSegment(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
 }

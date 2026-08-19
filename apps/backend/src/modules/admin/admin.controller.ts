@@ -25,6 +25,7 @@ import {
   UpdateSensorDto,
   UpdateUserDto,
   AuditLogQueryDto,
+  SensorOverviewQueryDto,
 } from './dto/admin.dto';
 
 @ApiTags('admin')
@@ -139,8 +140,8 @@ export class AdminController {
 
   @Get('sensors')
   @ApiOperation({ summary: 'List all sensors with last report time and active status' })
-  async listSensorOverview() {
-    return this.adminService.listSensorOverview();
+  async listSensorOverview(@Query() query: SensorOverviewQueryDto) {
+    return this.adminService.listSensorOverview(query);
   }
 
   @Patch('sensors/:sensorSn')

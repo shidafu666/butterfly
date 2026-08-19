@@ -140,6 +140,12 @@ export interface SensorOverviewDto {
   isActive: boolean;
 }
 
+export interface SensorOverviewPageDto {
+  items: SensorOverviewDto[];
+  total: number;
+  activeCount: number;
+}
+
 // ─── Admin ─────────────────────────────────────────────────
 
 export interface AdminUserDto {

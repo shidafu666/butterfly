@@ -53,7 +53,11 @@ export class ExportsCleanupService implements OnModuleInit, OnModuleDestroy {
           ? job.filePath
           : path.join(exportDir, job.filePath);
         try {
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            const jobDir = path.dirname(filePath);
+            if (path.resolve(jobDir) !== path.resolve(exportDir)) fs.rmdirSync(jobDir);
+          }
         } catch (err) {
           this.logger.warn(`Could not delete file ${filePath}: ${err}`);
         }
