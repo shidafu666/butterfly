@@ -240,8 +240,8 @@ export default function CurrentDataPage() {
 
     const sensorSn = queryState.sensorSn;
     const deviceId = queryState.deviceId ?? 'all';
-    const now = dayjs().format('YYYYMMDD_HHmmss');
-    const fileName = `export_direct_${sanitizeSegment(sensorSn)}_${sanitizeSegment(deviceId)}_${resolvedResolution}_${now}.${exportFormat}`;
+    const date = dayjs().format('YYMMDD');
+    const fileName = `${sanitizeSegment(sensorSn)}${date}.${exportFormat}`;
 
     let content = '';
 
