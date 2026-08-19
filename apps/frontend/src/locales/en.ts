@@ -49,6 +49,7 @@ export const en: Translations = {
     overview: 'Overview',
     currentData: 'Current Data',
     exports: 'Exports',
+    myDevices: 'My Devices',
     system: 'System',
     users: 'Users',
     devices: 'Devices',
@@ -259,6 +260,7 @@ export const en: Translations = {
   },
   devices: {
     title: 'Device Inventory',
+    myTitle: 'My Devices',
     subtitle: '{{total}} sensors · {{active}} online',
     exportCsv: 'Export CSV',
     sensorSn: 'Sensor IMEI',

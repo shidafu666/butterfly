@@ -47,6 +47,7 @@ export const zh = {
     overview: '概览',
     currentData: '电流数据',
     exports: '导出任务',
+    myDevices: '我的设备',
     system: '系统管理',
     users: '用户管理',
     devices: '设备清单',
@@ -255,6 +256,7 @@ export const zh = {
   },
   devices: {
     title: '设备清单',
+    myTitle: '我的设备',
     subtitle: '共 {{total}} 个传感器 · {{active}} 个在线',
     exportCsv: '导出 CSV',
     sensorSn: '传感器 IMEI',
