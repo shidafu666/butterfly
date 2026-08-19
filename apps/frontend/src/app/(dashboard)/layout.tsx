@@ -83,6 +83,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       icon: <ExportOutlined />,
       label: t('nav.exports'),
     },
+    {
+      key: '/devices',
+      icon: <RadarChartOutlined />,
+      label: t('nav.myDevices'),
+    },
     ...(isAdmin || isAuditor
       ? [
           {
@@ -119,6 +124,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/admin/users')) return ['/admin/users'];
     if (pathname.startsWith('/admin/devices')) return ['/admin/devices'];
     if (pathname.startsWith('/admin/audit')) return ['/admin/audit'];
+    if (pathname.startsWith('/devices')) return ['/devices'];
     if (pathname.startsWith('/current-data')) return ['/current-data'];
     if (pathname.startsWith('/exports')) return ['/exports'];
     return ['/dashboard'];
