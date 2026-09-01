@@ -27,6 +27,7 @@ apps/backend/prisma/generated/
 
 # Data volumes (local dev data)
 data/postgres/
+data/redis/
 data/exports/*
 !data/exports/.gitkeep
 

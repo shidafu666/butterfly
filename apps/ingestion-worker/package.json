@@ -6,14 +6,16 @@
     "build": "tsc",
     "dev": "ts-node src/main.ts",
     "start": "node dist/main.js",
+    "test": "pnpm build && node --test dist/__tests__/*.test.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
+    "bullmq": "^5.4.2",
+    "ioredis": "^5.3.2",
     "mqtt": "^5.3.4",
     "msgpackr": "^1.10.1",
-    "p-limit": "^3.1.0",
     "pg": "^8.11.3",
     "dotenv": "^16.4.5"
   },

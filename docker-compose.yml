@@ -28,6 +28,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: butterfly-redis
+    command: ['redis-server', '--appendonly', 'yes', '--appendfsync', 'everysec']
+    volumes:
+      - ./data/redis:/data
     ports:
       - '6379:6379'
     healthcheck:
@@ -107,10 +110,22 @@ services:
       MQTT_TOPIC: wlpca/+/data
       MQTT_CLIENT_ID: current-platform-ingestion-worker
       MQTT_SHARED_GROUP: ingestion-workers
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-10}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      INGESTION_MAX_ATTEMPTS: ${INGESTION_MAX_ATTEMPTS:-1000}
+      INGESTION_RETRY_BASE_DELAY_MS: ${INGESTION_RETRY_BASE_DELAY_MS:-1000}
+      INGESTION_RETRY_MAX_DELAY_MS: ${INGESTION_RETRY_MAX_DELAY_MS:-300000}
+      INGESTION_ALERT_EVERY_ATTEMPTS: ${INGESTION_ALERT_EVERY_ATTEMPTS:-10}
+      INGESTION_QUEUE_ALERT_THRESHOLD: ${INGESTION_QUEUE_ALERT_THRESHOLD:-100}
+      INGESTION_QUEUE_METRICS_INTERVAL_MS: ${INGESTION_QUEUE_METRICS_INTERVAL_MS:-60000}
+      INGESTION_ALERT_COOLDOWN_MS: ${INGESTION_ALERT_COOLDOWN_MS:-300000}
+      INGESTION_ALERT_WEBHOOK_URL: ${INGESTION_ALERT_WEBHOOK_URL:-}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       mosquitto:
         condition: service_started

@@ -21,7 +21,7 @@ fi
 
 # Create required data directories
 echo "📁 Creating data directories..."
-mkdir -p data/postgres data/exports
+mkdir -p data/postgres data/redis data/exports
 
 echo "🚀 Starting local infrastructure (Postgres, Redis, Mosquitto)..."
 docker compose up -d postgres redis mosquitto
