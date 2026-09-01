@@ -1,11 +1,9 @@
 import mqtt from 'mqtt';
-import { Pool } from 'pg';
-import pLimit from 'p-limit';
 import os from 'os';
-import { handleMessage } from './handler';
 import { log, logError } from '../logger';
+import { IngestionQueueProducer } from '../queue/producer';
 
-export async function startMqttClient(pool: Pool): Promise<void> {
+export async function startMqttClient(queue: IngestionQueueProducer) {
   const mqttUrl = process.env.MQTT_URL ?? 'mqtt://mosquitto:1883';
 
   // Append hostname so each scaled replica gets a unique clientId.
@@ -22,11 +20,6 @@ export async function startMqttClient(pool: Pool): Promise<void> {
   const sharedGroup = process.env.MQTT_SHARED_GROUP ?? 'ingestion-workers';
   const topic = `$share/${sharedGroup}/${rawTopic}`;
 
-  // Limit how many messages are processed concurrently on this instance.
-  // Prevents a burst of 100+ simultaneous messages from exhausting the DB pool.
-  const concurrency = parseInt(process.env.INGESTION_CONCURRENCY ?? '10', 10);
-  const limit = pLimit(concurrency);
-
   const username = process.env.MQTT_USERNAME;
   const password = process.env.MQTT_PASSWORD;
 
@@ -39,11 +32,45 @@ export async function startMqttClient(pool: Pool): Promise<void> {
     ...(username ? { username, password } : {}),
   });
 
-  client.on('connect', () => {
+  client.on('error', (err) => {
+    logError('mqtt_error', err, { mqttUrl, clientId });
+  });
+
+  // MQTT.js sends the QoS 1 PUBACK only after this callback succeeds. Persisting the
+  // raw message in Redis here makes the queue the durability boundary: PostgreSQL can
+  // be unavailable without losing the message that the broker considers delivered.
+  client.handleMessage = (packet, callback) => {
+    const payload = Buffer.isBuffer(packet.payload) ? packet.payload : Buffer.from(packet.payload);
+    const receivedAt = new Date();
+
+    log('info', 'mqtt_message_received', {
+      topic: packet.topic,
+      payloadBytes: payload.length,
+      mqttQos: packet.qos,
+      receivedAt: receivedAt.toISOString(),
+    });
+
+    void queue
+      .enqueue(packet.topic, payload, packet.qos, receivedAt)
+      .then(() => callback())
+      .catch((err) => {
+        logError('mqtt_message_queue_failed', err, {
+          topic: packet.topic,
+          payloadBytes: payload.length,
+          mqttQos: packet.qos,
+        });
+        callback(err instanceof Error ? err : new Error(String(err)));
+      });
+  };
+
+  await new Promise<void>((resolve) => {
+    client.once('connect', () => resolve());
+  });
+
+  await new Promise<void>((resolve, reject) => {
     log('info', 'mqtt_connected', {
       mqttUrl,
       clientId,
-      concurrency,
       rawTopic,
       sharedGroup,
       subscription: topic,
@@ -52,8 +79,10 @@ export async function startMqttClient(pool: Pool): Promise<void> {
     client.subscribe(topic, { qos: 1 }, (err) => {
       if (err) {
         logError('mqtt_subscribe_failed', err, { subscription: topic });
+        reject(err);
       } else {
         log('info', 'mqtt_subscribed', { subscription: topic, qos: 1 });
+        resolve();
       }
     });
   });
@@ -70,25 +99,5 @@ export async function startMqttClient(pool: Pool): Promise<void> {
     log('warn', 'mqtt_offline', { mqttUrl, clientId });
   });
 
-  client.on('message', (topic: string, buffer: Buffer) => {
-    log('info', 'mqtt_message_received', {
-      topic,
-      payloadBytes: buffer.length,
-    });
-    // Wrap in p-limit: if concurrency slots are full, this queues in memory
-    // until a slot opens.  The MQTT ACK (QoS 1) is sent by the library when
-    // the message is handed to this callback, so backpressure is handled by
-    // the broker's inflight window rather than lost ACKs.
-    limit(() => handleMessage(topic, buffer, pool)).catch((err) => {
-      logError('mqtt_message_unhandled_error', err, { topic, payloadBytes: buffer.length });
-    });
-  });
-
-  // Return a promise that never resolves so the process stays alive
-  return new Promise((_resolve, reject) => {
-    client.on('error', (err) => {
-      logError('mqtt_error', err, { mqttUrl, clientId });
-      reject(err);
-    });
-  });
+  return client;
 }

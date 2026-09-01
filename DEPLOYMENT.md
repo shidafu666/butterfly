@@ -174,10 +174,18 @@ All variables live in `.env` (copied from `.env.example`).
 
 ### Ingestion Worker
 
-| Variable                | Default | Description                                                                                                                                                 |
-| ----------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `INGESTION_CONCURRENCY` | `10`    | Max messages processed in parallel per replica — keep ≤ `DB_POOL_MAX`                                                                                       |
-| `DB_POOL_MAX`           | `20`    | PostgreSQL connection pool size per replica — when scaling to N replicas, ensure `max_connections` > N × `DB_POOL_MAX` + headroom for backend/export-worker |
+| Variable                              | Default   | Description                                                                                                                                                 |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INGESTION_CONCURRENCY`               | `10`      | Max messages processed in parallel per replica — keep ≤ `DB_POOL_MAX`                                                                                       |
+| `DB_POOL_MAX`                         | `20`      | PostgreSQL connection pool size per replica — when scaling to N replicas, ensure `max_connections` > N × `DB_POOL_MAX` + headroom for backend/export-worker |
+| `INGESTION_MAX_ATTEMPTS`              | `1000`    | Maximum durable queue attempts before a message remains in the failed/dead-letter set                                                                       |
+| `INGESTION_RETRY_BASE_DELAY_MS`       | `1000`    | Initial retry delay                                                                                                                                         |
+| `INGESTION_RETRY_MAX_DELAY_MS`        | `300000`  | Maximum retry delay; retries use capped exponential backoff                                                                                                 |
+| `INGESTION_ALERT_EVERY_ATTEMPTS`      | `10`      | Send/log a retry alert on attempt 1 and then every N attempts                                                                                               |
+| `INGESTION_QUEUE_ALERT_THRESHOLD`     | `100`     | Alert when waiting, active, and delayed ingestion jobs reach this total                                                                                     |
+| `INGESTION_QUEUE_METRICS_INTERVAL_MS` | `60000`   | Queue metric and backlog check interval                                                                                                                     |
+| `INGESTION_ALERT_COOLDOWN_MS`         | `300000`  | Suppress duplicate notifications of the same alert type for this duration                                                                                   |
+| `INGESTION_ALERT_WEBHOOK_URL`         | _(empty)_ | Optional generic JSON webhook for immediate alerts; keep it in a secret                                                                                     |
 
 ### Initial Admin
 
@@ -281,7 +289,7 @@ Default policy: raw measurements are retained for **30 days**; chunks older than
 
 ### 5.2 Scaling the ingestion worker
 
-When more than ~50 sensors send data simultaneously (e.g., at the top of the hour), a single ingestion worker instance may lag. The worker is stateless and idempotent (`ON CONFLICT DO NOTHING`), so it can be scaled horizontally without data loss or duplication.
+When more than ~50 sensors send data simultaneously (e.g., at the top of the hour), a single ingestion worker instance may lag. MQTT messages are first stored in the Redis-backed BullMQ queue and acknowledged only after that write succeeds. Database failures use capped exponential retries; successful replays remain idempotent because measurement inserts use `ON CONFLICT DO NOTHING`.
 
 Workers use an MQTT **shared subscription** (`$share/ingestion-workers/wlpca/+/data`). Mosquitto delivers each message to exactly one worker in the group (round-robin), so adding replicas divides the load evenly.
 
@@ -303,7 +311,30 @@ docker compose up -d --scale ingestion-worker=3
 
 With 3 replicas at default settings: up to **30 messages processed concurrently**, using up to **60 DB connections** total. Make sure PostgreSQL's `max_connections` (default 100 in TimescaleDB) has enough headroom for the backend and export-worker as well.
 
-### 5.3 Export job retention
+The local Redis container enables AOF persistence (`appendfsync everysec`) under `data/redis`. In Azure, use a Redis tier and configuration whose durability meets the required recovery objective; Standard replication protects worker restarts and transient database outages but is not a substitute for cross-service backups.
+
+### 5.3 Ingestion retry and alerts
+
+Retryable write failures stay in `ingestion-queue`; invalid MQTT payloads and messages that exhaust `INGESTION_MAX_ATTEMPTS` remain in BullMQ's failed set for manual inspection or replay. The worker emits these structured events:
+
+- `ingestion_database_retry_alert` — first and periodic database retry warning
+- `ingestion_queue_backlog_alert` — backlog threshold exceeded
+- `ingestion_queue_backlog_recovered` — backlog returned below the threshold
+- `ingestion_message_dead_lettered` — retries exhausted or payload is invalid
+- `ingestion_dead_letter_backlog_alert` — one or more failed jobs remain awaiting inspection/replay
+- `ingestion_queue_metrics` — periodic queue counts
+
+Set `INGESTION_ALERT_WEBHOOK_URL` to deliver the alert JSON immediately. Azure Log Analytics can also drive a Scheduled Query Alert with:
+
+```kusto
+ContainerAppConsoleLogs_CL
+| where ContainerName_s == "ingestion-worker"
+| where Log_s has '"alert":true'
+| extend alert = parse_json(Log_s)
+| project TimeGenerated, event=tostring(alert.event), severity=tostring(alert.severity), message=tostring(alert.message)
+```
+
+### 5.4 Export job retention
 
 Completed export jobs (and their files in `data/exports`) are automatically deleted after **24 hours** by the backend cleanup service. This keeps disk usage bounded without manual intervention. Users who need the data again can create a new export job from the **电流数据** page.
 
@@ -313,7 +344,7 @@ To change the retention window, set `EXPORT_JOB_RETENTION_HOURS` in `.env` befor
 EXPORT_JOB_RETENTION_HOURS=48   # keep exports for 48 hours
 ```
 
-### 5.4 Change raw data retention on a running instance
+### 5.5 Change raw data retention on a running instance
 
 ```bash
 make set-retention DAYS=60   # keep 60 days
@@ -475,6 +506,7 @@ docker compose build backend
 2. Check credentials: anonymous connections are rejected
 3. Check ingestion worker logs: `make logs-ingestion` (works for all replicas)
 4. Confirm sensors publish to `wlpca/<sn>/data` — the worker subscribes internally via a shared subscription, but the sensor-facing topic is unchanged
+5. Query `ingestion_queue_metrics`; a growing `waiting`/`delayed` count indicates PostgreSQL is unavailable while messages remain safely queued
 
 ### Export download fails ("file not found")
 

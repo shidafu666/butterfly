@@ -8,8 +8,9 @@ A current (electrical) data collection and visualization platform built with Nes
 Frontend (Next.js)  →  Backend API (NestJS)  →  PostgreSQL/TimescaleDB
                                               →  Redis (BullMQ)
 
-MQTT Device → Mosquitto Broker → Ingestion Worker → PostgreSQL/TimescaleDB
-                                                  → Auto-discovers sensors/devices
+MQTT Device → Mosquitto Broker → Redis/BullMQ ingestion queue → Ingestion Worker
+                                                               → PostgreSQL/TimescaleDB
+                                                               → Auto-discovers sensors/devices
 
 Redis ← Export Job Queue ← Backend API
 Redis → Export Worker → CSV/Log files → shared volume → Frontend download
@@ -221,6 +222,9 @@ Key variables:
 - `EXPORT_JOB_RETENTION_HOURS` — hours before export jobs and their files are automatically deleted (default: `24`)
 - `INGESTION_CONCURRENCY` — max concurrent message handlers per ingestion worker replica (default: `10`)
 - `DB_POOL_MAX` — PostgreSQL connection pool size per ingestion worker replica (default: `20`)
+- `INGESTION_MAX_ATTEMPTS` / `INGESTION_RETRY_*` — durable ingestion retry policy
+- `INGESTION_QUEUE_ALERT_THRESHOLD` — queued-message threshold that emits a critical alert
+- `INGESTION_ALERT_WEBHOOK_URL` — optional generic JSON alert webhook; structured alerts are always logged
 - `ENTRA_*` / `COOKIE_SECRET` — Microsoft Entra ID SSO (optional)
 
 ## Microsoft Entra ID SSO (Optional)
@@ -279,15 +283,15 @@ Run `make help` to see all available targets. See `DEPLOYMENT.AZURE.md` for the 
 
 ### Resource Mapping
 
-| Azure Resource | Type | Purpose |
-| --- | --- | --- |
-| `cyberbee` | App Service (Web App) | Next.js frontend (port 3000) + NestJS backend (loopback 3001) in a single merged image |
-| `cyberbee-services` | Container App | `ingestion-worker` + `export-worker` (two containers, one revision) |
-| `dev-butterfly` | ACI | Mosquitto MQTT broker, public TCP 1883 |
-| `cyberbee` | Azure Cache for Redis | BullMQ job queue and Entra login-code store (TLS port 6380) |
-| `cyberbeestorage` / `butterfly-exports` | Storage Account / File Share | Export files, mounted at `/app/exports` on Web App and Container App |
-| `butterfly-pg` | PostgreSQL Flexible Server | Application database |
-| `cyberbee.azurecr.cn` | Azure Container Registry | Container images, tagged by git SHA |
+| Azure Resource                          | Type                         | Purpose                                                                                |
+| --------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
+| `cyberbee`                              | App Service (Web App)        | Next.js frontend (port 3000) + NestJS backend (loopback 3001) in a single merged image |
+| `cyberbee-services`                     | Container App                | `ingestion-worker` + `export-worker` (two containers, one revision)                    |
+| `dev-butterfly`                         | ACI                          | Mosquitto MQTT broker, public TCP 1883                                                 |
+| `cyberbee`                              | Azure Cache for Redis        | BullMQ job queue and Entra login-code store (TLS port 6380)                            |
+| `cyberbeestorage` / `butterfly-exports` | Storage Account / File Share | Export files, mounted at `/app/exports` on Web App and Container App                   |
+| `butterfly-pg`                          | PostgreSQL Flexible Server   | Application database                                                                   |
+| `cyberbee.azurecr.cn`                   | Azure Container Registry     | Container images, tagged by git SHA                                                    |
 
 ### Quick Reference
 
@@ -317,8 +321,6 @@ make azure-logs-mqtt
 > **No local Docker needed.** `make azure-build` uses ACR Tasks to build `linux/amd64` images in the cloud. See `DEPLOYMENT.AZURE.md` for the full guide.
 
 ---
-
-
 
 Swagger UI is available at http://localhost:3001/api/docs when running.
 

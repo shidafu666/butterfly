@@ -446,6 +446,7 @@ deploy-services)
     --arg db_url        "$DATABASE_URL" \
     --arg redis_host    "$REDIS_HOST" \
     --arg redis_pw      "$REDIS_PASSWORD" \
+    --arg alert_webhook "${INGESTION_ALERT_WEBHOOK_URL:-}" \
     --arg mqtt_url      "${MQTT_URL:-}" \
     --arg mqtt_user     "$MQTT_USERNAME" \
     --arg mqtt_pw       "$MQTT_PASSWORD" \
@@ -453,6 +454,14 @@ deploy-services)
     --arg export_img    "$EXPORT_WORKER_IMAGE" \
     --arg concurrency   "${INGESTION_CONCURRENCY:-10}" \
     --arg pool_max      "${DB_POOL_MAX:-20}" \
+    --arg max_attempts  "${INGESTION_MAX_ATTEMPTS:-1000}" \
+    --arg retry_base    "${INGESTION_RETRY_BASE_DELAY_MS:-1000}" \
+    --arg retry_max     "${INGESTION_RETRY_MAX_DELAY_MS:-300000}" \
+    --arg alert_every   "${INGESTION_ALERT_EVERY_ATTEMPTS:-10}" \
+    --arg queue_alert   "${INGESTION_QUEUE_ALERT_THRESHOLD:-100}" \
+    --arg metrics_ms    "${INGESTION_QUEUE_METRICS_INTERVAL_MS:-60000}" \
+    --arg alert_cooldown "${INGESTION_ALERT_COOLDOWN_MS:-300000}" \
+    --arg webhook_ms    "${INGESTION_ALERT_WEBHOOK_TIMEOUT_MS:-5000}" \
     '{
       properties: {
         configuration: {
@@ -462,12 +471,14 @@ deploy-services)
             username: $acr_username,
             passwordSecretRef: "acr-password"
           }],
-          secrets: [
+          secrets: ([
             { name: "acr-password",   value: $acr_password },
             { name: "database-url",   value: $db_url },
             { name: "redis-password", value: $redis_pw },
             { name: "mqtt-password",  value: $mqtt_pw }
-          ]
+          ] + (if $alert_webhook == "" then [] else [
+            { name: "ingestion-alert-webhook", value: $alert_webhook }
+          ] end))
         },
         template: {
           containers: [
@@ -484,9 +495,23 @@ deploy-services)
                 { name: "MQTT_SHARED_GROUP",     value: "ingestion-workers" },
                 { name: "MQTT_USERNAME",         value: $mqtt_user },
                 { name: "MQTT_PASSWORD",         secretRef: "mqtt-password" },
+                { name: "REDIS_HOST",            value: $redis_host },
+                { name: "REDIS_PORT",            value: "6380" },
+                { name: "REDIS_PASSWORD",        secretRef: "redis-password" },
+                { name: "REDIS_TLS",             value: "true" },
                 { name: "INGESTION_CONCURRENCY", value: $concurrency },
-                { name: "DB_POOL_MAX",           value: $pool_max }
-              ]
+                { name: "DB_POOL_MAX",           value: $pool_max },
+                { name: "INGESTION_MAX_ATTEMPTS", value: $max_attempts },
+                { name: "INGESTION_RETRY_BASE_DELAY_MS", value: $retry_base },
+                { name: "INGESTION_RETRY_MAX_DELAY_MS", value: $retry_max },
+                { name: "INGESTION_ALERT_EVERY_ATTEMPTS", value: $alert_every },
+                { name: "INGESTION_QUEUE_ALERT_THRESHOLD", value: $queue_alert },
+                { name: "INGESTION_QUEUE_METRICS_INTERVAL_MS", value: $metrics_ms },
+                { name: "INGESTION_ALERT_COOLDOWN_MS", value: $alert_cooldown },
+                { name: "INGESTION_ALERT_WEBHOOK_TIMEOUT_MS", value: $webhook_ms }
+              ] + (if $alert_webhook == "" then [] else [
+                { name: "INGESTION_ALERT_WEBHOOK_URL", secretRef: "ingestion-alert-webhook" }
+              ] end)
             },
             {
               name:  "export-worker",

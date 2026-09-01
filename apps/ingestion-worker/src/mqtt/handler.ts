@@ -18,8 +18,12 @@ function parseSensorSnFromTopic(topic: string): string | null {
   return sn && sn.trim() !== '' ? sn : null;
 }
 
-export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): Promise<void> {
-  const receivedAt = new Date();
+export async function handleMessage(
+  topic: string,
+  buffer: Buffer,
+  pool: Pool,
+  receivedAt: Date = new Date(),
+): Promise<void> {
   let msgId: string | undefined;
   let sensorSn: string | undefined;
   let raw: unknown;
@@ -43,7 +47,12 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
     }
 
     // 3. Validate payload
-    const payload = validatePayload(raw, topicSn);
+    let payload;
+    try {
+      payload = validatePayload(raw, topicSn);
+    } catch (err) {
+      throw new ValidationError(err instanceof Error ? err.message : String(err));
+    }
     msgId = payload.msgId;
 
     // 4. Expand RMS arrays to individual measurement rows (each rms[i] → timestamp+i seconds)
@@ -104,11 +113,7 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     const errorType =
-      err instanceof TopicParseError
-        ? 'TOPIC_PARSE_ERROR'
-        : err instanceof DecodeError
-          ? 'DECODE_ERROR'
-          : 'PROCESSING_ERROR';
+      err instanceof NonRetryableIngestionError ? err.errorType : 'PROCESSING_ERROR';
 
     logError('ingestion_message_failed', err, {
       topic,
@@ -120,29 +125,29 @@ export async function handleMessage(topic: string, buffer: Buffer, pool: Pool): 
       payloadSummary: summarizeRawPayload(raw),
     });
 
-    // Log to ingestion_messages if we have enough context
-    try {
-      await pool.query(
-        `INSERT INTO ingestion_messages
-           (msg_id, sensor_sn, topic, payload_size, device_count, point_count, status, error_message, received_at, processed_at)
-         VALUES ($1, $2, $3, $4, 0, 0, 'failed', $5, $6, NOW())`,
-        [msgId ?? null, sensorSn ?? null, topic, payloadSize, errorMessage, receivedAt],
-      );
-    } catch (logErr) {
-      logError('ingestion_message_failure_audit_failed', logErr, { topic, sensorSn, msgId });
+    // Invalid messages will not be retried, so persist their audit record when the DB is
+    // available. Transient DB failures remain durably stored in BullMQ and are retried;
+    // issuing two more DB writes here would only amplify an outage.
+    if (err instanceof NonRetryableIngestionError) {
+      try {
+        await pool.query(
+          `INSERT INTO ingestion_messages
+             (msg_id, sensor_sn, topic, payload_size, device_count, point_count, status, error_message, received_at, processed_at)
+           VALUES ($1, $2, $3, $4, 0, 0, 'failed', $5, $6, NOW())`,
+          [msgId ?? null, sensorSn ?? null, topic, payloadSize, errorMessage, receivedAt],
+        );
+        await pool.query(
+          `INSERT INTO ingestion_error_logs
+             (topic, error_type, error_message, raw_payload_base64, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [topic, errorType, errorMessage, buffer.toString('base64')],
+        );
+      } catch (logErr) {
+        logError('ingestion_message_failure_audit_failed', logErr, { topic, sensorSn, msgId });
+      }
     }
 
-    // Log to ingestion_error_logs with the raw payload
-    try {
-      await pool.query(
-        `INSERT INTO ingestion_error_logs
-           (topic, error_type, error_message, raw_payload_base64, created_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [topic, errorType, errorMessage, buffer.toString('base64')],
-      );
-    } catch (logErr) {
-      logError('ingestion_error_payload_audit_failed', logErr, { topic, sensorSn, msgId });
-    }
+    throw err;
   }
 }
 
@@ -204,16 +209,33 @@ function stringifyScalar(value: unknown): string | number | boolean | null {
   return value == null ? null : String(value);
 }
 
-class TopicParseError extends Error {
-  constructor(message: string) {
+export class NonRetryableIngestionError extends Error {
+  constructor(
+    message: string,
+    readonly errorType: string,
+  ) {
     super(message);
+    this.name = 'NonRetryableIngestionError';
+  }
+}
+
+class TopicParseError extends NonRetryableIngestionError {
+  constructor(message: string) {
+    super(message, 'TOPIC_PARSE_ERROR');
     this.name = 'TopicParseError';
   }
 }
 
-class DecodeError extends Error {
+class DecodeError extends NonRetryableIngestionError {
   constructor(message: string) {
-    super(message);
+    super(message, 'DECODE_ERROR');
     this.name = 'DecodeError';
+  }
+}
+
+class ValidationError extends NonRetryableIngestionError {
+  constructor(message: string) {
+    super(message, 'VALIDATION_ERROR');
+    this.name = 'ValidationError';
   }
 }
